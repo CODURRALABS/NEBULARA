@@ -1,0 +1,112 @@
+# Nebulara Parser - Complete Recursive Descent
+# parser-core.nbs
+
+DATA! "ParseState"
+  tokens = []
+  pos = 0
+END!
+
+FUNC! "peek"
+RUN!
+  IF? POS + OFFSET >= LENGTH(TOKENS):
+    RETURN { type: "EOF", value: "" }
+  END!
+  RETURN TOKENS[POS + OFFSET]
+END!
+END!
+
+FUNC! "consume"
+RUN!
+  TOKEN = PEEK()
+  POS = POS + 1
+  RETURN TOKEN
+END!
+END!
+
+FUNC! "expect"
+RUN!
+  TOKEN = PEEK()
+  IF? TOKEN.type == TYPE OR TYPE == -1:
+    RETURN CONSUME()
+  END!
+  PRINT "Parse error: expected " + TYPE + ", got " + TOKEN.type
+  RETURN NULL
+END!
+END!
+
+FUNC! "parse_program"
+RUN!
+  BODY = []
+  WHILE! PEEK().type != "EOF":
+    STMT = PARSE_STATEMENT()
+    IF? STMT:
+      BODY.PUSH STMT
+    END!
+    IF? PEEK().type == "NEWLINE":
+      CONSUME()
+    END!
+  END!
+  RETURN { type: "Program", body: BODY }
+END!
+END!
+
+FUNC! "parse_statement"
+RUN!
+  TOKEN = PEEK()
+  IF? TOKEN.type IN TYPES_APP:
+    RETURN PARSE_APP()
+  ELSE IF? TOKEN.type IN TYPES_RUN:
+    RETURN PARSE_RUN()
+  ELSE IF? TOKEN.type IN TYPES_PRINT:
+    RETURN PARSE_PRINT()
+  ELSE IF? TOKEN.type IN TYPES_IF:
+    RETURN PARSE_IF()
+  ELSE IF? TOKEN.type IN TYPES_WHILE:
+    RETURN PARSE_WHILE()
+  ELSE IF? TOKEN.type IN TYPES_ASSIGN:
+    RETURN PARSE_ASSIGN()
+  END!
+  CONSUME()
+  RETURN NULL
+END!
+END!
+
+FUNC! "parse_app"
+RUN!
+  CONSUME() # APP!
+  CONSUME() # STRING
+  NAME = PEEK(-1).value
+  BODY = PARSE_BLOCK_BODY()
+  IF? PEEK().type == "END":
+    CONSUME()
+  END!
+  RETURN { type: "App", name: NAME, body: BODY }
+END!
+END!
+
+FUNC! "parse_run"
+RUN!
+  CONSUME() # RUN!
+  BODY = PARSE_BLOCK_BODY()
+  IF? PEEK().type == "END":
+    CONSUME()
+  END!
+  RETURN { type: "Run", body: BODY }
+END!
+END!
+
+FUNC! "parse_block_body"
+RUN!
+  BODY = []
+  WHILE? PEEK().type NOT IN ["END", "EOF", "ELSE"]:
+    STMT = PARSE_STATEMENT()
+    IF? STMT:
+      BODY.PUSH STMT
+    END!
+    IF? PEEK().type IN ["NEWLINE", "EOF"]:
+      CONSUME()
+    END!
+  END!
+  RETURN BODY
+END!
+END!

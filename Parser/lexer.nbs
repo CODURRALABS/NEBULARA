@@ -1,0 +1,157 @@
+# Nebulara Lexer - Pure Nebulara Implementation
+# lexer.nbs
+
+DATA! "TokenPatterns"
+  # Keywords map
+  keywords = {
+    "APP!": "APP_TAG",
+    "AI!": "AI_TAG",
+    "RUN!": "RUN_TAG",
+    "PRINT": "PRINT_STMT",
+    "IF?": "IF_COND",
+    "WHILE?": "WHILE_COND",
+    "LOOP!": "LOOP_TAG",
+    "END!": "END_BLOCK"
+  }
+END!
+
+FUNC! "is_whitespace"
+RUN!
+  RETURN CH == ' ' OR CH == '\t' OR CH == '\r'
+END!
+END!
+
+FUNC! "is_newline"
+RUN!
+  RETURN CH == '\n'
+END!
+END!
+
+FUNC! "is_letter_upper"
+RUN!
+  CODE = CHAR_CODE CH
+  RETURN CODE >= 65 AND CODE <= 90
+END!
+END!
+
+FUNC! "read_while"
+RUN!
+  RESULT = ""
+  WHILE! CONDITION(INPUT POS) AND POS < LENGTH(INPUT:
+    RESULT = RESULT + INPUT[POS]
+    POS = POS + 1
+  END!
+  RETURN RESULT
+END!
+END!
+
+FUNC! "tokenize_identity"
+RUN!
+  # Read uppercase word
+  WORD = READ_WHILE IS_LETTER_UPPER
+  # Check for !
+  IF? INPUT[POS] == '!' THEN:
+    KEY = WORD + "!"
+    RETURN { type: KEYWORDS[KEY], value: KEY }
+  END!
+  RETURN { type: "IDENTIFIER", value: WORD }
+END!
+END!
+
+FUNC! "tokenize_string"
+RUN!
+  # Skip opening "
+  POS = POS + 1
+  VALUE = ""
+  WHILE! INPUT[POS] != '"' AND POS < LENGTH:
+    IF? INPUT[POS] == '\' THEN:
+      POS = POS + 1
+      CHAR = INPUT[POS]
+      IF? CHAR == 'n' THEN: VALUE = VALUE + '\n'
+      END!
+    ELSE:
+      VALUE = VALUE + INPUT[POS]
+    END!
+    POS = POS + 1
+  END!
+  POS = POS + 1
+  RETURN { type: "STRING", value: VALUE }
+END!
+END!
+
+FUNC! "tokenize_spatial"
+RUN!
+  # V<...>
+  POS = POS + 2
+  VALUE = ""
+  WHILE! INPUT[POS] != '>' AND POS < LENGTH:
+    VALUE = VALUE + INPUT[POS]
+    POS = POS + 1
+  END!
+  POS = POS + 1
+  RETURN { type: "SPATIAL", value: "V<" + VALUE + ">" }
+END!
+END!
+
+FUNC! "tokenize_waveform"
+RUN!
+  # ~...~
+  POS = POS + 1
+  VALUE = ""
+  WHILE! INPUT[POS] != '~' AND POS < LENGTH:
+    VALUE = VALUE + INPUT[POS]
+    POS = POS + 1
+  END!
+  POS = POS + 1
+  RETURN { type: "WAVEFORM", value: "~" + VALUE + "~" }
+END!
+END!
+
+FUNC! "tokenize_number"
+RUN!
+  # Read digits
+  NUM = READ_WHILE IS_DIGIT
+  # Check for ! or ?
+  IF? INPUT[POS] == '!' OR INPUT[POS] == '?' THEN:
+    SUFFIX = INPUT[POS]
+    POS = POS + 1
+    RETURN { type: "WEIGHT", value: NUM + SUFFIX }
+  END!
+  RETURN { type: "NUMBER", value: NUM }
+END!
+END!
+
+FUNC! "tokenize"
+RUN!
+  TOKENS = []
+  WHILE! POS < LENGTH(INPUT:
+    CH = INPUT[POS]
+    IF? IS_WHITESPACE(CH) THEN:
+      POS = POS + 1
+    ELSE IF? IS_NEWLINE(CH) THEN:
+      POS = POS + 1
+      TOKENS.PUSH { type: "NEWLINE", value: '\n' }
+    ELSE IF? IS_LETTER_UPPER(CH) THEN:
+      TOKENS.PUSH TOKENIZE_IDENTITY()
+    ELSE IF? CH == '"' THEN:
+      TOKENS.PUSH TOKENIZE_STRING()
+    ELSE IF? CH == 'V' THEN:
+      TOKENS.PUSH TOKENIZE_SPATIAL()
+    ELSE IF? CH == '~' THEN:
+      TOKENS.PUSH TOKENIZE_WAVEFORM()
+    ELSE IF? IS_DIGIT(CH) THEN:
+      TOKENS.PUSH TOKENIZE_NUMBER()
+    ELSE:
+      POS = POS + 1
+    END!
+  END!
+  TOKENS.PUSH { type: "EOF", value: "" }
+  RETURN TOKENS
+END!
+END!
+
+APP! "NebularaLexer"
+RUN!
+  PRINT "Lexer v1.0 ready"
+END!
+END!

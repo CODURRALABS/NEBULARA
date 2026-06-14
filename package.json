@@ -1,6 +1,6 @@
 {
   "name": "@codurra/nebulara",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Nebulara - AI-native universal programming language",
   "main": "dist/index.js",
   "type": "module",
@@ -11,10 +11,7 @@
     "test": "jest",
     "nebulara": "node dist/cli.js"
   },
-  "dependencies": {
-    "chevrotain": "^11.2.0",
-    "monaco-editor": "^0.45.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/jest": "^29.5.8",
     "@types/node": "^20.10.5",

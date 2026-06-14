@@ -1,0 +1,42 @@
+# P2P Networking - Nebulara Implementation
+# p2p.nbs
+
+DATA! "P2PState"
+  peers = {}
+  node_id = GENERATE_ID()
+  socket = null
+END!
+
+FUNC! "generate_id"
+RUN!
+  RETURN "node_" + RANDOM(100000)
+END!
+END!
+
+FUNC! "connect"
+RUN!
+  # WebSocket connection to signaling server
+  SOCKET = WEBSOCKET_CONNECT "ws://localhost:" + PORT
+  SOCKET.onopen = JOIN_NETWORK
+  RETURN true
+END!
+END!
+
+FUNC! "join_network"
+RUN!
+  SOCKET.send { type: "join", node_id: NODE_ID }
+END!
+END!
+
+FUNC! "sync_data"
+RUN!
+  STATE = { key: KEY, value: VALUE, timestamp: NOW() }
+  SOCKET.send { type: "sync", state: STATE }
+END!
+END!
+
+APP! "ShadowWeb"
+RUN!
+  PRINT "P2P networking ready"
+END!
+END!

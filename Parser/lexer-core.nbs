@@ -1,0 +1,202 @@
+# Nebulara Lexer - Complete Implementation
+# lexer-core.nbs
+
+DATA! "TokenType"
+  APP = 1
+  AI = 2
+  ENTITY = 3
+  CELL = 4
+  DATA = 5
+  RUN = 6
+  PRINT = 7
+  IF = 8
+  WHILE = 9
+  THEN = 10
+  ELSE = 11
+  LOOP = 12
+  FUNC = 13
+  RETURN = 14
+  IDENTIFIER = 15
+  STRING = 16
+  NUMBER = 17
+  WEIGHT = 18
+  SPATIAL = 19
+  WAVEFORM = 20
+  LOGIC = 21
+  EXECUTE = 22
+  EOF = 999
+END!
+
+FUNC! "peek_char"
+RUN!
+  RETURN INPUT[POS + OFFSET] OR ""
+END!
+END!
+
+FUNC! "consume_char"
+RUN!
+  POS = POS + 1
+  RETURN INPUT[POS - 1]
+END!
+END!
+
+FUNC! "skip_whitespace"
+RUN!
+  WHILE! PEEK_CHAR() IN [" ", "\t", "\r"]:
+    CONSUME_CHAR()
+  END!
+END!
+END!
+
+FUNC! "read_uppercase_word"
+RUN!
+  START = POS
+  WHILE! PEEK_CHAR() MATCHES "[A-Z0-9_]":
+    CONSUME_CHAR()
+  END!
+  RETURN INPUT SLICE START, POS
+END!
+END!
+
+FUNC! "read_digits"
+RUN!
+  START = POS
+  WHILE! PEEK_CHAR() MATCHES "\d":
+    CONSUME_CHAR()
+  END!
+  RETURN INPUT SLICE START, POS
+END!
+END!
+
+FUNC! "read_string"
+RUN!
+  CONSUME_CHAR() # "
+  START = POS
+  VALUE = ""
+  WHILE! PEEK_CHAR() != '"' AND PEEK_CHAR():
+    IF? PEEK_CHAR() == '\':
+      CONSUME_CHAR()
+      CHAR = PEEK_CHAR()
+      IF? CHAR == 'n': VALUE = VALUE + "\n"
+      ELSE IF? CHAR == 't': VALUE = VALUE + "\t"
+      ELSE: VALUE = VALUE + CHAR
+    ELSE:
+      VALUE = VALUE + PEEK_CHAR()
+      CONSUME_CHAR()
+    END!
+  END!
+  CONSUME_CHAR() # closing "
+  RETURN { type: "STRING", value: VALUE }
+END!
+END!
+
+FUNC! "read_spatial"
+RUN!
+  CONSUME_CHAR() # V
+  CONSUME_CHAR() # <
+  START = POS
+  WHILE! PEEK_CHAR() NOT IN [">", NULL]:
+    CONSUME_CHAR()
+  END!
+  VALUE = INPUT SLICE START, POS
+  CONSUME_CHAR() # >
+  RETURN { type: "SPATIAL", value: "V<" + VALUE + ">" }
+END!
+END!
+
+FUNC! "read_waveform"
+RUN!
+  CONSUME_CHAR() # ~
+  START = POS
+  WHILE! PEEK_CHAR() NOT IN ["~", NULL]:
+    CONSUME_CHAR()
+  END!
+  VALUE = INPUT SLICE START, POS
+  CONSUME_CHAR() # closing ~
+  RETURN { type: "WAVEFORM", value: "~" + VALUE + "~" }
+END!
+END!
+
+FUNC! "read_number"
+RUN!
+  START = POS
+  NUM = READ_DIGITS()
+  IF? PEEK_CHAR() == '.':
+    CONSUME_CHAR()
+    NUM = NUM + "." + READ_DIGITS()
+  END!
+  IF? PEEK_CHAR() IN ["!", "?"]:
+    SUFFIX = CONSUME_CHAR()
+    RETURN { type: "WEIGHT", value: NUM + SUFFIX }
+  END!
+  RETURN { type: "NUMBER", value: NUM }
+END!
+END!
+
+FUNC! "next_token"
+RUN!
+  SKIP_WHITESPACE()
+  CH = PEEK_CHAR()
+  IF? CH == "":
+    RETURN { type: "EOF", value: "" }
+  END!
+  IF? CH == '#':
+    WHILE! PEEK_CHAR() != "\n" AND PEEK_CHAR():
+      CONSUME_CHAR()
+    END!
+    RETURN NEXT_TOKEN()
+  END!
+  IF? CH == "\n":
+    CONSUME_CHAR()
+    RETURN { type: "NEWLINE", value: "\n" }
+  END!
+  IF? CH MATCHES "[A-Z]":
+    WORD = READ_UPPERCASE_WORD()
+    IF? PEEK_CHAR() == "!":
+      CONSUME_CHAR()
+      KEY = WORD + "!"
+      IF? KEY IN ["APP!", "AI!", "DATA!", "RUN!", "ENTITY!", "CELL!"]:
+        RETURN { type: KEY SLICE 0, -1, value: KEY }
+      END!
+    END!
+    IF? WORD IN KEYWORDS:
+      RETURN { type: KEYWORDS[WORD], value: WORD }
+    END!
+    RETURN { type: "IDENTIFIER", value: WORD }
+  END!
+  IF? CH == '@':
+    CONSUME_CHAR()
+    TAG = READ_UPPERCASE_WORD()
+    KEY = "@" + TAG
+    IF? KEY IN ["@LOGIC", "@EXECUTE", "@REFLECT", "@SHADOW", "@SHARD", "@CREATIVE"]:
+      RETURN { type: KEY, value: KEY }
+    END!
+  END!
+  IF? CH == '"':
+    RETURN READ_STRING()
+  END!
+  IF? CH == 'V':
+    RETURN READ_SPATIAL()
+  END!
+  IF? CH == '~':
+    RETURN READ_WAVEFORM()
+  END!
+  IF? CH MATCHES "\d":
+    RETURN READ_NUMBER()
+  END!
+  CONSUME_CHAR()
+  RETURN NEXT_TOKEN()
+END!
+END!
+
+FUNC! "tokenize"
+RUN!
+  TOKENS = []
+  POS = 0
+  WHILE! POS < LENGTH(INPUT):
+    TOKENS.PUSH NEXT_TOKEN()
+  END!
+  TOKENS.PUSH { type: "EOF", value: "" }
+  RETURN TOKENS
+END!
+END!

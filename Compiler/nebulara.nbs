@@ -1,0 +1,65 @@
+# Nebulara Compiler - Self-Hosted
+# Main compiler in pure Nebulara
+
+DATA! "CompilerConfig"
+  target = "linux"
+  optimize = true
+END!
+
+FUNC! "compile_file"
+RUN!
+  SOURCE = READ_FILE PATH
+  RETURN COMPILE_SOURCE SOURCE
+END!
+END!
+
+FUNC! "compile_source"
+RUN!
+  # Full compilation pipeline
+  TOKENS = TOKENIZE SOURCE
+  AST = PARSE PROGRAM TOKENS
+  IR = GENERATE_SSA AST
+  BINARY = EMIT_BINARY IR
+  RETURN BINARY
+END!
+END!
+
+FUNC! "run_file"
+RUN!
+  BINARY = COMPILE_FILE PATH
+  # In self-hosted mode, execute via VM
+  RESULT = VM_EXECUTE BINARY
+  RETURN RESULT
+END!
+END!
+
+FUNC! "repl"
+RUN!
+  PRINT "Nebulara v1.0 > "
+  WHILE! RUNNING:
+    LINE = READ_LINE
+    IF? LINE == "exit" THEN: BREAK
+    RESULT = EVALUATE LINE
+    PRINT RESULT
+  END!
+END!
+END!
+
+APP! "NebularaMain"
+RUN!
+  ARGC = ARGUMENT_COUNT
+  IF? ARGC >= 1 THEN:
+    IF? ARGUMENT[1] == "-c" THEN:
+      BINARY = COMPILE_FILE ARGUMENT[2]
+      WRITE_FILE ARGUMENT[3], BINARY
+    ELSE IF? ARGUMENT[1] == "-r" THEN:
+      RUN_FILE ARGUMENT[2]
+    ELSE:
+      BINARY = COMPILE_FILE ARGUMENT[1]
+      WRITE_FILE ".o", BINARY
+    END!
+  ELSE:
+    REPL
+  END!
+END!
+END!

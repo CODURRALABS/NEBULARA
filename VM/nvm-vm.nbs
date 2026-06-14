@@ -1,0 +1,87 @@
+# Nebulara VM - Pure Nebulara Implementation
+# nvm-vm.nbs
+
+DATA! "VMRegisters"
+  # Register state
+  registers = {}
+  stack = []
+  pc = 0
+  running = false
+END!
+
+FUNC! "eval_print"
+RUN!
+  IF? ARGS[0] EXISTS THEN:
+    # Native syscall: write(1, msg, len)
+    # rax=1, rdi=1, syscall
+    PRINT ARGS[0]
+  END!
+END!
+END!
+
+FUNC! "eval_store"
+RUN!
+  REGISTERS[DEST] = PARSE_VALUE ARGS[0]
+END!
+END!
+
+FUNC! "eval_bin"
+RUN!
+  LEFT = EVAL ARGS[0]
+  RIGHT = EVAL ARGS[2]
+  RESULT = BINARY_OP LEFT, ARGS[1], RIGHT
+  REGISTERS[DEST] = RESULT
+END!
+END!
+
+FUNC! "binary_add"
+RUN!
+  RETURN LEFT + RIGHT
+END!
+END!
+
+FUNC! "binary_sub"
+RUN!
+  RETURN LEFT - RIGHT
+END!
+END!
+
+FUNC! "parse_value"
+RUN!
+  IF? VALUE STARTS WITH '"' THEN:
+    RETURN { type: "string", value: VALUE SLICE 1 -1 }
+  ELSE IF? VALUE STARTS WITH "V<" THEN:
+    RETURN PARSE_SPATIAL VALUE
+  ELSE IF? VALUE STARTS WITH "~" THEN:
+    RETURN PARSE_WAVEFORM VALUE
+  ELSE:
+    RETURN { type: "number", value: TO_NUMBER VALUE }
+  END!
+END!
+END!
+
+FUNC! "execute"
+RUN!
+  RUNNING = true
+  FOR! BLOCK IN PROGRAM.blocks:
+    FOR! INSTR IN BLOCK.instructions:
+      IF? INSTR.op == "PRINT" THEN:
+        CALL eval_print INSTR.args
+      END!
+      IF? INSTR.op == "STORE" THEN:
+        CALL eval_store INSTR.dst, INSTR.args
+      END!
+      IF? INSTR.op == "BIN" THEN:
+        CALL eval_bin INSTR.dst, INSTR.args
+      END!
+    END!
+  END!
+  RUNNING = false
+END!
+END!
+
+APP! "NebularaVM"
+RUN!
+  PRINT "Nebulara VM v1.0 Ready"
+END!
+END!

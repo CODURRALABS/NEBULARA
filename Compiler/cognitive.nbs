@@ -1,0 +1,68 @@
+# Cognitive Engine - Pure Nebulara
+# cognitive.nbs
+
+DATA! "Thresholds"
+  LOW = 0.3
+  MID = 0.5
+  HIGH = 0.7
+END!
+
+FUNC! "evaluate_weight"
+RUN!
+  THRESHOLD = THRESHOLDS[MODE]
+  RETURN VALUE > THRESHOLD
+END!
+END!
+
+FUNC! "spatial_distance"
+RUN!
+  DX = V1.x - V2.x
+  DY = V1.y - V2.y
+  DZ = V1.z - V2.z
+  RETURN SQRT(DX*DX + DY*DY + DZ*DZ)
+END!
+END!
+
+FUNC! "spatial_normalize"
+RUN!
+  LEN = SQRT(V.x*V.x + V.y*V.y + V.z*V.z)
+  IF? LEN == 0 THEN:
+    RETURN { x: 0, y: 0, z: 0 }
+  END!
+  RETURN { x: V.x/LEN, y: V.y/LEN, z: V.z/LEN }
+END!
+END!
+
+FUNC! "spatial_dot"
+RUN!
+  RETURN V1.x*V2.x + V1.y*V2.y + V1.z*V2.z
+END!
+END!
+
+FUNC! "waveform_amplitude"
+RUN!
+  SUM = 0
+  FOR! B IN BYTES:
+    SUM = SUM + B
+  END!
+  RETURN SUM / LENGTH(BYTES) / 255
+END!
+END!
+
+FUNC! "waveform_frequency"
+RUN!
+  CROSSINGS = 0
+  FOR! I = 1 TO LENGTH(BYTES)-1:
+    IF? (BYTES[i-1] < 128 != BYTES[I] < 128) THEN:
+      CROSSINGS = CROSSINGS + 1
+    END!
+  END!
+  RETURN CROSSINGS / LENGTH(BYTES)
+END!
+END!
+
+APP! "CognitiveEngine"
+RUN!
+  PRINT "Cognitive Engine v1.0 loaded"
+END!
+END!
