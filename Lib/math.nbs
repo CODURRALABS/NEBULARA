@@ -1,0 +1,41 @@
+# Nebulara Standard Library - Math Module
+
+FUNC! "add"
+RUN!
+  # Addition operator
+  # a + b
+END!
+END!
+
+FUNC! "subtract"
+RUN!
+  # Subtraction operator
+  # a - b
+END!
+END!
+
+FUNC! "multiply"
+RUN!
+  # Multiplication operator
+  # a * b
+END!
+END!
+
+FUNC! "divide"
+RUN!
+  # Division operator
+  # a / b
+END!
+END!
+
+FUNC! "sqrt"
+RUN!
+  # Square root using Newton-Raphson
+END!
+END!
+
+APP! "Math"
+RUN!
+  PRINT "Math library loaded"
+END!
+END!

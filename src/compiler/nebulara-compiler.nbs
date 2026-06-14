@@ -1,0 +1,51 @@
+# Nebulara Native Compiler - Self-Hosted Version
+# This file will eventually replace TypeScript implementation
+
+DATA! "tokens"
+  # Token definitions will be embedded
+END!
+
+DATA! "parser_rules"
+  # Grammar rules for recursive descent parsing
+END!
+
+FUNC! "tokenize"
+  RUN!
+    PRINT "Tokenizing input..."
+    # Simple state machine for token recognition
+    # Returns array of tokens
+  END!
+END!
+
+FUNC! "parse_program"
+  RUN!
+    PRINT "Parsing program..."
+    # Parse statements until EOF
+    # Build AST nodes
+  END!
+END!
+
+FUNC! "generate_ssa"
+  RUN!
+    PRINT "Generating SSA IR..."
+    # Convert AST to SSA form
+    # Each block becomes instructions
+  END!
+END!
+
+FUNC! "emit_binary"
+  RUN!
+    PRINT "Emitting ELF64 binary..."
+    # Generate ELF header
+    # Emit .data and .text sections
+    # Return binary buffer
+  END!
+END!
+
+APP! "Nebulara_SelfHost_Compiler"
+RUN!
+  PRINT "Nebulara Self-Hosted Compiler v3.0"
+  # Eventually will compile itself
+  # For now demonstrates the concept
+END!
+END!

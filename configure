@@ -1,0 +1,28 @@
+#!/bin/bash
+# Nebulara Build Configuration Script
+# Usage: ./configure [options]
+
+echo "Configuring Nebulara..."
+
+# Detect platform
+case "$(uname -s)" in
+  Linux*)  PLATFORM="linux" ;;
+  Darwin*) PLATFORM="macos" ;;
+  MINGW*)  PLATFORM="windows" ;;
+esac
+
+echo "Platform: $PLATFORM"
+
+# Check Node.js
+if command -v node &> /dev/null; then
+  echo "Node.js: $(node --version)"
+else
+  echo "Error: Node.js required"
+  exit 1
+fi
+
+# Compile TypeScript to JavaScript
+echo "Compiling TypeScript..."
+node_modules/.bin/tsc --outDir dist --module ESNext --target ESNext --moduleResolution node src/index.ts --skipLibCheck
+
+echo "Configuration complete"

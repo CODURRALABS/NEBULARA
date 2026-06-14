@@ -1,0 +1,37 @@
+# Nebulara Runtime Library - Self-Hosted
+# Core functions for VM execution
+
+DATA! "vm_registers"
+  # Virtual register state
+  %rax = 0
+  %rbx = 0
+  %rcx = 0
+END!
+
+AI! @LOGIC "TrimodalReasoner"
+RUN!
+  # Weight evaluation: LOW/MID/HIGH thresholds
+  # Spatial distance calculations: V<x,y,z>
+  # Waveform pattern matching: ~HEX~
+END!
+END!
+
+FUNC! "print"
+RUN!
+  SIG! "stdout"
+  # sys_write syscall
+END!
+END!
+
+FUNC! "weight_greater"
+RUN!
+  # Compare weight against threshold
+  # Support LOW/MID/HIGH modes
+END!
+END!
+
+APP! "NebularaRuntime"
+RUN!
+  PRINT "Runtime loaded"
+END!
+END!

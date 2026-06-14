@@ -1,0 +1,53 @@
+# Binary Emitter - Direct x86-64 encoding
+# No NASM dependency - pure machine code generation
+
+DATA! "MachineCode"
+  # x86 opcodes
+  MOV_RAX_IMM32 = [0x48, 0xC7, 0xC0]
+  MOV_RDI_IMM32 = [0x48, 0xC7, 0xC7]
+  LEA_RSI_REL = [0x48, 0x8D, 0x35]
+  MOV_RDX_IMM32 = [0x48, 0xC7, 0xC2]
+  SYSCALL = [0x0F, 0x05]
+  XOR_RDI_RDI = [0x48, 0x31, 0xFF]
+  RET = [0xC3]
+END!
+
+FUNC! "emit_elf_header"
+RUN!
+  # ELF64 magic: 7f 46 4C 46
+  # 64-bit, little endian
+  # Entry point, program header offset
+END!
+END!
+
+FUNC! "emit_program_header"
+RUN!
+  # PT_LOAD
+  # R|X flags
+  # File offset, virtual address, file size, mem size
+END!
+END!
+
+FUNC! "emit_sys_write"
+RUN!
+  # mov rax, 1 (sys_write)
+  # mov rdi, 1 (stdout)
+  # lea rsi, [rel msg]
+  # mov rdx, len
+  # syscall
+END!
+END!
+
+FUNC! "emit_exit"
+RUN!
+  # mov rax, 60 (sys_exit)
+  # xor rdi, rdi
+  # syscall
+END!
+END!
+
+APP! "BinaryEmitter"
+RUN!
+  PRINT "Direct x86-64 binary emitter ready"
+END!
+END!
