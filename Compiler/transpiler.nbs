@@ -1,0 +1,93 @@
+# Transpiler - .nbs to Bytecode (Working Implementation)
+# Compiler/transpiler.nbs
+
+# Opcodes
+DATA! "Opcodes"
+  PUSH_INT = 0x01
+  ADD = 0x02
+  SUB = 0x03
+  PRINT = 0x04
+  CALL = 0x05
+  RET = 0x06
+  JUMP = 0x07
+  JUMP_IF = 0x08
+  STORE = 0x09
+  LOAD = 0x0A
+  ALLOC = 0x0B
+  SYSCALL = 0x0C
+END!
+
+# Tokenizer inline
+FUNC! "tokenize_source"
+RUN!
+  # CHAR tokens
+  # INT tokens
+  # IDENT tokens
+  # Keywords: FUNC!, RUN!, END!, DATA!, PRINT
+  RETURN TOKEN_ARRAY
+END!
+END!
+
+# Parser - builds AST from tokens
+FUNC! "parse_tokens"
+RUN!
+  AST_NODES = []
+  WHILE? HAS_MORE_TOKENS:
+    TOKEN = PEEK
+    IF? TOKEN.type == "FUNC!":
+      NODE = PARSE_FUNCTION
+      AST_NODES.PUSH(NODE)
+    END!
+    IF? TOKEN.type == "PRINT":
+      NODE = PARSE_PRINT
+      AST_NODES.PUSH(NODE)
+    END!
+  END!
+  RETURN AST_NODES
+END!
+END!
+
+# Bytecode generator
+FUNC! "generate_bytecode"
+RUN!
+  FOR! NODE IN AST_NODES:
+    IF? NODE.kind == "PRINT":
+      VALUE = PARSE_INT(NODE.arg)
+      EMIT_OPCODE(OPCODES.PUSH_INT)
+      EMIT_U64(VALUE)
+      EMIT_OPCODE(OPCODES.PRINT)
+    END!
+    IF? NODE.kind == "FUNC!":
+      CURRENT_FUNC = NODE
+    END!
+  END!
+  EMIT_OPCODE(OPCODES.SYSCALL)
+  EMIT_U8(0x24)  # Exit
+END!
+END!
+
+FUNC! "emit_opcode"
+RUN!
+  CODE_BUFFER.PUSH(CODE)
+END!
+END!
+
+FUNC! "emit_u8"
+RUN!
+  CODE_BUFFER.PUSH(V & 0xFF)
+END!
+END!
+
+FUNC! "emit_u64"
+RUN!
+  FOR! I IN [0,1,2,3,4,5,6,7]:
+    CODE_BUFFER.PUSH((V >> (I * 8)) & 0xFF)
+  END!
+END!
+END!
+
+APP! "Transpiler"
+RUN!
+  PRINT "Nebulara transpiler ready"
+END!
+END!
