@@ -1,14 +1,20 @@
 # Nebulara
 
+![Nebulara Logo](assets/logo.png)
+
 **Nebulara - Self-hosted native programming language**
 
 A bare-metal compiler that generates x64 PE binaries with zero external dependencies.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version: 1.0](https://img.shields.io/badge/Version-1.0-blue.svg)](https://github.com/CODURRALABS/NEBULARA/releases)
+[![Platform: Windows_x64](https://img.shields.io/badge/Platform-Windows_x64-green.svg)]()
 
 ## Quick Start
 
 ```bash
 # Build native compiler
-gcc VM/bootstrap.c -o nebulara.exe -municode
+gcc Compiler/nbs-bootstrap.c -o nebulara.exe -municode
 
 # Compile .nbs file
 nebulara.exe sources/main.nbs -o program.exe
@@ -16,6 +22,10 @@ nebulara.exe sources/main.nbs -o program.exe
 # Run
 program.exe
 ```
+
+## Download v1.0
+
+[**nebulara-v1.0-windows-x64.zip**](v1/nebulara-v1.0-windows-x64.zip)
 
 ## Language Features
 
@@ -29,11 +39,13 @@ program.exe
 
 ```
 nebulara/
-├── VM/           # Runtime bytecode interpreter
 ├── Compiler/     # .nbs -> bytecode compiler
+├── VM/           # Runtime bytecode interpreter
 ├── Lib/          # Standard library & FFI
-├── Grammar/      # PEG grammar definition
-└── Packages/     # Distribution bundles
+├── Grammar/      # Language grammar
+├── Packages/     # Distribution bundles
+├── test/         # Test programs
+└── assets/       # Logo and resources
 ```
 
 ## Bytecode Opcodes
@@ -54,8 +66,8 @@ nebulara/
 ## Building
 
 ```bash
-# Native runtime
-gcc VM/bootstrap.c -o bin/nebulara.exe -municode -O2
+# Native compiler
+gcc Compiler/nbs-bootstrap.c -o bin/nebulara.exe -municode -O2
 
 # FFI adapters
 gcc Lib/nodejs-adapter.c -o pkg/ffi/nodejs.dll -shared

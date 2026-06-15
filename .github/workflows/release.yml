@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Nebulara
+        run: gcc Compiler/nbs-bootstrap.c -o nebulara.exe -municode -O2
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: nebulara.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
