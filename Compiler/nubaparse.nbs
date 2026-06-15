@@ -1,0 +1,216 @@
+# Nebulara Self-Parser - Parses .nbs into Bytecode
+# Compiler/nubaparse.nbs
+
+# Nebulara Tokenizer State
+DATA! "Tokenizer"
+  input = ""      # Input .nbs source
+  pos = 0         # Current position
+  tokens = []     # Token list
+  line = 1        # Current line
+  col = 1         # Current column
+END!
+
+# Token types
+DATA! "TokenType"
+  IDENT = 1
+  INT = 2
+  STRING = 3
+  KW_FUNC = 4
+  KW_DATA = 5
+  KW_RUN = 6
+  KW_END = 7
+  LPAREN = 8
+  RPAREN = 9
+  LBRACE = 10
+  RBRACE = 11
+  NEWLINE = 12
+  EOF = 13
+END!
+
+# Keywords
+FUNC! "is_keyword"
+RUN!
+  SWITCH! TEXT:
+    CASE "FUNC!": RETURN KW_FUNC
+    CASE "DATA!": RETURN KW_DATA
+    CASE "RUN!": RETURN KW_RUN
+    CASE "END!": RETURN KW_END
+  END!
+  RETURN IDENT
+END!
+END!
+
+# Character classification
+FUNC! "is_alpha"
+RUN!
+  RETURN (C >= 'a' AND C <= 'z') OR (C >= 'A' AND C <= 'Z') OR C == '_'
+END!
+END!
+
+FUNC! "is_digit"
+RUN!
+  RETURN C >= '0' AND C <= '9'
+END!
+END!
+
+FUNC! "is_alnum"
+RUN!
+  RETURN IS_ALPHA(C) OR IS_DIGIT(C)
+END!
+END!
+
+# Main tokenizer
+FUNC! "next_token"
+RUN!
+  SKIP_WHITESPACE
+  
+  CH = INPUT[POS]
+  POS = POS + 1
+  COL = COL + 1
+  
+  IF? CH == 0: RETURN { type: EOF, value: "" } END!
+  
+  IF? IS_ALPHA(CH):
+    START = POS - 1
+    WHILE? IS_ALNUM(INPUT[POS]):
+      POS = POS + 1
+    END!
+    TEXT = INPUT[START:POS]
+    TYPE = IS_KEYWORD(TEXT)
+    RETURN { type: TYPE, value: TEXT }
+  END!
+  
+  IF? IS_DIGIT(CH):
+    START = POS - 1
+    WHILE? IS_DIGIT(INPUT[POS]):
+      POS = POS + 1
+    END!
+    TEXT = INPUT[START:POS]
+    RETURN { type: INT, value: PARSE_INT(TEXT) }
+  END!
+  
+  IF? CH == '"':
+    START = POS
+    WHILE? INPUT[POS] != '"' AND INPUT[POS] != 0:
+      POS = POS + 1
+    END!
+    TEXT = INPUT[START:POS]
+    POS = POS + 1  # Skip closing quote
+    RETURN { type: STRING, value: TEXT }
+  END!
+  
+  SWITCH! CH:
+    CASE '(': RETURN { type: LPAREN, value: "(" }
+    CASE ')': RETURN { type: RPAREN, value: ")" }
+    CASE '{': RETURN { type: LBRACE, value: "{" }
+    CASE '}': RETURN { type: RBRACE, value: "}" }
+    CASE '\n': RETURN { type: NEWLINE, value: "" }
+  END!
+  
+  RETURN { type: IDENT, value: CH }
+END!
+END!
+
+# Parser state
+DATA! "Parser"
+  tokens = []
+  pos = 0
+  ast = null
+END!
+
+# Parse function definition
+FUNC! "parse_func"
+RUN!
+  EAT KW_FUNC
+  NAME = EAT IDENT
+  EAT LPAREN
+  PARAMS = PARSE_PARAMS
+  EAT RPAREN
+  EAT KW_RUN
+  BODY = PARSE_STMTS
+  EAT KW_END
+  
+  RETURN FUNC_DEF(NAME, PARAMS, BODY)
+END!
+END!
+
+# Parse statements
+FUNC! "parse_stmts"
+RUN!
+  STMTS = []
+  WHILE? CURRENT.type != KW_END AND CURRENT.type != EOF:
+    STMT = PARSE_STMT
+    STMTS.PUSH(STMT)
+  END!
+  RETURN STMTS
+END!
+END!
+
+# Parse single statement
+FUNC! "parse_stmt"
+RUN!
+  IF? CURRENT.type == KW_PRINT:
+    RETURN PARSE_PRINT
+  END!
+  IF? CURRENT.type == INT:
+    RETURN PARSE_INT_STMT
+  END!
+  RETURN NULL
+END!
+END!
+
+# Bytecode emitter
+DATA! "BytecodeEmitter"
+  code = []
+  labels = {}
+  strings = {}
+END!
+
+FUNC! "emit_push_int"
+RUN!
+  CODE.PUSH(0x01)
+  EMIT_U64(VALUE)
+END!
+END!
+
+FUNC! "emit_print"
+RUN!
+  CODE.PUSH(0x04)
+END!
+END!
+
+FUNC! "emit_u64"
+RUN!
+  # Little-endian 8 bytes
+  FOR! I IN [0,1,2,3,4,5,6,7]:
+    CODE.PUSH((VALUE >> (I * 8)) & 0xFF)
+  END!
+END!
+END!
+
+# Compile .nbs to bytecode
+FUNC! "compile"
+RUN!
+  TOKENS = TOKENIZE(SOURCE)
+  POS = 0
+  CODE = []
+  
+  WHILE? POS < TOKENS.length:
+    TOKEN = EAT
+    IF? TOKEN.type == KW_FUNC:
+      FUNC_AST = PARSE_FUNC
+      BYTECODE = EMIT_FUNC(FUNC_AST)
+      CODE = CODE + BYTECODE
+    END!
+  END!
+  
+  RETURN CODE
+END!
+END!
+
+# Self-hosted entry
+APP! "Nubaparse"
+RUN!
+  PRINT "Nebulara self-parser ready"
+END!
+END!
