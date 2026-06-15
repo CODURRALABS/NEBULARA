@@ -1,0 +1,52 @@
+# Syntax Highlighter - Semantic Analysis
+# Lib/semantic-highlight.nbs
+
+DATA! "SemanticTokens"
+  function = "function"
+  variable = "variable"
+  parameter = "parameter"
+  keyword = "keyword"
+  string = "string"
+  number = "number"
+  operator = "operator"
+  comment = "comment"
+  type = "type"
+  class = "class"
+  module = "module"
+END!
+
+FUNC! "classify_token"
+RUN!
+  SYMBOL = LOOKUP(POSITION)
+  IF? SYMBOL.KIND == "FUNCTION":
+    RETURN "function"
+  END!
+  IF? SYMBOL.KIND == "VARIABLE":
+    IF? SYMBOL.MUTATED:
+      RETURN "variable.mutated"
+    END!
+    RETURN "variable"
+  END!
+  IF? SYMBOL.KIND == "PARAMETER":
+    RETURN "parameter"
+  END!
+  IF? SYMBOL.KIND == "TYPE":
+    RETURN "type"
+  END!
+END!
+END!
+
+FUNC! "semantic_highlight"
+RUN!
+  # Export LSP tokens for VS Code
+  # Textmate scopes + semantic modifiers
+  # Real-time update on AST change
+END!
+END!
+
+FUNC! "generate_lsp_response"
+RUN!
+  # Method: textDocument/semanticTokens
+  # Encode: deltaLine, deltaStart, length, tokenType, tokenModifiers
+END!
+END!

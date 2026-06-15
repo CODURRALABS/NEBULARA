@@ -1,0 +1,123 @@
+# Nebulara Bootstrapped Compiler
+# Compiler/bootcompiler.nbs
+
+# Token types for self-hosted parsing
+DATA! "Tokens"
+  KW_PRINT = "PRINT"
+  KW_RUN = "RUN"
+  KW_FUNC = "FUNC"
+  KW_DATA = "DATA"
+  KW_END = "END"
+  IDENT = "IDENT"
+  STRING = "STRING"
+  INT = "INT"
+END!
+
+# Lexer state machine
+DATA! "LexerState"
+  pos = 0
+  current = ""
+  tokens = []
+END!
+
+FUNC! "lex_char"
+RUN!
+  IF? CHAR == "(":
+    RETURN "LPAREN"
+  END!
+  IF? CHAR == ")":
+    RETURN "RPAREN"
+  END!
+  IF? CHAR == "{":
+    RETURN "LBRACE"
+  END!
+  IF? CHAR == "}":
+    RETURN "RBRACE"
+  END!
+  IF? CHAR == "\n":
+    RETURN "NEWLINE"
+  END!
+  IF? CHAR == " ":
+    RETURN "SPACE"
+  END!
+  RETURN "CHAR"
+END!
+END!
+
+# Parser with lookahead
+FUNC! "parse_primary"
+RUN!
+  IF? CURRENT_TOKEN.type == "STRING":
+    VALUE = CURRENT_TOKEN.value
+    ADVANCE
+    RETURN STRING_LITERAL(VALUE)
+  END!
+  IF? CURRENT_TOKEN.type == "INT":
+    CONST N = PARSE_INT(CURRENT_TOKEN.value)
+    ADVANCE
+    RETURN INT_LITERAL(N)
+  END!
+  IF? CURRENT_TOKEN.type == "IDENT":
+    IDENT = CURRENT_TOKEN.value
+    ADVANCE
+    IF? CURRENT_TOKEN.type == "LPAREN":
+      ADVANCE
+      ARGS = PARSE_ARGS
+      EXPECT "RPAREN"
+      RETURN CALL_EXPR(IDENT, ARGS)
+    END!
+    RETURN IDENT_EXPR(IDENT)
+  END!
+END!
+END!
+
+# Self-hosted code generator
+FUNC! "generate_bytecode"
+RUN!
+  FOR! INSTR IN FUNCTION.body:
+    IF? INSTR.op == "PUSH_INT":
+      EMIT_OP(0x01)
+      EMIT_U64(INSTR.value)
+    END!
+    IF? INSTR.op == "PRINT":
+      EMIT_OP(0x04)
+    END!
+    IF? INSTR.op == "ADD":
+      EMIT_OP(0x02)
+    END!
+    IF? INSTR.op == "SUB":
+      EMIT_OP(0x03)
+    END!
+  END!
+END!
+END!
+
+# Nebulara Arrays (not JS arrays)
+FUNC! "create_array"
+RUN!
+  PTR = ALLOC(8 * SIZE)
+  LENGTH = SIZE
+  RETURN NDARRAY(PTR, LENGTH, CAPACITY)
+END!
+END!
+
+# Memory management
+FUNC! "alloc"
+RUN!
+  PTR = HEAP_PTR
+  HEAP_PTR = HEAP_PTR + SIZE
+  RETURN PTR
+END!
+END!
+
+# Bounds checking
+FUNC! "check_bounds"
+RUN!
+  IF? IDX >= ARR.length:
+    THROW "IndexOutOfBounds"
+  END!
+  IF? IDX < 0:
+    THROW "IndexNegative"
+  END!
+END!
+END!

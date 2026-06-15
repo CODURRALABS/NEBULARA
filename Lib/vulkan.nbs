@@ -1,0 +1,48 @@
+# Vulkan GPU Support
+# Lib/vulkan.nbs
+
+DATA! "VulkanBindings"
+  vkCreateInstance = 0x001
+  vkCreateDevice = 0x002
+  vkAllocateMemory = 0x003
+  vkCreateShaderModule = 0x004
+  vkCreatePipeline = 0x005
+  vkCmdDraw = 0x006
+  vkQueueSubmit = 0x007
+END!
+
+DATA! "GPUState"
+  instance = null
+  device = null
+  pipeline = null
+  shaders = {}
+END!
+
+FUNC! "init_vulkan"
+RUN!
+  INSTANCE = CREATE_INSTANCE()
+  DEVICE = CREATE_DEVICE(INSTANCE)
+  RETURN INSTANCE != null && DEVICE != null
+END!
+END!
+
+FUNC! "compile_shader"
+RUN!
+  # SPIR-V generation from Nebulara compute kernels
+  # glslang or custom SPIR-V emitter
+END!
+END!
+
+FUNC! "dispatch_compute"
+RUN!
+  # Compute shader dispatch
+  # Buffer binding
+END!
+END!
+
+FUNC! "render"
+RUN!
+  # Graphics pipeline
+  # Vertex/fragment shaders
+END!
+END!

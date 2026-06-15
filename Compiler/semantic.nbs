@@ -1,0 +1,106 @@
+# Semantic Analyzer - Nebulara
+# Compiler/semantic.nbs
+
+DATA! "SemanticContext"
+  symbols = {}
+  scopes = []
+  errors = []
+  warnings = []
+END!
+
+FUNC! "enter_scope"
+RUN!
+  NEW_SCOPE = { parent: CURRENT_SCOPE, symbols: {} }
+  SCOPES.PUSH(NEW_SCOPE)
+  CURRENT_SCOPE = NEW_SCOPE
+END!
+END!
+
+FUNC! "exit_scope"
+RUN!
+  SCOPES.POP()
+  CURRENT_SCOPE = SCOPES[TOP]
+END!
+END!
+
+FUNC! "declare_symbol"
+RUN!
+  IF? SYMBOLS.HAS(NAME):
+    IF? STRICT_MODE:
+      THROW "RedeclarationError: " + NAME
+    END!
+  END!
+  SYMBOLS[NAME] = SYMBOL
+END!
+END!
+
+FUNC! "lookup_symbol"
+RUN!
+  SCOPE = CURRENT_SCOPE
+  WHILE? SCOPE != null:
+    IF? SCOPE.symbols.HAS(TOKEN):
+      RETURN SCOPE.symbols[TOKEN]
+    END!
+    SCOPE = SCOPE.parent
+  END!
+  RETURN null
+END!
+END!
+
+FUNC! "analyze"
+RUN!
+  ENTER_SCOPE()
+  FOR! NODE IN AST.body:
+    ANALYZE_NODE(NODE)
+  END!
+  EXIT_SCOPE()
+  RETURN ERRORS
+END!
+END!
+
+FUNC! "analyze_function"
+RUN!
+  ENTER_SCOPE()
+  FOR! PARAM IN NODE.params:
+    DECLARE_SYMBOL(PARAM, TYPE_FUNC_PARAM)
+  END!
+  FOR! STMT IN NODE.body:
+    ANALYZE_STATEMENT(STMT)
+  END!
+  EXIT_SCOPE()
+END!
+END!
+
+FUNC! "type_check"
+END!
+FUNC! "infer_type"
+RUN!
+  IF? NODE IS INT_LITERAL:
+    RETURN TYPE_INT
+  END!
+  IF? NODE IS STRING_LITERAL:
+    RETURN TYPE_STRING
+  END!
+  IF? NODE IS CALL_EXPR:
+    FN = LOOKUP_SYMBOL(NODE.name)
+    IF? FN == null:
+      THROW "UndefinedFunction: " + NODE.name
+    END!
+    RETURN FN.return_type
+  END!
+END!
+END!
+
+FUNC! "check_returns"
+RUN!
+  EXPECTED = FUNCTION.return_type
+  FOR! STMT IN FUNCTION.body:
+    IF? STMT.type == "RETURN":
+      ACTUAL = INFER_TYPE(STMT.value)
+      IF? ACTUAL != EXPECTED:
+        ADD_ERROR("ReturnTypeMismatch")
+      END!
+    END!
+  END!
+END!
+END!

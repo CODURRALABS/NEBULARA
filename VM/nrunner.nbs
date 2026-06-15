@@ -1,0 +1,78 @@
+# Native Windows Executable Runner
+# VM/nrunner.nbs
+
+# Win32 API imports via syscall interface
+DATA! "WinAPI"
+  kernel32 = "KERNEL32.DLL"
+  ntdll = "NTDLL.DLL"
+  syscalls = {
+    "exit": 0x24,      # NtTerminateProcess
+    "write": 0x08,      # NtWriteFile
+    "alloc": 0x0B,      # NtAllocateVirtualMemory
+    "free": 0x0D         # NtFreeVirtualMemory
+  }
+END!
+
+FUNC! "windows_syscall"
+RUN!
+  # Direct x64 syscall via Nebulara runtime
+  # RCX = handle, RDX = buffer, R8 = size, R9 = optional
+  SWITCH! SYSCALL_ID:
+    CASE "exit":
+      MOV RAX, 0x24
+      MOV RCX, R8  # Exit code
+      SYSCALL
+    CASE "alloc":
+      MOV RAX, 0x0B
+      MOV RCX, 0xFFFFFFFF  # Current process
+      MOV RDX, &REGION_SIZE
+      MOV R8, 0x3000        # MEM_COMMIT | MEM_TOPDOWN
+      MOV R9, 0x04          # PAGE_READWRITE
+      SYSCALL
+    CASE "write":
+      MOV RAX, 0x08
+      # File handle in RCX
+      # Buffer in RDX
+      SYSCALL
+  END!
+END!
+END!
+
+FUNC! "load_bytecode"
+RUN!
+  # Load .nbs file from disk
+  # Parse into instruction stream
+  # Validate checksums
+END!
+END!
+
+FUNC! "execute"
+RUN!
+  IP = 0
+  WHILE? IP < CODE.length:
+    INSTR = CODE[IP]
+    CALL DISPATCHER(INSTR.opcode)
+    IP = IP + 1
+  END!
+  SYSCALL("exit", 0)
+END!
+END!
+
+FUNC! "dispatcher"
+RUN!
+  SWITCH! OPCODE:
+    CASE 0x01: HANDLE_PUSH_INT
+    CASE 0x02: HANDLE_ADD
+    CASE 0x03: HANDLE_SUB
+    CASE 0x04: HANDLE_PRINT
+    CASE 0x05: HANDLE_CALL
+    CASE 0x06: HANDLE_RET
+    CASE 0x07: HANDLE_JUMP
+    CASE 0x08: HANDLE_JUMP_IF
+    CASE 0x09: HANDLE_STORE
+    CASE 0x0A: HANDLE_LOAD
+    CASE 0x0B: HANDLE_ALLOC
+    CASE 0x0C: HANDLE_SYSCALL
+  END!
+END!
+END!
