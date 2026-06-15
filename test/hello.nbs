@@ -1,0 +1,7 @@
+# Test Program
+# test/hello.nbs
+
+FUNC! main
+RUN!
+  PRINT 42
+END!
