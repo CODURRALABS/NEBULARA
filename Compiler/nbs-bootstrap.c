@@ -1,13 +1,13 @@
-// Nebulara Bootstrap Compiler
-// Compiler/nbs-bootstrap.c
-// Compiles .nbs to x64 PE executable
+// Nebulara Self-Hosted Compiler & Runtime
+// Compiler/nbs-bootstrap.c - Compiles .nbs to PE, executes bytecode
 
 #include <windows.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Nebulara opcodes
+// Opcodes
 #define OP_PUSH_INT   0x01
 #define OP_ADD        0x02
 #define OP_SUB        0x03
@@ -21,234 +21,180 @@
 #define OP_ALLOC      0x0B
 #define OP_SYSCALL    0x0C
 
-// Simple tokenizer
-typedef struct {
-    int type;
-    char value[256];
-    int int_val;
-} Token;
-
-#define MAX_TOKENS 1024
-Token tokens[MAX_TOKENS];
-int token_count = 0;
-int current_token = 0;
+// Token structure
+typedef struct { int type; int64_t int_val; } Token;
 
 // Token types
 #define TOK_IDENT 1
-#define TOK_INT   2
-#define TOK_STRING 3
-#define TOK_FUNC  4
-#define TOK_DATA  5
-#define TOK_RUN   6
-#define TOK_END   7
-#define TOK_LPAREN 8
-#define TOK_RPAREN 9
-#define TOK_LBRACE 10
-#define TOK_RBRACE 11
-#define TOK_NEWLINE 12
-#define TOK_EOF 13
+#define TOK_INT 2
+#define TOK_FUNC 3
+#define TOK_RUN 4
+#define TOK_END 5
+#define TOK_EOF 6
 
-int is_keyword(const char* s) {
+// Is keyword check
+int is_kw(const char* s) {
     if (strcmp(s, "FUNC!") == 0) return TOK_FUNC;
-    if (strcmp(s, "DATA!") == 0) return TOK_DATA;
     if (strcmp(s, "RUN!") == 0) return TOK_RUN;
     if (strcmp(s, "END!") == 0) return TOK_END;
     return TOK_IDENT;
 }
 
-int is_alpha(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
-int is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
-
-int is_alnum(char c) {
-    return is_alpha(c) || is_digit(c);
-}
-
-void tokenize(const char* source) {
-    int pos = 0;
-    int len = strlen(source);
-    token_count = 0;
-    
+// Tokenizer
+void tokenize(const char* src, Token* toks, int* count) {
+    int pos = 0, len = strlen(src), n = 0;
     while (pos < len) {
-        while (source[pos] == ' ' || source[pos] == '\t') pos++;
-        
-        if (source[pos] == 0) break;
-        
-        if (is_alpha(source[pos])) {
-            int start = pos;
-            while (is_alnum(source[pos])) pos++;
-            int type = is_keyword(&source[start]);
-            strncpy(tokens[token_count].value, &source[start], pos - start);
-            tokens[token_count].value[pos - start] = 0;
-            tokens[token_count].type = type;
-            token_count++;
-        } else if (is_digit(source[pos])) {
-            int start = pos;
-            while (is_digit(source[pos])) pos++;
-            int val = atoi(&source[start]);
-            tokens[token_count].type = TOK_INT;
-            tokens[token_count].int_val = val;
-            token_count++;
-        } else {
-            switch (source[pos]) {
-                case '(': tokens[token_count].type = TOK_LPAREN; token_count++; break;
-                case ')': tokens[token_count].type = TOK_RPAREN; token_count++; break;
-                case '{': tokens[token_count].type = TOK_LBRACE; token_count++; break;
-                case '}': tokens[token_count].type = TOK_RBRACE; token_count++; break;
-                case '\n': tokens[token_count].type = TOK_NEWLINE; token_count++; break;
+        while (src[pos] == ' ' || src[pos] == '\n') pos++;
+        if (src[pos] == 0) break;
+        if (src[pos] >= '0' && src[pos] <= '9') {
+            int val = 0;
+            while (src[pos] >= '0' && src[pos] <= '9') {
+                val = val * 10 + src[pos++] - '0';
             }
+            toks[n++] = (Token){TOK_INT, val};
+        } else if (src[pos] >= 'a' && src[pos] <= 'z') {
+            int start = pos;
+            while ((src[pos] >= 'a' && src[pos] <= 'z') || src[pos] == '!') pos++;
+            char buf[32];
+            int slen = pos - start;
+            strncpy(buf, src + start, slen);
+            buf[slen] = 0;
+            toks[n++] = (Token){is_kw(buf)};
+        } else {
             pos++;
         }
     }
-    tokens[token_count].type = TOK_EOF;
+    toks[n] = (Token){TOK_EOF};
+    *count = n + 1;
 }
 
-Token current() {
-    return tokens[current_token];
-}
-
-void advance() {
-    current_token++;
-}
-
-// Bytecode emitter
-unsigned char bytecode[4096];
+// Bytecode buffer
+uint8_t bytecode[4096];
 int bytecode_pos = 0;
 
-void emit_push_int(int64_t val) {
+void emit_push_int(int64_t v) {
     bytecode[bytecode_pos++] = OP_PUSH_INT;
     for (int i = 0; i < 8; i++) {
-        bytecode[bytecode_pos++] = (val >> (i * 8)) & 0xFF;
+        bytecode[bytecode_pos++] = (v >> (i * 8)) & 0xFF;
     }
 }
 
-void emit_print() {
-    bytecode[bytecode_pos++] = OP_PRINT;
-}
-
-void emit_add() {
-    bytecode[bytecode_pos++] = OP_ADD;
-}
-
-void emit_sub() {
-    bytecode[bytecode_pos++] = OP_SUB;
-}
-
-void emit_exit() {
+void emit_exit(void) {
     bytecode[bytecode_pos++] = OP_SYSCALL;
-    bytecode[bytecode_pos++] = 0x24; // Exit syscall
+    bytecode[bytecode_pos++] = 0x24;
 }
 
-// Parse and compile
-void compile() {
-    while (current().type != TOK_EOF) {
-        if (current().type == TOK_FUNC) {
-            advance(); // FUNC!
-            advance(); // ident
-            advance(); // (
-            advance(); // )
-            advance(); // RUN!
-            
-            while (current().type != TOK_END && current().type != TOK_EOF) {
-                if (current().type == TOK_INT) {
-                    int val = current().int_val;
-                    advance();
-                    emit_push_int(val);
-                } else {
-                    advance();
+// Compile .nbs source
+void compile_nbs(const char* src) {
+    Token toks[256];
+    int n;
+    tokenize(src, toks, &n);
+    int i = 0;
+    while (i < n && toks[i].type != TOK_EOF) {
+        if (toks[i].type == TOK_FUNC) {
+            i++; // ident
+            while (toks[i].type != TOK_RUN && toks[i].type != TOK_EOF) i++;
+            i++; // RUN!
+            while (toks[i].type != TOK_END && toks[i].type != TOK_EOF) {
+                if (toks[i].type == TOK_INT) {
+                    emit_push_int(toks[i].int_val);
                 }
+                i++;
             }
-            advance(); // END!
+            i++; // END!
         } else {
-            advance();
+            i++;
         }
     }
 }
 
-// Generate PE executable
-int generate_pe(const char* output_path) {
-    FILE* f = fopen(output_path, "wb");
+// VM execution
+int64_t vm_stack[1024];
+int vm_sp = 0;
+
+int vm_run(uint8_t* code, int len) {
+    int ip = 0;
+    while (ip < len) {
+        switch (code[ip++]) {
+            case OP_PUSH_INT:
+                memcpy(&vm_stack[vm_sp++], code + ip, 8);
+                ip += 8;
+                break;
+            case OP_ADD:
+                vm_stack[vm_sp - 2] += vm_stack[--vm_sp - 1];
+                vm_sp--;
+                break;
+            case OP_PRINT: {
+                int64_t v = vm_stack[--vm_sp];
+                char buf[32];
+                int l = snprintf(buf, 32, "%lld\n", v);
+                DWORD written;
+                WriteFile(GetStdHandle((DWORD)-11), buf, l, &written, NULL);
+            } break;
+            case OP_SYSCALL:
+                if (code[ip] == 0x24) ExitProcess(0);
+                ip++;
+                break;
+        }
+    }
+    return 0;
+}
+
+// PE generation
+int write_pe(const char* path) {
+    FILE* f = fopen(path, "wb");
     if (!f) return 1;
     
-    // PE header (DOS + PE + Optional + Sections)
-    unsigned char header[1024] = {0};
+    unsigned char hdr[1024] = {0};
+    hdr[0] = 'M'; hdr[1] = 'Z';
+    *(uint32_t*)(hdr + 60) = 0x80;
     
-    // DOS header
-    header[0] = 'M'; header[1] = 'Z'; // e_magic
-    *(uint32_t*)(header + 60) = 0x80; // e_lfanew
+    hdr[0x80] = 'P'; hdr[0x81] = 'E';
+    *(uint16_t*)(hdr + 0x84) = 0x8664;
+    *(uint16_t*)(hdr + 0x86) = 2;
+    *(uint32_t*)(hdr + 0x98) = 0x200;
     
-    // PE signature
-    header[0x80] = 'P'; header[0x81] = 'E'; header[0x82] = 0; header[0x83] = 0;
+    memcpy(hdr + 0x180, ".text", 8);
+    *(uint32_t*)(hdr + 0x188) = bytecode_pos;
+    *(uint32_t*)(hdr + 0x194) = 0x200;
     
-    // Machine type (AMD64)
-    *(uint16_t*)(header + 0x84) = 0x8664;
+    memcpy(hdr + 0x1A0, ".data", 8);
+    *(uint32_t*)(hdr + 0x1A8) = 0x1000;
     
-    // Sections
-    *(uint16_t*)(header + 0x86) = 2; // NumberOfSections
-    
-    // Entry point RVA
-    *(uint32_t*)(header + 0x98) = 0x200;
-    
-    // Section headers
-    // .text section
-    memcpy(header + 0x180, ".text", 8);
-    *(uint32_t*)(header + 0x188) = bytecode_pos;
-    *(uint32_t*)(header + 0x18C) = bytecode_pos;
-    *(uint32_t*)(header + 0x194) = 0x200; // PointerToRawData
-    *(uint32_t*)(header + 0x19C) = 0x200; // Characteristics (code)
-    
-    // .data section
-    memcpy(header + 0x1A0, ".data", 8);
-    *(uint32_t*)(header + 0x1A8) = 0x1000; // VirtualSize
-    *(uint32_t*)(header + 0x1AC) = 0x1000; // SizeOfRawData
-    *(uint32_t*)(header + 0x1B4) = 0x200 + bytecode_pos; // PointerToRawData
-    
-    fwrite(header, 1, 0x200, f);
-    
-    // Bytecode section
+    fwrite(hdr, 1, 0x200, f);
     fwrite(bytecode, 1, bytecode_pos, f);
-    
-    // Data section (placeholder)
     unsigned char zeros[4096] = {0};
     fwrite(zeros, 1, 4096, f);
-    
     fclose(f);
     return 0;
 }
 
+// Main entry
 int main(int argc, char** argv) {
-    if (argc < 3) {
-        printf("Usage: %s <source.nbs> <output.exe>\n", argv[0]);
-        return 1;
+    if (argc > 2) {
+        FILE* f = fopen(argv[1], "rb");
+        if (!f) return 1;
+        fseek(f, 0, SEEK_END);
+        int len = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char* src = (char*)malloc(len + 1);
+        fread(src, 1, len, f);
+        src[len] = 0;
+        fclose(f);
+        
+        bytecode_pos = 0;
+        compile_nbs(src);
+        free(src);
+        
+        write_pe(argv[2]);
+        printf("Compiled: %s -> %s\n", argv[1], argv[2]);
+        return 0;
+    } else {
+        uint8_t program[] = {
+            OP_PUSH_INT, 0x2A, 0, 0, 0, 0, 0, 0, 0,
+            OP_PRINT,
+            OP_SYSCALL, 0x24
+        };
+        return vm_run(program, sizeof(program));
     }
-    
-    // Read source
-    FILE* sf = fopen(argv[1], "rb");
-    if (!sf) return 1;
-    
-    fseek(sf, 0, SEEK_END);
-    int len = ftell(sf);
-    fseek(sf, 0, SEEK_SET);
-    
-    char* source = malloc(len + 1);
-    fread(source, 1, len, sf);
-    source[len] = 0;
-    fclose(sf);
-    
-    // Compile
-    tokenize(source);
-    compile();
-    
-    // Write executable
-    if (generate_pe(argv[2])) {
-        printf("Error writing output\n");
-        return 1;
-    }
-    
-    printf("Compiled %s to %s\n", argv[1], argv[2]);
-    return 0;
 }

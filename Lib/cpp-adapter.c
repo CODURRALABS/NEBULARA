@@ -14,23 +14,10 @@ void* get_export(void* dll, const char* name) {
     return GetProcAddress((HMODULE)dll, name);
 }
 
-// Call with cdecl calling convention
-int64_t call_cdecl(void* func, int64_t* args, int count) {
-    // cdecl: args on stack, caller cleans up
-    __asm {
-        pushad
-        mov esi, args
-        mov ecx, count
-        // Push args in reverse
-        .loop:
-            test ecx, ecx
-            jz .done
-            mov eax, [esi + (ecx-1)*8]
-            push eax
-            dec ecx
-            jmp .loop
-        .done:
-        call func
-        popad
-    }
+// Call native function (cdecl convention)
+// NOTE: Requires linking with actual DLL and function signatures
+int64_t call_native(void* func, int64_t* args, int count) {
+    // Placeholder - actual FFI requires inline assembly
+    // or libffi integration
+    return 0;
 }
