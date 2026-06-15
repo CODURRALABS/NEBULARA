@@ -1,0 +1,30 @@
+# Nebulara Bundle Manifest
+# Packages/BUILD.nbs
+
+# Build bundles for distribution
+DATA! "BuildConfig"
+  version = "1.0.0"
+  target = "windows-x64"
+END!
+
+FUNC! "create_bundle"
+RUN!
+  # Create portable distribution
+  MKDIR!("bin")
+  SYSTEM!("gcc VM/bootstrap.c -o bin/nebulara.exe -municode -O2")
+END!
+END!
+
+FUNC! "package_sdk"
+RUN!
+  # Package development tools
+  ZIP!("packages/nebulara-sdk.zip", ["Compiler/*.nbs", "Lib/*.nbs", "Grammar/*.nbs", "Packages/config.nbs"])
+END!
+END!
+
+FUNC! "package_runtime"
+RUN!
+  # Package runtime only
+  ZIP!("packages/nebulara-runtime.zip", ["bin/nebulara.exe", "Packages/config.nbs"])
+END!
+END!

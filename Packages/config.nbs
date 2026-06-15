@@ -1,0 +1,62 @@
+# Nebulara Distribution Bundles
+# Packages/config.nbs
+
+DATA! "Bundles"
+  core_runtime = {
+    version = "1.0.0"
+    files = ["VM/bootstrap.c", "VM/bootstrap.nasm"]
+    platforms = ["windows-x64", "linux-x64"]
+  }
+  
+  compiler_toolchain = {
+    version = "1.0.0"
+    files = ["Compiler/nubaparse.nbs", "Compiler/bootcompiler.nbs", "Compiler/nbs-bootstrap.c"]
+  }
+  
+  ffi_bridge = {
+    version = "1.0.0"
+    files = ["Lib/nadapter.nbs", "Lib/ffi.nbs"]
+    languages = ["python", "nodejs", "java", "cpp", "rust", "go", "ruby"]
+  }
+  
+  gpu_runtime = {
+    version = "1.0.0"
+    files = ["Lib/vulkan.nbs", "Lib/nvulkan.nbs"]
+    features = ["spirv", "wgpu", "cuda"]
+  }
+END!
+
+DATA! "Packages"
+  nebulara-core = {
+    path = "."
+    type = "library"
+    deps = []
+  }
+  
+  nebulara-native = {
+    path = "VM/bootstrap.c"
+    type = "executable"
+    build = "gcc VM/bootstrap.c -o nebulara-native.exe -municode"
+  }
+  
+  nebulara-sdk = {
+    path = "Compiler"
+    type = "toolchain"
+    deps = ["nebulara-core"]
+  }
+  
+  nebulara-ffi = {
+    path = "Lib/ffi.nbs"
+    type = "adapter"
+    deps = ["nebulara-native"]
+  }
+END!
+
+APP! "PackageManager"
+RUN!
+  # Install package from bundle
+  # Resolve dependencies
+  # Download from registry
+  PRINT "Package manager ready"
+END!
+END!

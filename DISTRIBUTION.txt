@@ -1,0 +1,19 @@
+NEBULARA UNIVERSAL DISTRIBUTION
+==============================
+
+pkg/
+├── runtime/     # Portable executable (no install)
+│   ├── nebulara.exe     # x64 PE native
+│   ├── libffi.dll       # FFI adapters
+│   └── nvulkan.dll      # GPU acceleration
+│
+├── sdk/         # Development tools
+│   ├── compiler/        # .nbs -> bytecode
+│   ├── headers/         # nebulara.h
+│   └── lib/             # libnebulara.a
+│
+└── ffi/         # Universal language bridge
+    ├── nodejs.dll
+    ├── python.dll
+    ├── java.dll
+    └── cpp.dll
