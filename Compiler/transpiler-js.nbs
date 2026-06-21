@@ -1,0 +1,191 @@
+# Nebulara Transpiler - JavaScript Target
+# Compiler/transpiler-js.nbs
+# Converts .nbs AST to JavaScript code
+
+FUNC! transpile_js
+RUN!
+  ast = ARGS[0]
+  output = []
+  
+  FOR! node IN ast:
+    SWITCH! node.type:
+      CASE "DATA":
+        APPEND output (js_data(node))
+      CASE "FUNC":
+        APPEND output (js_func(node))
+      CASE "IMPORT":
+        APPEND output (js_import(node))
+      CASE "APP":
+        APPEND output (js_app(node))
+    END!
+  END!
+  
+  RETURN JOIN output "\n"
+END!
+END!
+
+FUNC! js_data
+RUN!
+  node = ARGS[0]
+  fields = []
+  
+  FOR! field IN node.fields:
+    key = field.key
+    val = field.value
+    IF? IS_STRING(val) THEN:
+      APPEND fields CONCAT key ': "' val '"'
+    ELSE:
+      APPEND fields CONCAT key ': ' (js_value(val))
+    END!
+  END!
+  
+  RETURN CONCAT "const " node.name " = { " (JOIN fields ", ") " };"
+END!
+END!
+
+FUNC! js_func
+RUN!
+  node = ARGS[0]
+  body = js_block(node.body)
+  RETURN CONCAT "function " node.name "() {\n" body "\n}"
+END!
+END!
+
+FUNC! js_block
+RUN!
+  stmts = ARGS[0]
+  output = []
+  indent = "  "
+  
+  FOR! stmt IN stmts:
+    APPEND output (js_stmt(stmt, indent))
+  END!
+  
+  RETURN JOIN output "\n"
+END!
+END!
+
+FUNC! js_stmt
+RUN!
+  stmt = ARGS[0]
+  indent = ARGS[1]
+  
+  SWITCH! stmt.type:
+    CASE "ASSIGN":
+      key = stmt.key
+      val = js_value(stmt.value)
+      RETURN CONCAT indent key " = " val ";"
+    
+    CASE "PRINT":
+      msg = js_value(stmt.value)
+      RETURN CONCAT indent "console.log(" msg ");"
+    
+    CASE "RETURN":
+      val = js_value(stmt.value)
+      RETURN CONCAT indent "return " val ";"
+    
+    CASE "IF":
+      cond = js_value(stmt.condition)
+      then_body = js_block(stmt.then_block, CONCAT indent "  ")
+      result = CONCAT indent "if (" cond ") {\n" then_body "\n" indent "}"
+      
+      IF? stmt.else_block != null THEN:
+        else_body = js_block(stmt.else_block, CONCAT indent "  ")
+        result = CONCAT result " else {\n" else_body "\n" indent "}"
+      END!
+      
+      RETURN result
+    
+    CASE "WHILE":
+      cond = js_value(stmt.condition)
+      body = js_block(stmt.body, CONCAT indent "  ")
+      RETURN CONCAT indent "while (" cond ") {\n" body "\n" indent "}"
+    
+    CASE "FOR":
+      var = stmt.variable
+      iter = js_value(stmt.iterable)
+      body = js_block(stmt.body, CONCAT indent "  ")
+      RETURN CONCAT indent "for (const " var " of " iter ") {\n" body "\n" indent "}"
+    
+    CASE "CALL":
+      return js_call(stmt, indent)
+    
+    CASE "APPEND":
+      target = js_value(stmt.target)
+      item = js_value(stmt.item)
+      RETURN CONCAT indent target ".push(" item ");"
+    
+    CASE "THROW":
+      msg = js_value(stmt.message)
+      RETURN CONCAT indent "throw new Error(" msg ");"
+    
+    DEFAULT:
+      RETURN CONCAT indent "// unsupported: " stmt.type
+  END!
+END!
+END!
+
+FUNC! js_call
+RUN!
+  stmt = ARGS[0]
+  indent = ARGS[1]
+  func = js_value(stmt.function)
+  args = []
+  
+  FOR! arg IN stmt.arguments:
+    APPEND args (js_value(arg))
+  END!
+  
+  RETURN CONCAT indent func "(" (JOIN args ", ") ");"
+END!
+END!
+
+FUNC! js_value
+RUN!
+  val = ARGS[0]
+  
+  IF? IS_STRING(val) THEN:
+    RETURN CONCAT '"' val '"'
+  END!
+  IF? IS_NUMBER(val) THEN:
+    RETURN STR(val)
+  END!
+  IF? IS_BOOL(val) THEN:
+    IF? val THEN: RETURN "true" ELSE: RETURN "false" END!
+  END!
+  IF? IS_ARRAY(val) THEN:
+    items = []
+    FOR! item IN val:
+      APPEND items (js_value(item))
+    END!
+    RETURN CONCAT "[" (JOIN items ", ") "]"
+  END!
+  IF? IS_OBJECT(val) THEN:
+    pairs = []
+    FOR! k,v IN val:
+      APPEND pairs CONCAT k ": " (js_value(v))
+    END!
+    RETURN CONCAT "{ " (JOIN pairs ", ") " }"
+  END!
+  IF? IS_NULL(val) THEN:
+    RETURN "null"
+  END!
+  
+  RETURN CONCAT '"' (STR(val)) '"'
+END!
+END!
+
+FUNC! js_import
+RUN!
+  node = ARGS[0]
+  RETURN CONCAT "import { " (JOIN node.names ", ") " } from '" node.source "';"
+END!
+END!
+
+FUNC! js_app
+RUN!
+  node = ARGS[0]
+  body = js_block(node.body, "  ")
+  RETURN CONCAT "const app = " node.name " {\n" body "\n};"
+END!
+END!

@@ -1,21 +1,69 @@
-MIT License
+NEBULARA PROPRIETARY LICENSE
 
-Copyright (c) 2026 CODURRALABS
+Version: 1.0
+Effective Date: 2026-06-15
+Copyright (c) 2026 CODURRA Labs & Technologies. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+IMPORTANT: READ CAREFULLY
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This license governs your use of the NEBULARA programming language, compiler,
+virtual machine, parser, standard library, and all associated tooling, including
+but not limited to:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- Compiler and toolchain (Compiler/*)
+- Runtime and VM (VM/*)
+- Parser and lexer (Parser/*)
+- Grammar files (Grammar/*)
+- Standard library (Lib/*)
+- Package manager and distribution (Packages/*)
+- Test programs (test/*)
+- Runtime library and builtins (Runtime/*)
+- FFI bindings (pkg/*)
+- Documentation and supporting files
+
+RESTRICTED USE
+
+NEBULARA is EXCLUSIVELY developed for and integrated into CODURRA NEBUXIA V2.
+By accessing or using NEBULARA, you agree to the following restrictions:
+
+You may:
+- Use NEBULARA to develop software, games, and simulations for personal
+  or commercial purposes within the NEBUXIA ecosystem.
+- Deploy applications built using NEBULARA without additional licensing.
+- Study the language for personal learning within the NEBUXIA project.
+
+You may NOT:
+- Redistribute the NEBULARA compiler, runtime, or standard library
+  as standalone products.
+- Reverse engineer, decompile, or disassemble the native compiler
+  or binary emitter components.
+- Remove or alter copyright, trademark, or license notices.
+- Use the NEBULARA name or branding for competing products.
+- Sublicense, sell, or transfer NEBULARA to third parties.
+- Use NEBULARA outside the NEBUXIA ecosystem without written permission.
+
+EXCLUSIVE ECOSYSTEM
+
+NEBULARA is the EXCLUSIVE programming language of CODURRA NEBUXIA V2.
+It is tightly integrated with:
+
+- Aurora AI Orchestrator (9-agent AI system)
+- ClusterForge IDE (software development mode)
+- NebulaForge Game Engine (game/simulation mode)
+- KnowledgeCore (encrypted local storage)
+- Security layer (binary compression, blockchain)
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER INAN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+CONTACT
+
+For licensing inquiries: legal@codurra.labs
+For support: support@codurra.labs
+For security issues: security@codurra.labs
+
+Version History:
+- v1.0 (2026-06-15): Initial proprietary license

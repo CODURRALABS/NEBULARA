@@ -1,57 +1,49 @@
-# Nebulara Project Structure (CPython-style)
+# Nebulara Project Structure
 
 ```
 nebulara/
-├── src/
-│   ├── nebulara.ts           # Main entry point
-│   ├── Include/               # Type definitions
-│   │   └── nebulara.d.ts
-│   ├── Parser/                # Parser implementation
-│   │   ├── lexer-core.ts
-│   │   ├── parser-core.ts
-│   │   └── grammar.nbs
-│   ├── IR/                    # Intermediate Representation
-│   │   └── ir-ssa.ts
-│   ├── Compiler/              # Native compilation
-│   │   ├── native-compiler.ts  # NASM emitter
-│   │   ├── binary-emitter.ts   # ELF64/PE64 binaries
-│   │   └── x86-encoder.ts      # Raw machine code
-│   ├── VM/                    # Virtual machine
-│   │   └── nvm-vm.ts
-│   ├── Runtime/               # Runtime library
-│   │   ├── builtins.nbs        # Built-in functions
-│   │   └── cognitive.nbs       # Cognitive primitives
-│   ├── Agents/                # AI agents
-│   │   └── aurora-agents.ts
-│   ├── Transpiler/            # Target language emitters
-│   │   └── transpiler.ts
-│   └── Lib/                   # Nebulara standard library (.nbs files)
-│       ├── io.nbs
-│       ├── math.nbs
-│       └── ai.nbs
-├── Grammar/                   # Grammar specification
-│   └── nebulara.gram
-├── Doc/                       # Documentation
-│   ├── reference.md
-│   └── tutorial.md
-├── Tests/                     # Test suite
-│   ├── test_lexer.nbs
-│   ├── test_parser.nbs
-│   └── test_vm.nbs
-├── Tools/                     # Developer tools
-│   ├── format.nbs
-│   └── lint.nbs
-├── configure.sh               # Build configuration
-├── Makefile                   # Build targets
-└── README.md                  # This file
+├── nebulara/Runtime/           # Native runtime (C)
+│   ├── nbs_loader.c           # Module loader - compiles to nbs_loader.exe
+│   ├── nbs_native.c           # Native JIT runtime - compiles to nbs_native.exe
+│   ├── nbs_x64.c              # x64 JIT source (incomplete)
+│   └── VM/                    # Virtual machine
+├── nebulara/Compiler/          # Compiler components
+├── nebulara/Lib/               # Standard library (.nbs files)
+│   ├── io.nbs
+│   ├── math.nbs
+│   └── ai.nbs
+├── void/                       # Void-specific modules
+│   ├── core.nbs
+│   ├── stdlib.nbs
+│   ├── evolution.mjs
+│   └── engine_frontier.nbs
+├── void_frontier.mjs           # Complete JS frontier engine
+├── nbs_native.exe              # Compiled native JIT (working)
+├── nbs_loader.exe              # Compiled loader (working)
+├── nebulara/ARCHITECTURE.md    # Architecture documentation
+├── nebulara/CHANGELOG.md       # Change log
+└── nebulara/README.md          # Project readme
 ```
 
-## Self-Hosting Path
+## Working Executables (2026-06-21)
 
-1. `Grammar/nebulara.gram` - Formal grammar in Nebulara syntax
-2. `Parser/grammar.nbs` - Nebulara-written parser
-3. `Compiler/binary-emitter.nbs` - Nebulara-written binary emitter
-4. `Runtime/builtins.nbs` - Core functions in Nebulara
-5. `Tests/*.nbs` - Language self-tests
+| File | Size | Status | Function |
+|------|------|--------|----------|
+| nbs_native.exe | 59KB | ✅ | Native JIT runtime |
+| nbs_loader.exe | 60KB | ✅ | Module loader |
+| nbs_x64.exe | 59KB | ⚠️ | x64 JIT (won't execute) |
 
-When complete, `nebulara.nbs` → `nebulara.o` → native execution
+## Toolchain
+
+MinGW-w64 i686 installed:
+- Compiler: `C:\mingw-w64\mingw32\bin\gcc.exe`
+- Target: 32-bit x86 (cannot generate x64 opcodes)
+- Needed: x86_64 MinGW or Clang with headers
+
+## Self-Hosting Status
+
+1. `Grammar/nebulara.gram` - Planned
+2. `Compiler/binary-emitter.nbs` - Planned
+3. `Runtime/builtins.nbs` - In progress
+4. Native compilation - Working (C source)
+5. Self-tests - Planned

@@ -1,0 +1,257 @@
+# Aurora Orchestrator - Nebulara Implementation
+# Canonical rewrite of aurora-ai/aurora-orchestrator.ts
+# Built by CODURRA Labs & Technologies
+
+IMPORT std/primitives as primitives
+IMPORT std/kanban as kanban
+IMPORT std/collections as collections
+IMPORT std/time as time
+
+DATA! AgentName
+  CodeSmith = 0
+  DebugMatrix = 1
+  AssetCrafter = 2
+  AudioWeaver = 3
+  Visualia = 4
+  Animora = 5
+  ModelForge = 6
+  GameLogic = 7
+  KnowledgeCore = 8
+END!
+
+DATA! AgentCapabilities
+  caps = {
+    CodeSmith: ['code-generation', 'ast-manipulation', 'transpilation', 'refactoring']
+    DebugMatrix: ['unit-testing', 'static-analysis', 'bug-fixing', 'optimization']
+    AssetCrafter: ['sprite-generation', 'texture-creation', 'icon-design', 'visual-effects']
+    AudioWeaver: ['sfx-generation', 'music-composition', 'audio-processing', 'voice-synthesis']
+    Visualia: ['ui-generation', 'ux-design', 'layout-logic', 'motion-graphics']
+    Animora: ['animation-blending', 'inverse-kinematics', 'keyframe-editing', 'motion-sync']
+    ModelForge: ['mesh-generation', 'shader-compilation', '3d-modeling', 'procedural-assets']
+    GameLogic: ['state-machine', 'npc-pathfinding', 'game-mechanics', 'physics-scripting']
+    KnowledgeCore: ['vector-storage', 'knowledge-retrieval', 'session-memory', 'self-optimization']
+  }
+END!
+
+DATA! AuroraState
+  mode = 'hybrid'
+  platform = 'cluster-forge'
+  active_agents = []
+  task_queue = []
+  is_processing = false
+END!
+
+FUNC! set_mode
+RUN!
+  AuroraState.mode = ARGS[0]
+  PRINT CONCAT '[Aurora] Mode switched to: ' AuroraState.mode
+  RETURN AuroraState.mode
+END!
+END!
+
+FUNC! set_platform
+RUN!
+  AuroraState.platform = ARGS[0]
+  PRINT CONCAT '[Aurora] Platform switched to: ' AuroraState.platform
+  RETURN AuroraState.platform
+END!
+END!
+
+FUNC! get_agent_name
+RUN!
+  idx = ARGS[0]
+  IF? idx == 0 THEN: RETURN 'CodeSmith' END!
+  IF? idx == 1 THEN: RETURN 'DebugMatrix' END!
+  IF? idx == 2 THEN: RETURN 'AssetCrafter' END!
+  IF? idx == 3 THEN: RETURN 'AudioWeaver' END!
+  IF? idx == 4 THEN: RETURN 'Visualia' END!
+  IF? idx == 5 THEN: RETURN 'Animora' END!
+  IF? idx == 6 THEN: RETURN 'ModelForge' END!
+  IF? idx == 7 THEN: RETURN 'GameLogic' END!
+  IF? idx == 8 THEN: RETURN 'KnowledgeCore' END!
+  RETURN 'Unknown'
+END!
+END!
+
+FUNC! agent_capabilities
+RUN!
+  name = ARGS[0]
+  RETURN AgentCapabilities.caps[name]
+END!
+END!
+
+FUNC! initialize_agents
+RUN!
+  names = ['CodeSmith', 'DebugMatrix', 'AssetCrafter', 'AudioWeaver', 'Visualia', 'Animora', 'ModelForge', 'GameLogic', 'KnowledgeCore']
+  FOR! n IN names:
+    agent = {
+      name: n
+      status: 'idle'
+      capabilities: agent_capabilities(n)
+    }
+    APPEND AuroraState.active_agents agent
+  END!
+  PRINT '[Aurora] All 9 agents initialized and standing by.'
+END!
+END!
+
+FUNC! priority_order
+RUN!
+  p = ARGS[0]
+  IF? p == 'critical' THEN: RETURN 0 END!
+  IF? p == 'high' THEN: RETURN 1 END!
+  IF? p == 'normal' THEN: RETURN 2 END!
+  IF? p == 'low' THEN: RETURN 3 END!
+  RETURN 2
+END!
+END!
+
+FUNC! sort_queue_by_priority
+RUN!
+  q = AuroraState.task_queue
+  n = LEN q
+  i = 0
+  WHILE? i < n - 1 THEN:
+    j = 0
+    swapped = false
+    WHILE? j < n - i - 1 THEN:
+      a = q[j]
+      b = q[j + 1]
+      pa = priority_order(a.priority)
+      pb = priority_order(b.priority)
+      IF? pa > pb THEN:
+        tmp = q[j]
+        q[j] = q[j + 1]
+        q[j + 1] = tmp
+        swapped = true
+      END!
+      j = j + 1
+    END!
+    IF? NOT swapped THEN:
+      BREAK
+    END!
+    i = i + 1
+  END!
+  RETURN q
+END!
+END!
+
+FUNC! find_agent
+RUN!
+  name = ARGS[0]
+  FOR! a IN AuroraState.active_agents:
+    IF? a.name == name THEN:
+      RETURN a
+    END!
+  END!
+  RETURN null
+END!
+END!
+
+FUNC! assign_task
+RUN!
+  agent_name = ARGS[0]
+  command = ARGS[1]
+  priority = ARGS[2]
+
+  IF? AuroraState.mode == 'manual' THEN:
+    THROW 'Manual mode active. AI agents are disabled.'
+  END!
+
+  agent = find_agent(agent_name)
+  IF? agent == null THEN:
+    PRINT CONCAT '[Aurora] Agent not found: ' agent_name
+    RETURN null
+  END!
+
+  task = {
+    id: CONCAT 'task_' (timestamp()) '_' (RANDOM_STRING 5)
+    agent: agent_name
+    command: command
+    priority: priority
+    timestamp: timestamp()
+  }
+
+  PUSH AuroraState.task_queue task
+  PRINT CONCAT '[Aurora] Task queued for ' agent_name ': ' command
+  RETURN task.id
+END!
+END!
+
+FUNC! execute_task
+RUN!
+  task = ARGS[0]
+  agent = find_agent(task.agent)
+  IF? agent == null THEN:
+    PRINT CONCAT '[Aurora] Agent not found in registry: ' task.agent
+    RETURN null
+  END!
+
+  agent.status = 'working'
+  start = timestamp()
+  PRINT CONCAT '[Aurora] Starting ' task.agent ': ' task.command
+
+  # Native execution placeholder
+  RUN! 800
+  duration = time.elapsed_ms(start)
+
+  result = {
+    taskId: task.id
+    agent: task.agent
+    success: true
+    output: CONCAT task.agent ' completed: ' task.command
+    duration: duration
+  }
+
+  agent.status = 'idle'
+  PRINT CONCAT '[Aurora] ' task.agent ' completed in ' duration 'ms'
+  RETURN result
+END!
+END!
+
+FUNC! process_queue
+RUN!
+  AuroraState.is_processing = true
+  WHILE? LEN AuroraState.task_queue > 0 THEN:
+    AuroraState.task_queue = sort_queue_by_priority()
+    task = SHIFT AuroraState.task_queue
+    execute_task(task)
+  END!
+  AuroraState.is_processing = false
+END!
+END!
+
+FUNC! dispatch_parallel
+RUN!
+  tasks = ARGS[0]
+  ids = []
+  FOR! t IN tasks:
+    id = assign_task(t.agent, t.command, t.priority)
+    APPEND ids id
+  END!
+  PRINT CONCAT '[Aurora] Dispatched ' (LEN ids) ' parallel tasks'
+  RETURN ids
+END!
+END!
+
+FUNC! list_agents
+RUN!
+  RETURN AuroraState.active_agents
+END!
+END!
+
+FUNC! get_state
+RUN!
+  RETURN AuroraState
+END!
+END!
+
+APP! NebuxiaAurora
+RUN!
+  initialize_agents()
+  RUN! 100
+  PRINT 'NEBUXIA Aurora Orchestrator v2'
+  set_mode('hybrid')
+  set_platform('cluster-forge')
+END!
+END!

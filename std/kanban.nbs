@@ -1,0 +1,83 @@
+# Nebulara Standard Library - Kanban
+# Task board data structures and operations
+
+DATA! KanbanBoard
+  columns = {
+    todo: []
+    in_progress: []
+    review: []
+    done: []
+  }
+  tasks = {}
+  next_id = 1
+END!
+
+FUNC! create_task
+RUN!
+  title = ARGS[0]
+  description = ARGS[1]
+  priority = ARGS[2]
+  
+  task = {
+    id: KanbanBoard.next_id
+    title: title
+    description: description
+    priority: priority
+    status: "todo"
+    created_at: timestamp()
+    updated_at: timestamp()
+  }
+  
+  KanbanBoard.tasks[KanbanBoard.next_id] = task
+  PUSH KanbanBoard.columns.todo task
+  KanbanBoard.next_id = KanbanBoard.next_id + 1
+  
+  RETURN task.id
+END!
+END!
+
+FUNC! move_task
+RUN!
+  task_id = ARGS[0]
+  new_status = ARGS[1]
+  
+  task = KanbanBoard.tasks[task_id]
+  IF? task == null THEN:
+    THROW CONCAT "Task not found: " task_id
+  END!
+  
+  old_status = task.status
+  IF? old_status == new_status THEN:
+    RETURN true
+  END!
+  
+  # Remove from old column
+  KanbanBoard.columns[old_status] = list_remove(KanbanBoard.columns[old_status], task_id)
+  
+  # Add to new column
+  task.status = new_status
+  task.updated_at = timestamp()
+  PUSH KanbanBoard.columns[new_status] task
+  
+  RETURN true
+END!
+END!
+
+FUNC! get_task
+RUN!
+  task_id = ARGS[0]
+  RETURN KanbanBoard.tasks[task_id]
+END!
+END!
+
+FUNC! get_board
+RUN!
+  RETURN KanbanBoard.columns
+END!
+END!
+
+FUNC! get_all_tasks
+RUN!
+  RETURN KanbanBoard.tasks
+END!
+END!

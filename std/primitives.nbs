@@ -1,0 +1,41 @@
+# Nebulara Standard Library - Primitives
+# Fundamental types and basic operations
+
+DATA! Primitives
+END!
+
+FUNC! is_string
+RUN!
+  RETURN TYPE(ARGS[0]) == "string"
+END!
+END!
+
+FUNC! is_number
+RUN!
+  RETURN TYPE(ARGS[0]) == "number"
+END!
+END!
+
+FUNC! is_bool
+RUN!
+  RETURN TYPE(ARGS[0]) == "boolean"
+END!
+END!
+
+FUNC! is_array
+RUN!
+  RETURN TYPE(ARGS[0]) == "array"
+END!
+END!
+
+FUNC! is_object
+RUN!
+  RETURN TYPE(ARGS[0]) == "object"
+END!
+END!
+
+FUNC! is_null
+RUN!
+  RETURN ARGS[0] == null
+END!
+END!

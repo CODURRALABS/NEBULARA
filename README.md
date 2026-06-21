@@ -1,79 +1,59 @@
 # Nebulara
 
-![Nebulara Logo](assets/logo.png)
+**Nebulara - The AI-Native Universal Programming Language**
 
-**Nebulara - Self-hosted native programming language**
+A native compiler that generates machine code with zero external dependencies.
 
-A bare-metal compiler that generates x64 PE binaries with zero external dependencies.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0](https://img.shields.io/badge/Version-1.0-blue.svg)](https://github.com/CODURRALABS/NEBULARA/releases)
-[![Platform: Windows_x64](https://img.shields.io/badge/Platform-Windows_x64-green.svg)]()
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)]()
+[![Status: Frontier Prototype](https://img.shields.io/badge/Status-Prototype-yellow.svg)]()
 
 ## Quick Start
 
-```bash
-# Build native compiler
-gcc Compiler/nbs-bootstrap.c -o nebulara.exe -municode
+```powershell
+# Run native JIT (32-bit x86)
+.\nbs_native.exe "10 + 5"
 
-# Compile .nbs file
-nebulara.exe sources/main.nbs -o program.exe
+# Run JS frontier engine
+node void_frontier.mjs
 
-# Run
-program.exe
+# Load .nbs module
+.\nbs_native.exe "void\core.nbs"
 ```
 
-## Download v1.0
+## Current Capabilities (2026-06-21)
 
-[**nebulara-v1.0-windows-x64.zip**](v1/nebulara-v1.0-windows-x64.zip)
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Native JIT | ✅ Working | x86 opcodes, 32-bit |
+| HTTP Fetch | ✅ Working | Live verified (status 200) |
+| Knowledge Graph | ✅ 1029 nodes | Learned + static |
+| Recursive Learning | ✅ Implemented | 3-level depth |
+| Vector Search | ✅ In-memory | Cosine similarity |
+| Quantization | ✅ Working | 4/8/16/32-bit |
 
-## Language Features
+## Files
 
-- **Native compilation** - Direct x64 machine code
-- **Self-hosted** - No LLVM, no external toolchain
-- **Universal FFI** - Import Node.js, Python, C++, Java, Rust, Go
-- **GPU compute** - Native Vulkan support
-- **Memory safe** - Bounds checking, garbage collection
+- `nebulara/Runtime/nbs_native.c` - Native JIT source
+- `nebulara/Runtime/nbs_x64.c` - x64 JIT source (incomplete)
+- `void_frontier.mjs` - Complete JS engine
+- `void/stdlib.nbs` - Standard library
+- `void/core.nbs` - Core modules
 
-## Directory Structure
+## Limitations
 
-```
-nebulara/
-├── Compiler/     # .nbs -> bytecode compiler
-├── VM/           # Runtime bytecode interpreter
-├── Lib/          # Standard library & FFI
-├── Grammar/      # Language grammar
-├── Packages/     # Distribution bundles
-├── test/         # Test programs
-└── assets/       # Logo and resources
-```
+| Feature | Status | Notes |
+|---------|--------|-------|
+| x64 JIT | ⚠️ Blocked | Need x64 toolchain |
+| GPU Compute | ❌ Stubs | No CUDA/Vulkan |
+| Redis | ❌ Missing | In-memory simulation |
+| ONNX | ❌ Missing | No neural inference |
 
-## Bytecode Opcodes
+## Toolchain (Current)
 
-| Opcode | Description |
-|--------|-------------|
-| 0x01 | PUSH_INT |
-| 0x02 | ADD |
-| 0x03 | SUB |
-| 0x04 | PRINT |
-| 0x05 | CALL |
-| 0x06 | RET |
-| 0x07 | JUMP |
-| 0x08 | JUMP_IF |
-| 0x0B | ALLOC |
-| 0x0C | SYSCALL |
-
-## Building
-
-```bash
-# Native compiler
-gcc Compiler/nbs-bootstrap.c -o bin/nebulara.exe -municode -O2
-
-# FFI adapters
-gcc Lib/nodejs-adapter.c -o pkg/ffi/nodejs.dll -shared
-gcc Lib/python-adapter.c -o pkg/ffi/python.dll -shared
-```
+MinGW-w64 i686 installed at `C:\mingw-w64\mingw32\`
+- `gcc.exe` - Compiles to 32-bit executables
+- `clang.exe` - Available but needs headers for x64
 
 ## License
 
-MIT - See LICENSE
+Proprietary - CODURRA Labs & Technologies

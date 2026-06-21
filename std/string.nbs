@@ -1,0 +1,18 @@
+# Nebulara Standard Library - String
+
+FUNC! concat
+RUN!
+  a = ARGS[0]
+  b = ARGS[1]
+  RETURN CONCAT a b
+END!
+END!
+
+FUNC! slice
+RUN!
+  s = ARGS[0]
+  start = ARGS[1]
+  end = ARGS[2]
+  RETURN SLICE s start end
+END!
+END!
