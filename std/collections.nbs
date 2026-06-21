@@ -1,0 +1,38 @@
+# Nebulara Standard Library - Collections
+# Queue, list, set, map primitives for orchestrator state
+
+DATA! CollectionOps
+END!
+
+FUNC! queue_push
+RUN!
+  q = ARGS[0]
+  item = ARGS[1]
+  PUSH q item
+  RETURN q
+END!
+END!
+
+FUNC! queue_shift
+RUN!
+  q = ARGS[0]
+  IF? LEN q == 0 THEN:
+    RETURN null
+  END!
+  RETURN SHIFT q
+END!
+END!
+
+FUNC! list_remove
+RUN!
+  lst = ARGS[0]
+  item = ARGS[1]
+  out = []
+  FOR! x IN lst:
+    IF? x != item THEN:
+      APPEND out x
+    END!
+  END!
+  RETURN out
+END!
+END!

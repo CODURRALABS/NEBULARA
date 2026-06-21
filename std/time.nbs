@@ -1,0 +1,25 @@
+# Nebulara Standard Library - Time
+# Timestamp utilities and status tracking
+
+DATA! TimeTypes
+  status_idle = 0
+  status_working = 1
+  status_error = 2
+  priority_low = 0
+  priority_normal = 1
+  priority_high = 2
+  priority_critical = 3
+END!
+
+FUNC! timestamp
+RUN!
+  RETURN NOW_EPOCH_MS
+END!
+END!
+
+FUNC! elapsed_ms
+RUN!
+  start = ARGS[0]
+  RETURN (timestamp()) - start
+END!
+END!

@@ -3,6 +3,32 @@
 ## Directory Structure
 
 ```
+nebulara/
+├── index.nbs                   # Main platform entry point
+├── std/
+│   ├── time.nbs                # Timestamp and status utilities
+│   ├── collections.nbs         # Queue, list, set, map primitives
+│   ├── string.nbs              # String manipulation
+│   ├── json.nbs                # JSON parse/stringify
+│   └── net.nbs                 # HTTP client wrappers
+├── aurora/
+│   ├── orchestrator.nbs        # Aurora AI orchestrator
+│   ├── events.nbs              # Event bus system
+│   ├── gateway.nbs             # LLM gateway routing
+│   └── index.nbs               # Aurora subsystem index
+├── knowledge/
+│   └── store.nbs               # KnowledgeCore encrypted storage
+├── transport/
+│   ├── ffi.nbs                 # FFI bridge to Tauri/OS
+│   └── ipc.nbs                 # IPC transport layer
+├── Compiler/                   # .nbs -> bytecode compiler
+├── VM/                         # Runtime bytecode interpreter
+├── Lib/                        # Standard library & FFI
+├── Grammar/                    # Language grammar
+├── Packages/                   # Distribution bundles
+├── test/                       # Test programs
+└── assets/                     # Logo and resources
+```
 src/
 ├── index.ts                    # Main entry point
 ├── lexer/

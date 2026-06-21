@@ -1,0 +1,127 @@
+# Aurora LLM Gateway - Nebulara Implementation
+# Nebulara rewrite of aurora-ai/api-gateway/llm-router.ts
+# Built by CODURRA Labs & Technologies
+
+DATA! Provider
+  openrouter = 0
+  gemini = 1
+  deepseek = 2
+  local = 3
+END!
+
+DATA! ModelMap
+  model = {}
+  # Agent to model routing
+  model['CodeSmith'] = { provider: deepseek, model: 'deepseek-coder-v2' }
+  model['DebugMatrix'] = { provider: openrouter, model: 'openai/gpt-4o' }
+  model['AssetCrafter'] = { provider: openrouter, model: 'openai/gpt-4o' }
+  model['AudioWeaver'] = { provider: gemini, model: 'gemini-1.5-pro' }
+  model['Visualia'] = { provider: gemini, model: 'gemini-1.5-pro' }
+  model['Animora'] = { provider: openrouter, model: 'anthropic/claude-3.7-sonnet' }
+  model['ModelForge'] = { provider: openrouter, model: 'openai/gpt-4o' }
+  model['GameLogic'] = { provider: deepseek, model: 'deepseek-chat' }
+  model['KnowledgeCore'] = { provider: gemini, model: 'gemini-1.5-flash' }
+END!
+
+DATA! ProviderKeys
+  keys = {}
+  # Loaded from env/file at startup
+END!
+
+FUNC! route
+RUN!
+  agent = ARGS[0]
+  prompt = ARGS[1]
+  system_prompt = ARGS[2]
+
+  route_info = ModelMap.model[agent]
+  IF? route_info == null THEN:
+    THROW CONCAT 'Unknown agent: ' agent
+  END!
+
+  provider = route_info.provider
+  model_name = route_info.model
+
+  PRINT CONCAT '[Gateway] Routing ' agent ' -> provider=' provider ' model=' model_name
+
+  IF? provider == openrouter THEN:
+    RETURN call_provider('openrouter', model_name, prompt, system_prompt)
+  END!
+  IF? provider == gemini THEN:
+    RETURN call_provider('gemini', model_name, prompt, system_prompt)
+  END!
+  IF? provider == deepseek THEN:
+    RETURN call_provider('deepseek', model_name, prompt, system_prompt)
+  END!
+  IF? provider == local THEN:
+    RETURN call_provider('local', model_name, prompt, system_prompt)
+  END!
+  THROW 'Unsupported provider'
+END!
+END!
+
+FUNC! call_provider
+RUN!
+  provider_name = ARGS[0]
+  model_name = ARGS[1]
+  prompt = ARGS[2]
+  system_prompt = ARGS[3]
+
+  url = ''
+  body = {}
+  headers = { 'Content-Type': 'application/json' }
+
+  SWITCH! provider_name:
+    CASE 'openrouter':
+      url = 'https://openrouter.ai/api/v1/chat/completions'
+      headers['Authorization'] = CONCAT 'Bearer ' ProviderKeys.keys['OPENROUTER_API_KEY']
+      body = {
+        model: model_name
+        messages: []
+        max_tokens: 4096
+        temperature: 0.7
+      }
+      IF? system_prompt != null THEN:
+        APPEND body.messages { role: 'system', content: system_prompt }
+      END!
+      APPEND body.messages { role: 'user', content: prompt }
+
+    CASE 'gemini':
+      api_key = ProviderKeys.keys['GOOGLE_API_KEY']
+      url = CONCAT 'https://generativelanguage.googleapis.com/v1beta/models/' model_name ':generateContent?key=' api_key
+      body = {
+        contents: [{ parts: [{ text: prompt }] }]
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.7 }
+      }
+      IF? system_prompt != null THEN:
+        body.systemInstruction = { parts: [{ text: system_prompt }] }
+      END!
+
+    CASE 'deepseek':
+      url = 'https://api.deepseek.com/chat/completions'
+      headers['Authorization'] = CONCAT 'Bearer ' ProviderKeys.keys['DEEPSEEK_API_KEY']
+      body = {
+        model: model_name
+        messages: []
+        max_tokens: 4096
+        temperature: 0.7
+      }
+      IF? system_prompt != null THEN:
+        APPEND body.messages { role: 'system', content: system_prompt }
+      END!
+      APPEND body.messages { role: 'user', content: prompt }
+
+    CASE 'local':
+      url = 'http://localhost:11434/api/generate'
+      body = {
+        model: 'llama3'
+        prompt: prompt
+        stream: false
+      }
+  END!
+
+  # HTTP_POST is provided by std/net.nbs
+  res = http_post(url, stringify_json(body), headers)
+  RETURN parse_json(res)
+END!
+END!

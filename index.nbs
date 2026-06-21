@@ -1,0 +1,58 @@
+# NEBUXIA V2 - Main Platform Entry Point (Nebulara)
+# Bootstraps Aurora AI and launches the appropriate platform mode.
+# Built by CODURRA Labs & Technologies
+
+IMPORT aurora as aurora
+IMPORT aurora/events as events
+
+APP! NEBUXIA
+RUN!
+  PRINT ''
+  PRINT '=================================================='
+  PRINT 'CODURRA NEBUXIA V2 - INITIALIZING'
+  PRINT 'Next-Gen AI Development & Simulation Ecosystem'
+  PRINT 'Built by CODURRA Labs & Technologies'
+  PRINT '=================================================='
+  PRINT ''
+
+  # Initialize Aurora AI Orchestrator
+  PRINT 'Booting Aurora AI Orchestrator...'
+  aurora.initialize_agents()
+
+  # Register event listeners
+  events.on('task:queued', CALLBACK(task THEN:
+    PRINT CONCAT '[Event] Task queued: ' task.id ' -> ' task.agent
+  END!))
+
+  events.on('task:completed', CALLBACK(result THEN:
+    PRINT CONCAT '[Event] Task completed: ' result.taskId ' (' result.duration 'ms)'
+  END!))
+
+  events.on('task:failed', CALLBACK(result THEN:
+    PRINT CONCAT '[Event] Task failed: ' result.taskId ' -- ' result.error
+  END!))
+
+  events.on('mode:changed', CALLBACK(mode THEN:
+    PRINT CONCAT '[Event] Mode changed: ' mode
+  END!))
+
+  events.on('platform:changed', CALLBACK(platform THEN:
+    PRINT CONCAT '[Event] Platform changed: ' platform
+  END!))
+
+  # Log agent roster
+  agents = aurora.list_agents()
+  PRINT CONCAT '' agents.length ' agents online:'
+  FOR! a IN agents:
+    PRINT CONCAT '   - ' a.name ' [' a.status '] -- ' (SLICE (a.capabilities[0] + ', ' + a.capabilities[1]) 0 -1)
+  END!
+
+  # Set initial mode
+  aurora.set_mode('hybrid')
+  aurora.set_platform('cluster-forge')
+
+  PRINT ''
+  PRINT 'NEBUXIA V2 is ready. Aurora is listening...'
+  PRINT ''
+END!
+END!

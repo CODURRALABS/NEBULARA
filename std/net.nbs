@@ -1,0 +1,18 @@
+# Nebulara Standard Library - Network
+# HTTP client and transport primitives
+
+FUNC! http_get
+RUN!
+  url = ARGS[0]
+  RETURN HTTP_GET url
+END!
+END!
+
+FUNC! http_post
+RUN!
+  url = ARGS[0]
+  body = ARGS[1]
+  headers = ARGS[2]
+  RETURN HTTP_POST url body headers
+END!
+END!

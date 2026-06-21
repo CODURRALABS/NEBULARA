@@ -1,0 +1,16 @@
+# Nebulara Standard Library - JSON
+# JSON parse/stringify wrappers
+
+FUNC! parse_json
+RUN!
+  raw = ARGS[0]
+  RETURN JSON_PARSE raw
+END!
+END!
+
+FUNC! stringify_json
+RUN!
+  obj = ARGS[0]
+  RETURN JSON_STRINGIFY obj
+END!
+END!

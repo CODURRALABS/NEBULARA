@@ -1,0 +1,37 @@
+# Nebulara Knowledge Core
+# Persistent encrypted storage and knowledge retrieval
+
+DATA! Store
+  records = {}
+END!
+
+FUNC! store
+RUN!
+  key = ARGS[0]
+  value = ARGS[1]
+  Store.records[key] = value
+  RETURN true
+END!
+END!
+
+FUNC! retrieve
+RUN!
+  key = ARGS[0]
+  RETURN Store.records[key]
+END!
+END!
+
+FUNC! remove
+RUN!
+  key = ARGS[0]
+  existed = Store.records[key] != null
+  DELETE Store.records[key]
+  RETURN existed
+END!
+END!
+
+FUNC! list_keys
+RUN!
+  RETURN KEYS Store.records
+END!
+END!
