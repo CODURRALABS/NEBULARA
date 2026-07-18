@@ -1,178 +1,63 @@
-# Nebulara Language v3.0
+# Nebulara Language
 
-**AI-Native Universal Programming Language** for Agentic Sovereignty
+**AI-Native Universal Programming Language**
 
 ## Quick Start
 
 ```bash
 npm install @codurra/nebulara
-npx nebulara run program.nbs
+neb run program.nbs
+neb test           # run built-in test suite
 ```
+
+## What is Nebulara?
+
+Nebulara is a simple, readable programming language designed for AI-native workflows. It features a C-like syntax with English keywords, optional semicolons, and built-in support for AI/ML operations.
 
 ## Features
 
-- **Zero Dependencies** - Native toolchain without LLVM or external tools
-- **AI-Native** - Weight-based logic, spatial vectors, waveform patterns
-- **Native Compilation** - ELF64/PE64 binaries directly
-- **P2P Networking** - Shadow Web distributed computing
-- **Self-Hosting** - Compiler written in Nebulara itself
+- **Simple Syntax** - No mandatory semicolons, colons, or brackets
+- **Zero Dependencies** - Self-contained interpreter and CLI
+- **AI-Native** - Neural primitives, knowledge graph, agent orchestration
+- **Multi-Target** - Interpreter, transpiler (JS/Python), native compiler
+- **NPM Distribution** - Easy install, cross-platform
 
----
-
-## Language Reference
-
-### Identity Markers (`!`)
-
-| Marker | Scope | Description |
-|--------|-------|-------------|
-| `APP!` | Global | Project/application boundary |
-| `AI!` | Cognitive | AI processing block |
-| `ENTITY!` | Agent | Persistent living agent |
-| `CELL!` | Module | Isolated logic component |
-| `DATA!` | Storage | Persistent/sharded data block |
-| `RUN!` | Execution | Runtime execution block |
-| `FUNC!` | Function | Function definition |
-| `LOOP!` | Loop | Infinite loop |
-| `IF?` | Conditional | Cognitive branching |
-| `WHILE?` | Loop | Intent-driven loop |
-
-### Capability Tags (`@`)
-
-| Tag | Purpose |
-|-----|---------|
-| `@LOGIC` | High-level reasoning |
-| `@EXECUTE` | Low-level execution |
-| `@REFLECT` | Recursive validation |
-| `@CREATIVE` | Multi-modal generation |
-| `@SHADOW` | P2P discovery |
-| `@SHARD` | Data sharding control |
-
-### Cognitive Primitives
-
-**Weights (0.0 - 1.0)**
-```nebulara
-confidence = 0.85!   # High confidence
-inquisitive = 0.2?   # Low confidence
-```
-
-**Spatial Vectors**
-```nebulara
-position = V<10, 20, 5>
-```
-
-**Waveforms**
-```nebulara
-signature = ~A4F7B2C1~
-```
-
-### Control Flow
+## Language Basics
 
 ```nebulara
-APP! "MyApp"
+# Variable declaration
+LET name = "Nebulara"
+LET x = 42
 
-RUN!
-  IF? 0.8! >= 0.5 THEN:
-    PRINT "High confidence detected"
-  ELSE:
-    PRINT "Low confidence"
-  END!
-
-  LOOP!
-    PRINT "Infinite loop"
-  END!
-
-  VAR! count = 0
-  WHILE? count < 10 THEN:
-    PRINT "Count: " + count
-    count = count + 1
-  END!
+# Function definition
+FUNC! add(a, b):
+  RETURN a + b
 END!
+
+PRINT add(3, 4)  # prints 7
+
+# Control flow
+IF? x > 10:
+  PRINT "big"
+ELSE:
+  PRINT "small"
+END!
+
+# Loops
+FOR! i = 1 TO 5:
+  PRINT i
+END!
+
+WHILE? x < 100:
+  x = x * 2
 END!
 ```
 
----
+## Documentation
 
-## API Reference
-
-### Main Class
-
-```typescript
-import { Nebulara } from '@codurra/nebulara'
-
-const neb = new Nebulara()
-
-// Interpret
-neb.interpret('PRINT "Hello"')
-
-// Transpile to target
-neb.toJavaScript('PRINT "Hello"')
-neb.toPython('PRINT "Hello"')
-neb.toCPP('PRINT "Hello"')
-neb.toRust('PRINT "Hello"')
-
-// Compile to native binary
-const binary = neb.compile('PRINT "Hello"')
-```
-
-### VM Execution
-
-```typescript
-import { NVM500, CognitiveLogicEngine, AuroraOrchestrator } from '@codurra/nebulara'
-
-// Direct VM execution
-const vm = new NVM500()
-vm.execute(program)
-
-// Cognitive operations
-const engine = new CognitiveLogicEngine()
-engine.evaluateWeight(0.8, 'MID')  // true
-engine.spatialVector.distance(v1, v2)  // Euclidean distance
-```
-
-### P2P Networking
-
-```typescript
-import { ShadowWeb, P2PNode } from '@codurra/nebulara'
-
-const node = new P2PNode()
-await node.start(8080)
-
-node.on('data', (d) => console.log(d))
-```
-
----
-
-## Architecture
-
-```
-Source Code (.nbs)
-    ↓
-Lexer (296 lines) → Tokens
-    ↓
-Parser (382 lines) → AST
-    ↓
-SSA IR (131 lines) → Instructions
-    ↓
-Native Compiler (118 lines) → x86-64 ASM
-    ↓
-Binary Emitter (151 lines) → ELF64/PE64
-    ↓
-Native Execution
-```
-
----
-
-## Performance Targets
-
-| Component | Target | Current |
-|-----------|--------|---------|
-| Lexer | 50K tokens/ms | ~30K |
-| Parser | 20K AST nodes/ms | ~15K |
-| VM | 1M instr/sec | ~500K |
-| Binary | Direct codegen | NASM step |
-
----
+- [SPEC.md](../SPEC.md) - Language specification
+- [CHANGELOG.md](CHANGELOG.md) - Version history
 
 ## License
 
-MIT License - Nebulara Project
+Proprietary - All rights reserved.

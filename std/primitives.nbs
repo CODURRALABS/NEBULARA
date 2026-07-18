@@ -1,41 +1,30 @@
 # Nebulara Standard Library - Primitives
-# Fundamental types and basic operations
+# Type checking and basic operations
 
-DATA! Primitives
-END!
-
-FUNC! is_string
-RUN!
-  RETURN TYPE(ARGS[0]) == "string"
-END!
+FUNC! is_string(v):
+  RETURN TYPEOF(v) == "string"
 END!
 
-FUNC! is_number
-RUN!
-  RETURN TYPE(ARGS[0]) == "number"
-END!
+FUNC! is_number(v):
+  RETURN TYPEOF(v) == "int"
 END!
 
-FUNC! is_bool
-RUN!
-  RETURN TYPE(ARGS[0]) == "boolean"
-END!
+FUNC! is_bool(v):
+  RETURN TYPEOF(v) == "bool"
 END!
 
-FUNC! is_array
-RUN!
-  RETURN TYPE(ARGS[0]) == "array"
-END!
+FUNC! is_array(v):
+  RETURN TYPEOF(v) == "array"
 END!
 
-FUNC! is_object
-RUN!
-  RETURN TYPE(ARGS[0]) == "object"
-END!
+FUNC! is_null(v):
+  RETURN TYPEOF(v) == "null"
 END!
 
-FUNC! is_null
-RUN!
-  RETURN ARGS[0] == null
+FUNC! to_int(v):
+  RETURN TO_NUMBER(v)
 END!
+
+FUNC! to_str(v):
+  RETURN TO_STRING(v)
 END!

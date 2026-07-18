@@ -1,18 +1,22 @@
-# Nebulara Standard Library - Network
-# HTTP client and transport primitives
+# Nebulara Standard Library - Net
+# Network and HTTP utilities (stubs for FFI)
 
-FUNC! http_get
-RUN!
-  url = ARGS[0]
-  RETURN HTTP_GET url
-END!
+# HTTP functions require FFI to libcurl or platform HTTP library - not yet implemented
+
+# Planned API: GET request, returns response body as string
+FUNC! http_get(url):
+  PRINT "net.http_get: not yet implemented - requires FFI to libcurl or platform HTTP library"
+  RETURN NULL
 END!
 
-FUNC! http_post
-RUN!
-  url = ARGS[0]
-  body = ARGS[1]
-  headers = ARGS[2]
-  RETURN HTTP_POST url body headers
+# Planned API: POST request with body, returns response body as string
+FUNC! http_post(url, body):
+  PRINT "net.http_post: not yet implemented - requires FFI to libcurl or platform HTTP library"
+  RETURN NULL
 END!
+
+# Planned API: Start HTTP server on given port
+FUNC! serve(port):
+  PRINT "net.serve: not yet implemented - requires FFI to libcurl or platform HTTP library"
+  RETURN NULL
 END!
