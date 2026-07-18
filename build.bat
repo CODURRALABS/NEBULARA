@@ -1,59 +1,47 @@
 @echo off
-REM Nebulara Compiler Build Script
-REM Compiles the C runtime, transpilers, and test modules
-
 echo ========================================
-echo CODURRA NEBUXIA V2 - Nebulara Build
+echo Nebulara Build
 echo ========================================
 
-set NBS_SRC=nebulara\Compiler\nbs-bootstrap.c
-set NBS_OUT=nebulara\bin\nbsc.exe
-set RUNTIME_SRC=nebulara\runtime\nbs_loader.c
+if not exist build mkdir build
 
-echo [1/4] Building C runtime...
-if not exist nebulara\bin mkdir nebulara\bin
-gcc %RUNTIME_SRC% -o nebulara\bin\nbs_loader.dll -shared -O2
-if errorlevel 1 (
-    echo [ERROR] Failed to build nbs_loader.dll
+set FAIL=0
+
+echo [1/6] Building interpreter...
+gcc -static -O2 -Wall "Compiler\nbs-bootstrap.c" -o "build\nebulara.exe" -lm
+if %errorlevel% neq 0 (echo [FAIL] Interpreter build failed & set FAIL=1) else (echo [OK] build\nebulara.exe)
+
+echo [2/6] Building CLI...
+gcc -static -O2 -Wall "Compiler\nbs_cli.c" -o "build\neb-cli.exe" -lm
+if %errorlevel% neq 0 (echo [FAIL] CLI build failed & set FAIL=1) else (echo [OK] build\neb-cli.exe)
+
+echo [3/6] Building pipeline (includes semantic analyzer)...
+gcc -O2 -Wall "Compiler\neb-pipeline.c" -o "build\neb-pipeline.exe"
+if %errorlevel% neq 0 (echo [FAIL] Pipeline build failed & set FAIL=1) else (echo [OK] build\neb-pipeline.exe)
+
+echo [4/6] Building native codegen...
+gcc -static -O2 -Wall "Compiler\neb-codegen.c" -o "build\neb-codegen.exe"
+if %errorlevel% neq 0 (echo [FAIL] Codegen build failed & set FAIL=1) else (echo [OK] build\neb-codegen.exe)
+
+echo [5/6] Building FFI module...
+gcc -static -O2 -Wall "Compiler\neb-ffi.c" -o "build\neb-ffi.exe"
+if %errorlevel% neq 0 (echo [FAIL] FFI build failed & set FAIL=1) else (echo [OK] build\neb-ffi.exe)
+
+echo [6/6] Building knowledge graph...
+gcc -static -O2 -Wall "Compiler\neb-knowledge.c" -o "build\neb-knowledge.exe"
+if %errorlevel% neq 0 (echo [FAIL] Knowledge graph build failed & set FAIL=1) else (echo [OK] build\neb-knowledge.exe)
+
+if %FAIL% neq 0 (
+    echo.
+    echo Build FAILED
     exit /b 1
 )
-echo [OK] nbs_loader.dll built
 
-echo [2/4] Building Nebulara compiler...
-gcc %NBS_SRC% -o %NBS_OUT% -O2 -municode
-if errorlevel 1 (
-    echo [ERROR] Failed to build nbsc.exe
-    exit /b 1
-)
-echo [OK] nbsc.exe built
-
-echo [3/4] Building Tauri FFI...
-cd platform\tauri
-cargo build --release
-if errorlevel 1 (
-    echo [ERROR] Failed to build Tauri FFI
-    cd ..\..
-    exit /b 1
-)
-cd ..\..
-echo [OK] Tauri FFI built
-
-echo [4/4] Running tests...
-if exist nebulara\test\hello.nbs (
-    %NBS_OUT% nebulara\test\hello.nbs -o nebulara\test\hello.exe
-    if errorlevel 1 (
-        echo [ERROR] Test compilation failed
-        exit /b 1
-    )
-    echo [OK] Test passed
-)
-
-echo ========================================
-echo Build Complete
-echo ========================================
 echo.
-echo Usage:
-echo   nebulara\bin\nbsc.exe input.nbs -o output.exe
-echo.
+echo Running tests...
+build\nebulara.exe test\hello.nbs
+if %errorlevel% neq 0 (echo [FAIL] Test failed & exit /b 1)
+echo [OK] All tests passed
 
-pause
+echo.
+echo Build complete! 6 binaries in build\
