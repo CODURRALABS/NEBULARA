@@ -1,0 +1,4 @@
+PRINT "hello from test"
+LET x = 10
+LET y = 20
+PRINT x + y

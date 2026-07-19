@@ -1,0 +1,5 @@
+LET word = "PRINT"
+IF? word == "PRINT": PRINT "matched PRINT" END!
+IF? word == "LET": PRINT "matched LET" END!
+IF? word == "IF?" OR word == "IF": PRINT "matched IF" END!
+PRINT "done"

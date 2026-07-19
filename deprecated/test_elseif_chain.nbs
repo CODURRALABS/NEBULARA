@@ -1,0 +1,8 @@
+LET c = 80
+IF? c == 80:
+  PRINT "match"
+ELSEIF? c == 81:
+  PRINT "nope"
+ELSEIF? c == 82:
+  PRINT "nope"
+END!

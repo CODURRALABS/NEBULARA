@@ -1,0 +1,22 @@
+# Nebulara Transport - FFI Bridge
+# Bridges Nebulara to Tauri/Rust/OS layers
+
+DATA! FFIFunctions
+END!
+
+FUNC! register_ffi
+RUN!
+  name = ARGS[0]
+  ptr = ARGS[1]
+  FFIFunctions[name] = ptr
+  RETURN true
+END!
+END!
+
+FUNC! call_ffi
+RUN!
+  name = ARGS[0]
+  args = ARGS[1]
+  RETURN FFI_CALL name args
+END!
+END!

@@ -1,0 +1,11 @@
+LET v = 19
+PRINT "v&255 = " + TO_STRING(v & 255)
+PRINT "(v>>8)&255 = " + TO_STRING((v >> 8) & 255)
+PRINT "(v>>16)&255 = " + TO_STRING((v >> 16) & 255)
+PRINT "(v>>24)&255 = " + TO_STRING((v >> 24) & 255)
+LET arr = [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255]
+LET i = 0
+WHILE? i < LEN(arr):
+  PRINT "arr[" + TO_STRING(i) + "] = " + TO_STRING(arr[i])
+  i = i + 1
+END!

@@ -1,5 +1,5 @@
 {
-  "name": "@codurra/nebulara",
+  "name": "nebulara",
   "version": "2.0.0",
   "description": "Nebulara - AI-native universal programming language ecosystem",
   "main": "dist/index.js",
@@ -28,5 +28,12 @@
   "keywords": ["compiler", "programming-language", "ai-native", "nebulara"],
   "author": "Codurra",
   "license": "UNLICENSED",
-  "private": true
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CODURRALABS/NEBULARA.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": ["win32", "linux", "darwin"]
 }

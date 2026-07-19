@@ -1,0 +1,4 @@
+LET a = [1]
+LET x = TO_STRING(a[0])
+PRINT "x:" + x
+PRINT "done"

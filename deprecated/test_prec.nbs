@@ -1,0 +1,7 @@
+LET a = []
+LET i = 0
+WHILE? LEN(a) <= i + 2:
+  a = a + [999]
+END!
+PRINT TO_STRING(LEN(a))
+PRINT "done"

@@ -1,0 +1,28 @@
+# Standard Library - IO Module
+# io.nbs
+
+FUNC! "read_file"
+RUN!
+  # Open file, read content
+  # Return string
+END!
+END!
+
+FUNC! "write_file"
+RUN!
+  # Open file, write binary or string
+END!
+END!
+
+FUNC! "print_line"
+RUN!
+  # Print with newline
+  PRINT MSG + "\n"
+END!
+END!
+
+APP! "IO"
+RUN!
+  PRINT "IO library loaded"
+END!
+END!

@@ -1,0 +1,5 @@
+LET a = [1, 2, 3]
+PRINT TO_STRING(a[0])
+a[0] = 99
+PRINT TO_STRING(a[0])
+PRINT "done"

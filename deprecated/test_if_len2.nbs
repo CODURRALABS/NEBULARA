@@ -1,0 +1,5 @@
+LET a = [1]
+IF? LEN(a) <= 2:
+  PRINT "le2"
+END!
+PRINT "done"

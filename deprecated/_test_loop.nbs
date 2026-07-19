@@ -1,0 +1,14 @@
+LET v = 19
+LET bi = 0
+WHILE? bi < 4:
+  LET shift = bi * 8
+  LET shifted = v >> shift
+  LET masked = shifted & 255
+  PRINT "bi=" + TO_STRING(bi) + " shift=" + TO_STRING(shift) + " shifted=" + TO_STRING(shifted) + " masked=" + TO_STRING(masked)
+  bi = bi + 1
+END!
+PRINT "--- direct without loop ---"
+PRINT "v>>0&255=" + TO_STRING(v>>0&255)
+PRINT "v>>8&255=" + TO_STRING(v>>8&255)
+PRINT "v>>16&255=" + TO_STRING(v>>16&255)
+PRINT "v>>24&255=" + TO_STRING(v>>24&255)

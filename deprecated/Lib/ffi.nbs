@@ -1,0 +1,82 @@
+# Universal FFI Importer
+# Lib/ffi.nbs
+
+DATA! "LanguageAdapters"
+  python = "python_adapter.nbs"
+  nodejs = "nodejs_adapter.nbs"
+  java = "java_adapter.nbs"
+  cpp = "cpp_adapter.nbs"
+  rust = "rust_adapter.nbs"
+  go = "go_adapter.nbs"
+  ruby = "ruby_adapter.nbs"
+END!
+
+FUNC! "import_module"
+RUN!
+  EXT = GET_EXTENSION(PATH)
+  SWITCH! EXT:
+    CASE ".py":
+      RETURN IMPORT_PYTHON(PATH)
+    CASE ".js":
+      RETURN IMPORT_NODEJS(PATH)
+    CASE ".ts":
+      RETURN IMPORT_TYPESCRIPT(PATH)
+    CASE ".java":
+      RETURN IMPORT_JAVA(PATH)
+    CASE ".cpp":
+      RETURN IMPORT_CPP(PATH)
+    CASE ".nebulara":
+    CASE ".nbs":
+      RETURN IMPORT_NEBULARA(PATH)
+  END!
+END!
+END!
+
+FUNC! "import_python"
+RUN!
+  # Embed CPython runtime
+  # Convert Python AST to Nebulara SSA
+  # JIT compile to x64
+END!
+END!
+
+FUNC! "import_nodejs"
+RUN!
+  # Spawn Node.js process
+  # Serialize via JSON/BSON
+  # Async bridge
+END!
+END!
+
+FUNC! "import_cpp"
+RUN!
+  # Load DLL via Windows API
+  # Extract exports
+  # Generate Nebulara FFI bindings
+END!
+END!
+
+FUNC! "import_java"
+RUN!
+  # Load JVM via JNI
+  # Extract classes
+  # Wrap in Nebulara objects
+END!
+END!
+
+FUNC! "import_typescript"
+RUN!
+  # Convert TS AST to Nebulara SSA
+  # Type mapping: TS number -> Nebulara Float64
+  # Module wrapper
+END!
+END!
+
+# Foreign Function Interface
+FUNC! "foreign_call"
+RUN!
+  # Call external functions via FFI
+  # Type marshal: string, int, float, array, object
+  # Error propagate
+END!
+END!

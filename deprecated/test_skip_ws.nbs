@@ -1,0 +1,44 @@
+LET G_source = "PRINT x"
+LET G_src_len = 0
+LET G_src_pos = 0
+LET G_line = 1
+
+FUNC! is_alpha c:
+  IF? c >= 65 AND c <= 90: RETURN 1 END!
+  IF? c >= 97 AND c <= 122: RETURN 1 END!
+  IF? c == 95 OR c == 33 OR c == 63: RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! lexer_skip_ws:
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c == 32 OR c == 9 OR c == 13 OR c == 10:
+      G_src_pos = G_src_pos + 1
+    ELSEIF? c == 35:
+      WHILE? G_src_pos < G_src_len:
+        LET c2 = CHAR_AT(G_source, G_src_pos)
+        IF? c2 == 10:
+          G_src_pos = G_src_pos + 1
+          G_line = G_line + 1
+          BREAK
+        END!
+        G_src_pos = G_src_pos + 1
+      END!
+    ELSE:
+      BREAK
+    END!
+  END!
+END!
+
+FUNC! test_skip_ws:
+  G_src_len = LEN(G_source)
+  G_src_pos = 0
+  PRINT "len=" + TO_STRING(G_src_len)
+  lexer_skip_ws()
+  PRINT "pos after ws=" + TO_STRING(G_src_pos)
+  LET c = CHAR_AT(G_source, G_src_pos)
+  PRINT "first char=" + TO_STRING(c)
+END!
+
+test_skip_ws()

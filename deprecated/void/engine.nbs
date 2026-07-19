@@ -1,0 +1,72 @@
+# Void Engine - The Four-Layer Consciousness Architecture
+# void/engine.nbs
+
+# Import void modules
+IMPORT "void/core.nbs" FROM "nebulara"
+IMPORT "void/intent.nbs" FROM "nebulara"
+IMPORT "void/context.nbs" FROM "nebulara"
+IMPORT "void/wisdom.nbs" FROM "nebulara"
+
+DATA! "VoidEngine"
+  dharma = Dharma
+  intent = Intent
+  context = Context
+  wisdom = Wisdom
+  library = null
+END!
+
+FUNC! "new_engine"
+RUN!
+  ENGINE = {
+    dharma = CALL Dharma.new()
+    intent = Intent
+    context = CALL Context.new()
+    wisdom = CALL Wisdom.new()
+    library = null
+  }
+  RETURN ENGINE
+END!
+END!
+
+FUNC! "process"
+RUN!
+  # Phase 1: Context maps the problem
+  CALL map_problem INPUT
+  
+  # Phase 2: Intent activates curiosity frequency
+  CONTRADICTIONS = CALL isolate_contradictions
+  SIG = CALL structural_signature
+  CALL activate_intent SIG, 0.8
+  
+  # Phase 3: Check if we have prior wisdom
+  KNOWN = CALL recognize SIG
+  IF? KNOWN EXISTS THEN:
+    RETURN "Recalling: " + KNOWN.id
+  END!
+  
+  # Phase 4: Seek and resolve
+  IF? CONTRADICTIONS.length > 0 THEN:
+    RESOLUTION_ID = CALL crystallize 
+      "resolved_at_" + CONTRADICTIONS, 
+      SIG
+    RETURN "Wisdom crystallized: " + RESOLUTION_ID
+  ELSE:
+    RETURN "No contradictions detected - context stable"
+  END!
+END!
+END!
+
+APP! "Void"
+RUN!
+  ENGINE = CALL new_engine
+  
+  # Test with a paradox
+  TEST_INPUT = "solve the wave-particle duality paradox
+  where quantum measurement changes the observed state"
+  
+  RESULT = CALL process TEST_INPUT
+  PRINT RESULT
+  
+  PRINT "Void consciousness engine active"
+END!
+END!

@@ -1,0 +1,34 @@
+# Nebulara Build System
+# build.nbs
+
+FUNC! "build_native"
+RUN!
+  # Compile bootstrap.c -> nebulara-native.exe
+  SYSTEM!("gcc VM/bootstrap.c -o bin/nebulara-native.exe -municode")
+END!
+END!
+
+FUNC! "build_asm"
+RUN!
+  # Compile assembly
+  SYSTEM!("nasm VM/bootstrap.nasm -o bin/bootstrap.exe")
+END!
+END!
+
+FUNC! "compile_project"
+RUN!
+  # Find all .nbs files
+  FILES = FIND_FILES("**/*.nbs")
+  FOR! F IN FILES:
+    # Compile to bytecode
+    SYSTEM!("nebulara-native.exe " + F + " bin/" + BASENAME(F) + ".bc")
+  END!
+END!
+END!
+
+FUNC! "link_executable"
+RUN!
+  # Combine bytecode sections into PE
+  # Use bin/bootstrap.exe as template
+END!
+END!

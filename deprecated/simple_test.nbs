@@ -1,0 +1,6 @@
+# Simple test for self-hosted compiler
+PRINT "Hello from self-hosted compiler!"
+LET x = 42
+LET y = 8
+PRINT x + y
+PRINT x * y

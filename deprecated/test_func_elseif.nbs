@@ -1,0 +1,16 @@
+LET G_count = 0
+
+FUNC! test_func:
+  LET word = "PRINT"
+  IF? word == "PRINT":
+    PRINT "got print"
+  ELSEIF? word == "LET":
+    PRINT "got let"
+  ELSEIF? word == "FOR":
+    PRINT "got for"
+  ELSE:
+    PRINT "ident: " + word
+  END!
+END!
+
+test_func()

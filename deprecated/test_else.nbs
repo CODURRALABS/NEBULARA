@@ -1,0 +1,7 @@
+LET a = 10
+IF? a <= 2:
+  PRINT "le2"
+ELSE:
+  PRINT "gt2"
+END!
+PRINT "done"

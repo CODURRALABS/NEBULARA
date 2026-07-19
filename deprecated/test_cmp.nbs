@@ -1,0 +1,9 @@
+LET a = 0
+a = a + 1
+IF? a <= 2:
+  PRINT "le2:" + TO_STRING(a)
+END!
+IF? a <= 3:
+  PRINT "le3:" + TO_STRING(a)
+END!
+PRINT "done"

@@ -1,0 +1,8 @@
+PRINT "step 1"
+LET path = "C:/Users/Admin/Downloads/void 1/nebulara/test_simple.nbs"
+PRINT path
+PRINT "step 2"
+LET content = READ_FILE(path)
+PRINT "step 3"
+PRINT content
+PRINT "step 4"

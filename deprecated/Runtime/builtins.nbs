@@ -1,0 +1,40 @@
+# Nebulara Runtime - Builtins.nbs
+# Core runtime functions written in Nebulara
+
+DATA! "SystemCalls"
+  SYS_WRITE = 1
+  SYS_EXIT = 60
+END!
+
+FUNC! "print"
+RUN!
+  # Native implementation of PRINT
+  # Uses sys_write syscall directly
+END!
+END!
+
+FUNC! "weight_evaluate"
+RUN!
+  # Trimodal weight logic
+  # LOW (0.3), MID (0.5), HIGH (0.7) thresholds
+END!
+END!
+
+FUNC! "spatial_distance"
+RUN!
+  # Euclidean distance for V<x,y,z>
+  # sqrt((x1-x2)² + (y1-y2)² + (z1-z2)²)
+END!
+END!
+
+FUNC! "waveform_match"
+RUN!
+  # Pattern recognition for ~HEX~
+END!
+END!
+
+APP! "NebularaRuntime"
+RUN!
+  PRINT "Runtime v1.0 loaded"
+END!
+END!

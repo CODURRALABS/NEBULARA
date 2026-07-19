@@ -1,0 +1,38 @@
+FUNC! test_long word:
+  IF? word == "PRINT":
+    PRINT "print"
+  ELSEIF? word == "LET":
+    PRINT "let"
+  ELSEIF? word == "IF":
+    PRINT "if"
+  ELSEIF? word == "ELSE":
+    PRINT "else"
+  ELSEIF? word == "WHILE":
+    PRINT "while"
+  ELSEIF? word == "FOR":
+    PRINT "for"
+  ELSEIF? word == "FUNC":
+    PRINT "func"
+  ELSEIF? word == "END":
+    PRINT "end"
+  ELSEIF? word == "RETURN":
+    PRINT "return"
+  ELSEIF? word == "AND":
+    PRINT "and"
+  ELSEIF? word == "OR":
+    PRINT "or"
+  ELSEIF? word == "NOT":
+    PRINT "not"
+  ELSEIF? word == "TRUE":
+    PRINT "true"
+  ELSEIF? word == "FALSE":
+    PRINT "false"
+  ELSE:
+    PRINT "other: " + word
+  END!
+END!
+
+test_long("PRINT")
+test_long("LET")
+test_long("FUNC")
+test_long("UNKNOWN")

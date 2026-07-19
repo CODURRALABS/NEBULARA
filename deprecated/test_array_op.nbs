@@ -1,0 +1,8 @@
+LET G_tokens = []
+LET i = 0
+WHILE? LEN(G_tokens) <= 2:
+  G_tokens = G_tokens + [0]
+  i = i + 1
+  PRINT "loop:" + TO_STRING(i)
+END!
+PRINT "done:" + TO_STRING(LEN(G_tokens))

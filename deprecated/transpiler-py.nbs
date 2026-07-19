@@ -1,0 +1,188 @@
+# Nebulara Transpiler - Python Target
+# Compiler/transpiler-py.nbs
+# Converts .nbs AST to Python code
+
+FUNC! transpile_py
+RUN!
+  ast = ARGS[0]
+  output = []
+  
+  FOR! node IN ast:
+    SWITCH! node.type:
+      CASE "DATA":
+        APPEND output (py_data(node))
+      CASE "FUNC":
+        APPEND output (py_func(node))
+      CASE "IMPORT":
+        APPEND output (py_import(node))
+      CASE "APP":
+        APPEND output (py_app(node))
+    END!
+  END!
+  
+  RETURN JOIN output "\n"
+END!
+END!
+
+FUNC! py_data
+RUN!
+  node = ARGS[0]
+  fields = []
+  
+  FOR! field IN node.fields:
+    key = field.key
+    val = field.value
+    APPEND fields CONCAT key ": " (py_value(val))
+  END!
+  
+  RETURN CONCAT node.name " = {\n  " (JOIN fields ",\n  ") "\n}"
+END!
+END!
+
+FUNC! py_func
+RUN!
+  node = ARGS[0]
+  body = py_block(node.body)
+  RETURN CONCAT "def " node.name "():\n" body
+END!
+END!
+
+FUNC! py_block
+RUN!
+  stmts = ARGS[0]
+  output = []
+  indent = "  "
+  
+  FOR! stmt IN stmts:
+    APPEND output (py_stmt(stmt, indent))
+  END!
+  
+  RETURN JOIN output "\n"
+END!
+END!
+
+FUNC! py_stmt
+RUN!
+  stmt = ARGS[0]
+  indent = ARGS[1]
+  
+  SWITCH! stmt.type:
+    CASE "ASSIGN":
+      key = stmt.key
+      val = py_value(stmt.value)
+      RETURN CONCAT indent key " = " val
+    
+    CASE "PRINT":
+      msg = py_value(stmt.value)
+      RETURN CONCAT indent "print(" msg ")"
+    
+    CASE "RETURN":
+      val = py_value(stmt.value)
+      RETURN CONCAT indent "return " val
+    
+    CASE "IF":
+      cond = py_value(stmt.condition)
+      then_body = py_block(stmt.then_block, CONCAT indent "  ")
+      result = CONCAT indent "if " cond ":\n" then_body
+      
+      IF? stmt.else_block != null THEN:
+        else_body = py_block(stmt.else_block, CONCAT indent "  ")
+        result = CONCAT result "\n" indent "else:\n" else_body
+      END!
+      
+      RETURN result
+    
+    CASE "WHILE":
+      cond = py_value(stmt.condition)
+      body = py_block(stmt.body, CONCAT indent "  ")
+      RETURN CONCAT indent "while " cond ":\n" body
+    
+    CASE "FOR":
+      var = stmt.variable
+      iter = py_value(stmt.iterable)
+      body = py_block(stmt.body, CONCAT indent "  ")
+      RETURN CONCAT indent "for " var " in " iter ":\n" body
+    
+    CASE "CALL":
+      return py_call(stmt, indent)
+    
+    CASE "APPEND":
+      target = py_value(stmt.target)
+      item = py_value(stmt.item)
+      RETURN CONCAT indent target ".append(" item ")"
+    
+    CASE "THROW":
+      msg = py_value(stmt.message)
+      RETURN CONCAT indent "raise Exception(" msg ")"
+    
+    DEFAULT:
+      RETURN CONCAT indent "# unsupported: " stmt.type
+  END!
+END!
+END!
+
+FUNC! py_call
+RUN!
+  stmt = ARGS[0]
+  indent = ARGS[1]
+  func = py_value(stmt.function)
+  args = []
+  
+  FOR! arg IN stmt.arguments:
+    APPEND args (py_value(arg))
+  END!
+  
+  RETURN CONCAT indent func "(" (JOIN args ", ") ")"
+END!
+END!
+
+FUNC! py_value
+RUN!
+  val = ARGS[0]
+  
+  IF? IS_STRING(val) THEN:
+    RETURN CONCAT "'" val "'"
+  END!
+  IF? IS_NUMBER(val) THEN:
+    RETURN STR(val)
+  END!
+  IF? IS_BOOL(val) THEN:
+    IF? val THEN: RETURN "True" ELSE: RETURN "False" END!
+  END!
+  IF? IS_ARRAY(val) THEN:
+    items = []
+    FOR! item IN val:
+      APPEND items (py_value(item))
+    END!
+    RETURN CONCAT "[" (JOIN items ", ") "]"
+  END!
+  IF? IS_OBJECT(val) THEN:
+    pairs = []
+    FOR! k,v IN val:
+      APPEND pairs CONCAT k ": " (py_value(v))
+    END!
+    RETURN CONCAT "{\n  " (JOIN pairs ",\n  ") "\n}"
+  END!
+  IF? IS_NULL(val) THEN:
+    RETURN "None"
+  END!
+  
+  RETURN CONCAT "'" (STR(val)) "'"
+END!
+END!
+
+FUNC! py_import
+RUN!
+  node = ARGS[0]
+  names = JOIN node.names ", "
+  RETURN CONCAT "from " node.source " import " names
+END!
+END!
+
+FUNC! py_app
+RUN!
+  node = ARGS[0]
+  body = py_block(node.body, "  ")
+  RETURN CONCAT "class " node.name ":\n" body
+END!
+END!

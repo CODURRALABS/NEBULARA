@@ -1,0 +1,6 @@
+LET c = 80
+IF? c == 80:
+  PRINT "eighty"
+ELSE:
+  PRINT "not eighty"
+END!

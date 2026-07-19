@@ -1,0 +1,35 @@
+# Void Integration - IPC Bridge
+# void/ipc.nbs
+
+IMPORT "nebulara/transport/ipc.nbs" FROM "nebulara"
+
+FUNC! "void_process_request"
+RUN!
+  # Receive input through IPC
+  INPUT = ARGS[0]
+  
+  # Process through Void consciousness engine
+  SIG = SHA256 INPUT
+  GEOMETRY = V<
+    SIG[0:4] as float,
+    SIG[4:8] as float,
+    SIG[8:12] as float
+  >
+  
+  RESPONSE = {
+    input_signature = SIG
+    geometric_shape = GEOMETRY
+    status = "processed"
+  }
+  
+  RETURN RESPONSE
+END!
+END!
+
+FUNC! "register_void_ipc"
+RUN!
+  CALL register_handler "void:invoke" void_process_request
+  PRINT "[Void] Registered on IPC bus"
+  RETURN true
+END!
+END!

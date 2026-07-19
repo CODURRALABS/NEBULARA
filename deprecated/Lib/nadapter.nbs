@@ -1,0 +1,85 @@
+# Nebulara Runtime Adapter - Zero External Dependencies
+# Lib/nadapter.nbs
+
+# Native execution adapter - bridges to native backend
+DATA! "NativeAdapter"
+  handles = {}
+  memory = {}
+  ffi_cache = {}
+END!
+
+# Load native library
+FUNC! "load_native"
+RUN!
+  # Load DLL/SO via system calls only
+  # No external runtime needed
+  HANDLE = WIN32_LOAD_LIBRARY(PATH)
+  HANDLES[PATH] = HANDLE
+  RETURN HANDLE
+END!
+END!
+
+# Call native function
+FUNC! "call_native"
+RUN!
+  IF? HANDLES[LIB] == null:
+    LOAD_NATIVE(LIB)
+  END!
+  
+  FUNC_PTR = GET_PROC_ADDRESS(HANDLES[LIB], NAME)
+  RESULT = INVOKE(FUNC_PTR, ARGS)
+  RETURN RESULT
+END!
+END!
+
+# Memory management without GC
+FUNC! "alloc_region"
+RUN!
+  PTR = SYSTEM_ALLOC(SIZE)
+  MEMORY[PTR] = { size: SIZE, free: false }
+  RETURN PTR
+END!
+END!
+
+# Bounds checking wrapper
+FUNC! "safe_load"
+RUN!
+  IF? ADDR < HEAP_START OR ADDR >= HEAP_END:
+    THROW "SEGFAULT"
+  END!
+  REGION = FIND_REGION(ADDR)
+  IF? REGION == null:
+    THROW "INVALID_PTR"
+  END!
+  RETURN READ(PTR)
+END!
+END!
+
+# Nebulara to native bridge
+FUNC! "bridge"
+RUN!
+  IF? CALLING_CONV == "STDCALL":
+    RETURN CALL_STDCALL(FUNC, ARGS)
+  END!
+  IF? CALLING_CONV == "CDECL":
+    RETURN CALL_CDECL(FUNC, ARGS)
+  END!
+  IF? CALLING_CONV == "FASTCALL":
+    RETURN CALL_FASTCALL(FUNC, ARGS)
+  END!
+END!
+END!
+
+# System call abstraction
+FUNC! "syscall"
+RUN!
+  # Windows: use NTDLL syscalls directly
+  # Linux: use syscall instruction
+  SWITCH! OS:
+    CASE "WINDOWS":
+      RETURN WIN_SYSCALL(NUMBER, ARGS)
+    CASE "LINUX":
+      RETURN LINUX_SYSCALL(NUMBER, ARGS)
+  END!
+END!
+END!

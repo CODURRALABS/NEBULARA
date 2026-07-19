@@ -1,0 +1,9 @@
+LET arr = []
+LET i = 0
+WHILE? i < 3:
+  arr = arr + [0]
+  i = i + 1
+END!
+PRINT "size=" + LEN(arr)
+arr[0] = 42
+PRINT "val=" + arr[0]

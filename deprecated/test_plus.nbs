@@ -1,0 +1,6 @@
+LET a = []
+a = a + [1]
+PRINT "len:" + TO_STRING(LEN(a))
+a = a + [2]
+PRINT "len:" + TO_STRING(LEN(a))
+PRINT "done"

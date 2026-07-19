@@ -1,0 +1,12 @@
+FUNC! get_word:
+  RETURN "PRINT"
+END!
+
+LET word = get_word()
+PRINT "word:" + word
+IF? word == "PRINT":
+  PRINT "yes"
+ELSE:
+  PRINT "no"
+END!
+PRINT "done"

@@ -1,0 +1,17 @@
+LET G_source = "hello world"
+LET G_src_len = 0
+LET G_src_pos = 0
+
+FUNC! test_charat:
+  G_src_len = LEN(G_source)
+  G_src_pos = 0
+  PRINT "len=" + TO_STRING(G_src_len)
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    PRINT "char=" + TO_STRING(c) + " pos=" + TO_STRING(G_src_pos)
+    G_src_pos = G_src_pos + 1
+  END!
+  PRINT "done"
+END!
+
+test_charat()

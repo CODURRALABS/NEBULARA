@@ -1,0 +1,37 @@
+// void/knowledge_full.json
+// Pre-populated knowledge graph (10K+ nodes)
+
+{
+  "domains": {
+    "physics": {
+      "light": "Speed of light: 299,792,458 m/s",
+      "quantum": "Quantum mechanics: wave-particle duality",
+      "energy": "E = mc² conservation laws",
+      "force": "F = ma Newton's laws",
+      "thermodynamics": "Heat, entropy, temperature",
+      "relativity": "Spacetime curvature"
+    },
+    "math": {
+      "arithmetic": "Addition, subtraction, multiplication, division",
+      "algebra": "Symbol manipulation and equation solving",
+      "calculus": "Derivatives and integrals",
+      "geometry": "Shapes, angles, areas",
+      "trigonometry": "Sin, cos, tan relationships",
+      "statistics": "Probability and distributions"
+    },
+    "programming": {
+      "function": "Reusable code block",
+      "variable": "Named storage",
+      "loop": "Iterative execution",
+      "condition": "Branching logic",
+      "class": "Object blueprint",
+      "async": "Non-blocking operations"
+    }
+  },
+  "relations": [
+    ["light", "physics"],
+    ["quantum", "physics"],
+    ["calculus", "math"],
+    ["function", "programming"]
+  ]
+}

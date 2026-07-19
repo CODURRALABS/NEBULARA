@@ -1,0 +1,85 @@
+LET G_source = "PRINT x"
+LET G_src_len = 0
+LET G_src_pos = 0
+LET G_line = 1
+LET G_tokens = []
+LET G_token_count = 0
+LET G_strings = []
+LET G_string_count = 0
+
+FUNC! is_alpha c:
+  IF? c >= 65:
+    IF? c <= 90: RETURN 1 END!
+  END!
+  IF? c >= 97:
+    IF? c <= 122: RETURN 1 END!
+  END!
+  IF? c == 95: RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! is_digit c:
+  IF? c >= 48:
+    IF? c <= 57: RETURN 1 END!
+  END!
+  RETURN 0
+END!
+
+FUNC! add_token type val:
+  LET i = G_token_count * 3
+  WHILE? LEN(G_tokens) <= i + 2:
+    G_tokens = G_tokens + [0]
+  END!
+  G_tokens[i] = type
+  G_tokens[i + 1] = val
+  G_tokens[i + 2] = G_line
+  G_token_count = G_token_count + 1
+END!
+
+FUNC! add_str_token type s:
+  LET idx = G_string_count
+  G_strings = G_strings + [s]
+  G_string_count = G_string_count + 1
+  add_token(type, idx)
+END!
+
+FUNC! read_word:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? is_alpha(c) == 1:
+      G_src_pos = G_src_pos + 1
+    ELSEIF? is_digit(c) == 1:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      BREAK
+    END!
+  END!
+  RETURN SUBSTR(G_source, start, G_src_pos - start)
+END!
+
+G_src_len = LEN(G_source)
+PRINT "len=" + TO_STRING(G_src_len)
+
+WHILE? G_src_pos < G_src_len:
+  LET c = CHAR_AT(G_source, G_src_pos)
+  IF? c == 32 OR c == 9 OR c == 10:
+    G_src_pos = G_src_pos + 1
+  ELSEIF? is_digit(c) == 1:
+    PRINT "digit"
+    G_src_pos = G_src_pos + 1
+  ELSEIF? is_alpha(c) == 1:
+    LET word = read_word()
+    IF? word == "PRINT":
+      PRINT "got PRINT"
+      add_token(24, 0)
+    ELSE:
+      PRINT "ident: " + word
+      add_str_token(2, word)
+    END!
+  ELSE:
+    PRINT "other c=" + TO_STRING(c)
+    G_src_pos = G_src_pos + 1
+  END!
+END!
+PRINT "tokens=" + TO_STRING(G_token_count)

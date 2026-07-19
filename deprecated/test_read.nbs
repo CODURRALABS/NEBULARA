@@ -1,0 +1,2 @@
+LET content = READ_FILE("test_hello.nbs")
+PRINT content

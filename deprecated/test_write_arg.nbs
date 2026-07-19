@@ -1,0 +1,6 @@
+LET path = ARGUMENT(4)
+PRINT "path='" + path + "'"
+LET fullpath = path + ".nbsc"
+PRINT "fullpath='" + fullpath + "'"
+WRITE_FILE(fullpath, "test content")
+PRINT "write ok"

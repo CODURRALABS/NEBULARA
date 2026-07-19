@@ -1,0 +1,76 @@
+# Binary Emitter - Direct x86-64
+# x86-binary.nbs
+
+DATA! "OpCodes"
+  MOV_RAX = [0x48, 0xC7, 0xC0]
+  MOV_RDI = [0x48, 0xC7, 0xC7]
+  LEA_RSI = [0x48, 0x8D, 0x35]
+  MOV_RDX = [0x48, 0xC7, 0xC2]
+  SYSCALL = [0x0F, 0x05]
+  XOR_RDI = [0x48, 0x31, 0xFF]
+END!
+
+FUNC! "emit_u64"
+RUN!
+  # Write 64-bit little-endian to buffer
+END!
+END!
+
+FUNC! "build_elf_header"
+RUN!
+  # ELF magic
+  # 64-bit, little endian
+  # Entry point
+  # Program header offset
+END!
+END!
+
+FUNC! "build_program_header"
+RUN!
+  # PT_LOAD
+  # R|X flags
+  # File offset, virtual address
+  # File size, memory size
+END!
+END!
+
+FUNC! "emit_print"
+RUN!
+  # sys_write for PRINT instruction
+END!
+END!
+
+FUNC! "emit_exit"
+RUN!
+  # sys_exit for program end
+END!
+END!
+
+FUNC! "emit_code"
+RUN!
+  FOR! BLOCK IN PROGRAM.blocks:
+    FOR! INSTR IN BLOCK.instructions:
+      IF? INSTR.op == "PRINT":
+        EMIT_PRINT INSTR
+      END!
+    END!
+  END!
+  EMIT_EXIT()
+END!
+END!
+
+FUNC! "emit_strings"
+RUN!
+  # Strings after code section
+END!
+END!
+
+FUNC! "emit_binary"
+RUN!
+  EMIT_ELF_HEADER()
+  EMIT_PROGRAM_HEADER()
+  EMIT_CODE()
+  EMIT_STRINGS()
+  RETURN BUFFER
+END!
+END!

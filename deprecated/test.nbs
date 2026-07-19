@@ -1,0 +1,6 @@
+
+# Test function
+FUNC! "add"
+RUN!
+  RETURN 1 + 1
+END!

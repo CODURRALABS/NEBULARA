@@ -1,0 +1,52 @@
+# Aurora Events - Nebulara Implementation
+# Event emitter for orchestrator notifications
+
+DATA! EventTypes
+  task_queued = 'task:queued'
+  task_started = 'task:started'
+  task_completed = 'task:completed'
+  task_failed = 'task:failed'
+  mode_changed = 'mode:changed'
+  platform_changed = 'platform:changed'
+END!
+
+DATA! EventBus
+  listeners = {}
+END!
+
+FUNC! on
+RUN!
+  event = ARGS[0]
+  callback = ARGS[1]
+  IF? EventBus.listeners[event] == null THEN:
+    EventBus.listeners[event] = []
+  END!
+  APPEND EventBus.listeners[event] callback
+  RETURN true
+END!
+END!
+
+FUNC! off
+RUN!
+  event = ARGS[0]
+  callback = ARGS[1]
+  IF? EventBus.listeners[event] != null THEN:
+    EventBus.listeners[event] = list_remove(EventBus.listeners[event], callback)
+  END!
+  RETURN true
+END!
+END!
+
+FUNC! emit
+RUN!
+  event = ARGS[0]
+  data = ARGS[1]
+  PRINT CONCAT '[Event] ' event
+  IF? EventBus.listeners[event] != null THEN:
+    FOR! cb IN EventBus.listeners[event]:
+      cb(data)
+    END!
+  END!
+  RETURN true
+END!
+END!

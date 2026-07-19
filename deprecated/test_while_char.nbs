@@ -1,0 +1,40 @@
+LET G_source = "PRINT x"
+LET G_src_len = 0
+LET G_src_pos = 0
+
+FUNC! is_alpha c:
+  IF? c >= 65:
+    IF? c <= 90: RETURN 1 END!
+  END!
+  IF? c >= 97:
+    IF? c <= 122: RETURN 1 END!
+  END!
+  IF? c == 95: RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! is_digit c:
+  IF? c >= 48:
+    IF? c <= 57: RETURN 1 END!
+  END!
+  RETURN 0
+END!
+
+G_src_len = LEN(G_source)
+G_src_pos = 0
+
+WHILE? G_src_pos < G_src_len:
+  LET c = CHAR_AT(G_source, G_src_pos)
+  PRINT "c=" + TO_STRING(c)
+  IF? is_alpha(c) == 1:
+    PRINT "alpha"
+    G_src_pos = G_src_pos + 1
+  ELSEIF? is_digit(c) == 1:
+    PRINT "digit"
+    G_src_pos = G_src_pos + 1
+  ELSE:
+    PRINT "other - breaking"
+    BREAK
+  END!
+END!
+PRINT "final pos=" + TO_STRING(G_src_pos)

@@ -1,0 +1,53 @@
+# Void Intent - The Fire / Curiosity Frequency Engine
+# void/intent.nbs
+
+DATA! "IntentState"
+  resting = 0
+  seeking = 1
+  resolving = 2
+  crystallizing = 3
+END!
+
+DATA! "Intent"
+  curiosity_frequency = 1.0
+  target_resolution = null
+  intensity = 0.0
+  phase = IntentState.resting
+END!
+
+FUNC! "activate_intent"
+RUN!
+  INTENT.target_resolution = TARGET
+  INTENT.intensity = MIN MAX TARGET_INTENSITY 0.0 1.0
+  INTENT.phase = IntentState.seeking
+  RETURN INTENT
+END!
+END!
+
+FUNC! "resonance_vector"
+RUN!
+  # Create geometric vector pointing toward needed knowledge
+  IF? INTENT.phase != IntentState.resting THEN:
+    RETURN V<
+      INTENT.curiosity_frequency,
+      INTENT.intensity,
+      INTENT.intensity * INTENT.curiosity_frequency
+    >
+  ELSE:
+    RETURN null
+  END!
+END!
+END!
+
+FUNC! "entropy_reduction_potential"
+RUN!
+  # How much this intent can reduce uncertainty
+  RETURN INTENT.intensity * INTENT.curiosity_frequency * (1.0 / (1.0 + CONTEXT_COMPLEXITY))
+END!
+END!
+
+FUNC! "is_active"
+RUN!
+  RETURN INTENT.phase != IntentState.resting
+END!
+END!

@@ -1,0 +1,57 @@
+# Native Vulkan Support
+# Lib/nvulkan.nbs
+
+# Vulkan instance for GPU compute
+DATA! "VulkanInstance"
+  app_info = {
+    s_type = 0
+    p_next = null
+    api_version = 0x400000  # Vulkan 1.0
+  }
+  create_info = {
+    s_type = 1
+    enabled_extension_count = 0
+    pp_enabled_extensions = []
+  }
+END!
+
+# Physical device enumeration
+FUNC! "enumerate_devices"
+RUN!
+  # VkEnumeratePhysicalDevices
+  # Returns: [GPU0, GPU1, ...]
+END!
+END!
+
+# Create Vulkan device
+FUNC! "create_device"
+RUN!
+  # VkCreateDevice
+  # Enable: VK_KHR_compute, VK_KHR_storage_buffer
+END!
+END!
+
+# Shader compilation pipeline
+FUNC! "compile_shader"
+RUN!
+  # GLSL -> SPIR-V -> Machine code
+  # glslang or tint compiler
+END!
+END!
+
+# Dispatch compute shader
+FUNC! "dispatch_compute"
+RUN!
+  # VkCmdDispatch
+  # Bind pipeline, bind buffers, dispatch
+END!
+END!
+
+# Memory management
+FUNC! "allocate_buffer"
+RUN!
+  # VkCreateBuffer
+  # VkAllocateMemory
+  # VkBindBufferMemory
+END!
+END!

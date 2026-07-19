@@ -1,0 +1,19 @@
+LET G_tokens = []
+LET G_token_count = 0
+LET G_line = 1
+LET TOK_PRINT = 24
+
+FUNC! add_token type val:
+  LET i = G_token_count * 3
+  WHILE? LEN(G_tokens) <= i + 2:
+    G_tokens = G_tokens + [0]
+  END!
+  G_tokens[i] = type
+  G_tokens[i + 1] = val
+  G_tokens[i + 2] = G_line
+  G_token_count = G_token_count + 1
+  PRINT "added:" + TO_STRING(G_token_count)
+END!
+
+add_token(TOK_PRINT, 0)
+PRINT "done:" + TO_STRING(LEN(G_tokens))

@@ -1,0 +1,13 @@
+LET a = [1]
+PRINT "len:" + TO_STRING(LEN(a))
+IF? LEN(a) <= 2:
+  PRINT "le2"
+END!
+a = a + [2]
+PRINT "len:" + TO_STRING(LEN(a))
+IF? LEN(a) <= 2:
+  PRINT "le2"
+ELSE:
+  PRINT "gt2"
+END!
+PRINT "done"

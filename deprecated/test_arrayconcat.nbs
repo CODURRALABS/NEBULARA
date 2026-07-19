@@ -1,0 +1,5 @@
+LET a = [1, 2, 3]
+LET b = a + [4, 5]
+PRINT LEN(b)
+PRINT b[3]
+PRINT b[4]
