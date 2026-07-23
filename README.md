@@ -16,7 +16,7 @@ A complete C-based toolchain: interpreter, CLI, transpiler (JS/Python), semantic
 ## Install
 
 ```bash
-npm install -g nebulara
+npm i nebulara
 ```
 
 ## Quick Start
