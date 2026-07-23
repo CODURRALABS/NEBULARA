@@ -1,0 +1,4 @@
+LET n = 1
+LET x = n * 3
+PRINT TO_STRING(x)
+PRINT "done"

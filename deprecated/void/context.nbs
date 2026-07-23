@@ -1,0 +1,87 @@
+# Void Context - The Mirror / Fluid Field
+# void/context.nbs
+
+DATA! "Manifold"
+  flat = { type = "flat", curvature = 0.0 }
+  curved = { type = "curved", curvature = 0.5 }
+  discrete = { type = "discrete", cardinality = 0 }
+END!
+
+DATA! "LogicalNode"
+  id = 0
+  content = ""
+  dependencies = []
+  constraint_score = 0.0
+END!
+
+DATA! "Geometry"
+  vertices = []
+  edges = []
+  manifold = Manifold.flat
+END!
+
+DATA! "Context"
+  problem_signature = ""
+  logical_map = []
+  contradiction_points = []
+  geometric_shape = Geometry
+END!
+
+FUNC! "spatial_hash"
+RUN!
+  # Create V<x,y,z> signature from input
+  # Using spatial encoding for geometric representation
+  LENGTH = INPUT.length
+  SIG = SHA256 INPUT
+  X = SIG[0:8] as int
+  Y = SIG[8:16] as int
+  Z = SIG[16:24] as int
+  RETURN V<X/LENGTH, Y/LENGTH, Z/LENGTH>
+END!
+END!
+
+FUNC! "map_problem"
+RUN!
+  # Map input into structural context
+  CONTEXT.problem_signature = SHA256 INPUT
+  
+  # Create logical nodes from lines
+  LINES = INPUT.split "\n"
+  FOR! I, LINE IN LINES:
+    NODE = {
+      id = I
+      content = LINE
+      dependencies = []
+      constraint_score = 0.0
+    }
+    CONTEXT.logical_map.ADD NODE
+    
+    # Create geometry vertices from spatial hash
+    VERTEX = CALL spatial_hash LINE
+    CONTEXT.geometric_shape.vertices.ADD VERTEX
+  END!
+  
+  RETURN CONTEXT
+END!
+END!
+
+FUNC! "isolate_contradictions"
+RUN!
+  CONTEXT.contradiction_points = []
+  FOR! IDX, NODE IN CONTEXT.logical_map:
+    IF? NODE.content CONTAINS "contradiction" OR NODE.content CONTAINS "paradox" THEN:
+      CONTEXT.contradiction_points.ADD IDX
+    END!
+  END!
+  RETURN CONTEXT.contradiction_points
+END!
+END!
+
+FUNC! "structural_signature"
+RUN!
+  RETURN "sig:" + CONTEXT.problem_signature[0:8] + 
+         " nodes:" + CONTEXT.logical_map.length +
+         " contradictions:" + CONTEXT.contradiction_points.length +
+         " shape:" + CONTEXT.geometric_shape.manifold.type
+END!
+END!

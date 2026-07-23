@@ -1,0 +1,89 @@
+# SSA IR Generator - Nebulara Implementation
+# ir-ssa.nbs
+
+DATA! "IRState"
+  name = "program"
+  blocks = []
+  current_block = null
+  temp_counter = 0
+END!
+
+FUNC! "new_temp"
+RUN!
+  TEMP_COUNTER = TEMP_COUNTER + 1
+  RETURN "%t" + TEMP_COUNTER
+END!
+END!
+
+FUNC! "emit_instr"
+RUN!
+  CURRENT_BLOCK.instructions.PUSH INSTR
+END!
+END!
+
+FUNC! "visit"
+RUN!
+  IF? NODE.type == "Program":
+    FOR! N IN NODE.body:
+      VISIT N
+    END!
+  END!
+  IF? NODE.type == "Run":
+    FOR! N IN NODE.body:
+      VISIT N
+    END!
+  END!
+  IF? NODE.type == "Print":
+    EMIT_PRINT NODE.expression
+  END!
+  IF? NODE.type == "Binary":
+    EMIT_BINARY NODE
+  END!
+END!
+END!
+
+FUNC! "emit_print"
+RUN!
+  VALUE = PARSE_VALUE(EXPR.value)
+  EMIT_INSTR { op: "PRINT", args: [VALUE] }
+END!
+END!
+
+FUNC! "emit_binary"
+RUN!
+  LEFT = PARSE_VALUE(NODE.left.value)
+  RIGHT = PARSE_VALUE(NODE.right.value)
+  DST = NEW_TEMP()
+  EMIT_INSTR { op: "BIN", dst: DST, args: [LEFT, NODE.operator, RIGHT] }
+END!
+END!
+
+FUNC! "parse_value"
+RUN!
+  IF? VALUE == "":
+    RETURN ""
+  END!
+  IF? VALUE STARTS WITH '"':
+    RETURN VALUE
+  END!
+  IF? VALUE STARTS WITH "V<":
+    RETURN VALUE
+  END!
+  RETURN "$" + VALUE
+END!
+END!
+
+FUNC! "generate"
+RUN!
+  CURRENT_BLOCK = { label: "entry", instructions: [] }
+  BLOCKS = [CURRENT_BLOCK]
+  VISIT AST
+  RETURN { name: NAME, blocks: BLOCKS, entry: "entry" }
+END!
+END!
+
+APP! "SSAEmitter"
+RUN!
+  PRINT "SSA IR generator ready"
+END!
+END!

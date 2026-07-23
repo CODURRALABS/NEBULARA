@@ -1,0 +1,4 @@
+PRINT "Test: " + TO_STRING((19 >> 8) & 255)
+LET v = 19
+PRINT "Test2: " + TO_STRING((v >> 8) & 255)
+PRINT "Test3: " + TO_STRING(v >> 8 & 255)

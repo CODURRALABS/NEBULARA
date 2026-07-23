@@ -1,0 +1,8 @@
+LET word = "PRINT"
+LET wkind = word
+IF? word == "PRINT":
+  PRINT "yes"
+ELSE:
+  PRINT "no"
+END!
+PRINT "done"

@@ -1,0 +1,7 @@
+PRINT "1: " + TO_STRING(19 >> 8 & 255)
+PRINT "2: " + TO_STRING((19 >> 8) & 255)
+PRINT "3: " + TO_STRING(19 >> (8 & 255))
+LET v = 19
+PRINT "4: " + TO_STRING(v >> 8 & 255)
+PRINT "5: " + TO_STRING((v >> 8) & 255)
+PRINT "6: " + TO_STRING(v >> (8 & 255))

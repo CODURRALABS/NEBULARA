@@ -1,0 +1,7 @@
+LET a = [1]
+LET l = LEN(a)
+PRINT "l:" + TO_STRING(l)
+IF? l <= 2:
+  PRINT "le2"
+END!
+PRINT "done"

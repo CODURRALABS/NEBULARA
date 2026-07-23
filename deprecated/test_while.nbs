@@ -1,0 +1,6 @@
+LET i = 0
+WHILE? i < 3:
+  PRINT i
+  i = i + 1
+END!
+PRINT "done"

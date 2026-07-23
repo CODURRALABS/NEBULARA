@@ -1,0 +1,19 @@
+LET v = 19
+PRINT "v = " + TO_STRING(v)
+PRINT "v & 255 = " + TO_STRING(v & 255)
+PRINT "(v >> 8) & 255 = " + TO_STRING((v >> 8) & 255)
+PRINT "(v >> 16) & 255 = " + TO_STRING((v >> 16) & 255)
+PRINT "(v >> 24) & 255 = " + TO_STRING((v >> 24) & 255)
+PRINT "---"
+LET arr = [19, 0, 0, 0]
+PRINT "arr len = " + TO_STRING(LEN(arr))
+PRINT "arr[0] = " + TO_STRING(arr[0])
+PRINT "arr[1] = " + TO_STRING(arr[1])
+PRINT "arr[2] = " + TO_STRING(arr[2])
+PRINT "arr[3] = " + TO_STRING(arr[3])
+PRINT "--- 64-bit shifttest ---"
+LET bi = 0
+WHILE? bi < 4:
+  PRINT "byte " + TO_STRING(bi) + ": " + TO_STRING(19 >> (bi * 8) & 255)
+  bi = bi + 1
+END!

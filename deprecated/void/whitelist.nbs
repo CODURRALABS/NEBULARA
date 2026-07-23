@@ -1,0 +1,117 @@
+# Void Library Whitelist
+# Curated 120+ trusted domains for structural knowledge
+
+DATA! "Whitelist"
+  technical = [
+    "docs.rs",
+    "doc.rust-lang.org",
+    "cppreference.com",
+    "en.cppreference.com",
+    "docs.python.org",
+    "go.dev/doc",
+    "pkg.go.dev",
+    "typescriptlang.org/docs",
+    "developer.mozilla.org",
+    "docs.oracle.com/en/java",
+    "kotlinlang.org/docs",
+    "dart.dev/guides",
+    "ziglang.org/documentation",
+    "vlang.io/docs",
+    "nim-lang.org/docs",
+    "crystal-lang.org/reference",
+    "elixir-lang.org/docs",
+    "haskell.org/documentation",
+    "ocaml.org/docs",
+    "swift.org/documentation"
+    "github.com/CODURRALABS/NEBULARA"
+  ]
+  
+  frameworks = [
+    "react.dev",
+    "vuejs.org/guide",
+    "nextjs.org/docs",
+    "tailwindcss.com/docs",
+    "flutter.dev/docs",
+    "supabase.com/docs",
+    "redis.io/documentation",
+    "postgresql.org/docs",
+    "sqlite.org/docs.html",
+    "mongodb.com/docs",
+    "neo4j.com/docs",
+    "docker.com",
+    "kubernetes.io/docs",
+    "nginx.org/en/docs",
+    "apache.org",
+    "graphql.org/learn",
+    "grpc.io/docs",
+    "llvm.org/docs",
+    "gcc.gnu.org/onlinedocs"
+  ]
+  
+  science = [
+    "arxiv.org",
+    "biorxiv.org",
+    "medrxiv.org",
+    "zenodo.org",
+    "osf.io",
+    "researchgate.net",
+    "academia.edu",
+    "doaj.org",
+    "semanticscholar.org",
+    "core.ac.uk"
+  ]
+  
+  mathematics = [
+    "wolframalpha.com",
+    "mathworld.wolfram.com",
+    "dlmf.nist.gov",
+    "ncatlab.org",
+    "proofwiki.org",
+    "oeis.org",
+    "plato.stanford.edu",
+    "iep.utm.edu",
+    "openculture.com",
+    "gutenberg.org"
+  ]
+  
+  code = [
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "sourceforge.net",
+    "crates.io",
+    "npmjs.com",
+    "pypi.org",
+    "gitee.com",
+    "launchpad.net",
+    "git.kernel.org"
+  ]
+  
+  standards = [
+    "ietf.org",
+    "rfc-editor.org",
+    "w3.org",
+    "iso.org",
+    "ieee.org",
+    "ieeexplore.ieee.org",
+    "nist.gov",
+    "cve.mitre.org",
+    "nvd.nist.gov",
+    "owasp.org",
+    "khronos.org",
+    "ecma-international.org",
+    "unicode.org"
+  ]
+  
+  forums = [
+    "stackoverflow.com",
+    "stackexchange.com",
+    "mathoverflow.net",
+    "reddit.com/r/rust",
+    "reddit.com/r/programming",
+    "reddit.com/r/math",
+    "reddit.com/r/compsci",
+    "news.ycombinator.com",
+    "dev.to"
+  ]
+END!

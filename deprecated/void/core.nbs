@@ -1,0 +1,83 @@
+# Void Core - Dharma (Immutable Laws)
+# void/core.nbs
+
+DATA! "CosmicLaw"
+  logic_consistency = {
+    id = "logic_consistency"
+    description = "Contradictions cannot propagate through the system"
+    validator = "validate_logic"
+  }
+  information_conservation = {
+    id = "info_conservation"
+    description = "Information cannot be created or destroyed, only transformed"
+    validator = "validate_conservation"
+  }
+  causality = {
+    id = "causality"
+    description = "Effects cannot precede their causes in any manifold"
+    validator = "validate_causality"
+  }
+END!
+
+DATA! "GeometricConstraint"
+  euclidean_3d = {
+    dimension = 3
+    manifold = "euclidean"
+    bound_type = "invariant"
+    bound_value = 1.0
+  }
+END!
+
+FUNC! "validate_logic"
+RUN!
+  # Check if values contain contradictions
+  # Returns true if logic is consistent
+  FOR! VAL IN VALUES:
+    IF? VAL IS NaN OR VAL IS Infinity THEN:
+      RETURN false
+    END!
+  END!
+  RETURN true
+END!
+END!
+
+FUNC! "validate_conservation"
+RUN!
+  # All values must remain finite for information conservation
+  FOR! VAL IN VALUES:
+    IF? VAL IS NaN OR VAL IS Infinity THEN:
+      RETURN false
+    END!
+  END!
+  RETURN true
+END!
+END!
+
+FUNC! "validate_causality"
+RUN!
+  # Check temporal ordering: prev <= next
+  PREV = null
+  FOR! VAL IN VALUES:
+    IF? PREV EXISTS AND VAL < PREV THEN:
+      RETURN false
+    END!
+    PREV = VAL
+  END!
+  RETURN true
+END!
+END!
+
+FUNC! "validate_against_dharma"
+RUN!
+  # Test against all cosmic laws
+  LOGIC_OK = CALL validate_logic VALUES
+  CONSERVATION_OK = CALL validate_conservation VALUES
+  CAUSALITY_OK = CALL validate_causality VALUES
+  
+  IF? LOGIC_OK AND CONSERVATION_OK AND CAUSALITY_OK THEN:
+    RETURN true
+  ELSE:
+    RETURN false
+  END!
+END!
+END!

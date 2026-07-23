@@ -1,0 +1,95 @@
+LET G_source = "PRINT 1 PRINT 2"
+LET G_src_len = LEN(G_source)
+LET G_src_pos = 0
+LET G_tokens = []
+LET G_token_count = 0
+LET G_line = 1
+LET G_strings = []
+LET G_string_count = 0
+
+FUNC! is_alpha c:
+  IF? c >= 65:
+    IF? c <= 90: RETURN 1 END!
+  END!
+  IF? c >= 97:
+    IF? c <= 122: RETURN 1 END!
+  END!
+  RETURN 0
+END!
+
+FUNC! read_word:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? is_alpha(c) == 1:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      BREAK
+    END!
+  END!
+  RETURN SUBSTR(G_source, start, G_src_pos - start)
+END!
+
+FUNC! read_number:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c >= 48:
+      IF? c <= 57:
+        G_src_pos = G_src_pos + 1
+      ELSE:
+        BREAK
+      END!
+    ELSE:
+      BREAK
+    END!
+  END!
+  RETURN TO_NUMBER(SUBSTR(G_source, start, G_src_pos - start))
+END!
+
+FUNC! add_token type val:
+  LET i = G_token_count * 3
+  WHILE? LEN(G_tokens) <= i + 2:
+    G_tokens = G_tokens + [0]
+  END!
+  G_tokens[i] = type
+  G_tokens[i + 1] = val
+  G_tokens[i + 2] = G_line
+  G_token_count = G_token_count + 1
+END!
+
+FUNC! lexer_skip_ws:
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c == 32:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      BREAK
+    END!
+  END!
+END!
+
+LET tk_iter = 0
+WHILE? G_src_pos < G_src_len:
+  tk_iter = tk_iter + 1
+  PRINT "tk:" + TO_STRING(tk_iter) + " pos=" + TO_STRING(G_src_pos)
+  lexer_skip_ws()
+  IF? G_src_pos >= G_src_len: PRINT "break"; BREAK END!
+  LET c = CHAR_AT(G_source, G_src_pos)
+  IF? is_alpha(c) == 1:
+    LET word = read_word()
+    PRINT "word:" + word
+    IF? word == "PRINT": add_token(0, 0) END!
+  END!
+  IF? c >= 48 AND c <= 57:
+    LET n = read_number()
+    PRINT "num:" + TO_STRING(n)
+    add_token(1, n)
+  END!
+END!
+
+PRINT "done:" + TO_STRING(G_token_count)
+PRINT "t0:" + TO_STRING(G_tokens[0])
+PRINT "t1:" + TO_STRING(G_tokens[1])
+PRINT "t3:" + TO_STRING(G_tokens[3])
+PRINT "t4:" + TO_STRING(G_tokens[4])

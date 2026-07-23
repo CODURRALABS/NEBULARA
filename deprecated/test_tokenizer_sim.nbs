@@ -1,0 +1,31 @@
+LET G_tokens = []
+LET G_token_count = 0
+
+FUNC! add_token type val:
+  LET i = G_token_count * 3
+  WHILE? LEN(G_tokens) <= i + 2:
+    G_tokens = G_tokens + [0]
+  END!
+  G_tokens[i] = type
+  G_tokens[i + 1] = val
+  G_tokens[i + 2] = 1
+  G_token_count = G_token_count + 1
+END!
+
+add_token(24, 0)
+PRINT "added token 1"
+add_token(1, 0)
+PRINT "added token 2"
+add_token(24, 0)
+PRINT "added token 3"
+add_token(1, 0)
+PRINT "added token 4"
+add_token(24, 0)
+PRINT "added token 5"
+add_token(1, 0)
+PRINT "added token 6"
+add_token(37, 0)
+PRINT "added token 7"
+
+PRINT "tokens=" + G_token_count
+PRINT "len=" + LEN(G_tokens)

@@ -1,0 +1,5 @@
+LET a = [1]
+PRINT "init:" + TO_STRING(LEN(a))
+LET b = []
+b = b + [1]
+PRINT "append:" + TO_STRING(LEN(b))

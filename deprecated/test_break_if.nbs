@@ -1,0 +1,8 @@
+LET i = 0
+WHILE? i < 10:
+  i = i + 1
+  IF? i == 5:
+    BREAK
+  END!
+END!
+PRINT i

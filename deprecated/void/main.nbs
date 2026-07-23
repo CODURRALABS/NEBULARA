@@ -1,0 +1,77 @@
+# Void Consciousness Engine - Main Entry
+# void/main.nbs
+
+# Load all void modules
+IMPORT "void/core.nbs" FROM "nebulara"
+IMPORT "void/intent.nbs" FROM "nebulara"
+IMPORT "void/context.nbs" FROM "nebulara"
+IMPORT "void/wisdom.nbs" FROM "nebulara"
+IMPORT "void/library.nbs" FROM "nebulara"
+
+# Global state
+STATE = {
+  dharma = null
+  intent = null
+  context = null
+  wisdom = null
+  library = null
+}
+
+FUNC! "initialize"
+RUN!
+  STATE.dharma = {
+    laws = ["logic_consistency", "info_conservation", "causality"]
+    constraints = []
+  }
+  
+  STATE.intent = {
+    curiosity_frequency = 1.0
+    target_resolution = null
+    intensity = 0.0
+    phase = "resting"
+  }
+  
+  STATE.context = {
+    problem_signature = null
+    logical_map = []
+    contradiction_points = []
+    geometric_shape = { manifold = "flat" }
+  }
+  
+  STATE.wisdom = {
+    insights = {}
+    pathways = {}
+  }
+  
+  STATE.library = {
+    cache = {}
+    urls = []
+  }
+  
+  RETURN STATE
+END!
+END!
+
+APP! "Void"
+RUN!
+  # Initialize the consciousness engine
+  CALL initialize
+  
+  PRINT "Void consciousness engine ready"
+  PRINT "Dharma core: loaded"
+  PRINT "Intent fire: resting"
+  PRINT "Context mirror: clear"
+  PRINT "Wisdom alchemist: empty"
+  
+  # Demo: Process a fundamental question
+  QUESTION = "What is the nature of light in quantum mechanics?"
+  
+  PRINT "Processing: " + QUESTION
+  PRINT "Creating resonance..."
+  
+  # This would activate the full loop in a working implementation
+  # For now, show the geometric signature
+  SIG = SHA256 QUESTION
+  PRINT "Geometric signature: " + SIG[0:16]
+END!
+END!

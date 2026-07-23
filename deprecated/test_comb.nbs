@@ -1,0 +1,4 @@
+LET a = [1]
+PRINT "x" + TO_STRING(a[0])
+PRINT "y" + TO_STRING(LEN(a))
+PRINT "done"

@@ -1,0 +1,11 @@
+LET data = ""
+LET i = 0
+LET size = 100
+WHILE? i < size:
+  data = data + CHAR(i)
+  i = i + 1
+END!
+PRINT "loop done: " + LEN(data)
+LET fname = "test_out2.txt"
+WRITE_FILE(fname, data)
+PRINT "wrote file"

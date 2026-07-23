@@ -1,0 +1,2 @@
+LET content = READ_FILE("C:/Users/Admin/Downloads/void 1/nebulara/test_simple.nbs")
+PRINT content

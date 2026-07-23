@@ -1,0 +1,23 @@
+# Nebulara Toolchain Build Script
+# configure.nbs
+
+APP! "Configure"
+RUN!
+  # Detect toolchain
+  # Build native runtime if missing
+  # Build FFI adapters
+  # Create distribution packages
+  
+  # Check for gcc
+  IF? SYSTEM_EXISTS("gcc"):
+    COMPILER = "gcc"
+  ELSE?:
+    COMPILER = "clang"
+  END!
+  
+  # Build runtime
+  SYSTEM!(COMPILER + " VM/bootstrap.c -o bin/nebulara.exe -municode -O2")
+  
+  PRINT "Toolchain ready: nebulara.exe"
+END!
+END!

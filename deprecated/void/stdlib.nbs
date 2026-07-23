@@ -1,0 +1,93 @@
+# Nebulara Standard Library
+# Core functions for Void engine
+
+DATA! "Runtime"
+  version = "2.0"
+  platform = "windows-x64"
+END!
+
+# ===== MATH FUNCTIONS =====
+FUNC! "SHA256"
+RUN!
+  TEXT = ARGS[0]
+  # Would call native C function
+  # For now: placeholder
+  RETURN "sha256_hash"
+END!
+END!
+
+FUNC! "DISTANCE"
+RUN!
+  X = ARGS[0]
+  Y = ARGS[1]
+  SUM = 0
+  FOR! I in RANGE X.length:
+    SUM += (X[I] - Y[I]) ** 2
+  END!
+  RETURN SQRT SUM
+END!
+END!
+
+FUNC! "EVAL"
+RUN!
+  EXPR = ARGS[0]
+  # Would call native evaluation
+  RETURN "result"
+END!
+END!
+
+# ===== STRING FUNCTIONS =====
+FUNC! "SPLIT"
+RUN!
+  TEXT = ARGS[0]
+  DELIM = ARGS[1]
+  RETURN TEXT.split DELIM
+END!
+END!
+
+FUNC! "CONTAINS"
+RUN!
+  TEXT = ARGS[0]
+  PATTERN = ARGS[1]
+  RETURN TEXT.includes PATTERN
+END!
+END!
+
+# ===== HTTP FUNCTIONS =====
+FUNC! "HTTP_GET"
+RUN!
+  URL = ARGS[0]
+  # Would call native WinHTTP
+  # Returns: {status, body, headers}
+  RETURN HTTP_REQUEST URL "GET" ""
+END!
+END!
+
+FUNC! "ENCODE_URL"
+RUN!
+  TEXT = ARGS[0]
+  RETURN URI_ENCODE TEXT
+END!
+END!
+
+# ===== I/O FUNCTIONS =====
+FUNC! "PRINT"
+RUN!
+  VALUE = ARGS[0]
+  CONSOLE_WRITE_LINE VALUE
+END!
+END!
+
+FUNC! "READ_FILE"
+RUN!
+  PATH = ARGS[0]
+  RETURN FILE_READ PATH
+END!
+END!
+
+# ===== SYSTEM FUNCTIONS =====
+FUNC! "NOW"
+RUN!
+  RETURN TIMESTAMP
+END!
+END!

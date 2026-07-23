@@ -1,0 +1,2 @@
+LET a = [1]
+PRINT "a[0]:" + TO_STRING(a[0])

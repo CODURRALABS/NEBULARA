@@ -1,0 +1,14 @@
+LET a = []
+LET i = 0
+
+FUNC! add_it v:
+  WHILE? LEN(a) <= 2:
+    a = a + [0]
+  END!
+  a[0] = v
+END!
+
+add_it(99)
+PRINT TO_STRING(a[0])
+PRINT TO_STRING(LEN(a))
+PRINT "done"

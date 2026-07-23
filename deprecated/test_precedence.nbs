@@ -1,0 +1,21 @@
+LET c = 80
+IF? c >= 48 AND c <= 57:
+  PRINT "digit"
+ELSE:
+  PRINT "not digit"
+END!
+
+LET c2 = 50
+IF? c2 >= 48 AND c2 <= 57:
+  PRINT "digit2"
+ELSE:
+  PRINT "not digit2"
+END!
+
+IF? 1 == 1 AND 2 == 2:
+  PRINT "both equal"
+END!
+
+IF? 1 == 1 OR 2 == 3:
+  PRINT "or works"
+END!

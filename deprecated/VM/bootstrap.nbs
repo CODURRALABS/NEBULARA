@@ -1,0 +1,58 @@
+# Nebulara Runtime - Native x64 Windows
+# VM/bootstrap.nbs
+
+DATA! "Header"
+  magic = [0x4D, 0x5A, 0x90, 0x00]  # MZ header for PE
+  pe_sig = [0x50, 0x45, 0x00, 0x00]  # PE\0\0
+  machine = 0x8664  # AMD64
+  sections = 3  # .text, .data, .rdata
+END!
+
+FUNC! "emit_pe_header"
+RUN!
+  # Build complete PE header for Nebulara executable
+  # DOS header + PE header + Optional header + Section table
+  # Entry point at _start
+END!
+END!
+
+FUNC! "emit_import_table"
+RUN!
+  # KERNEL32.DLL imports
+  # ExitProcess, WriteConsoleA, ReadConsoleA, CreateFileA
+END!
+END!
+
+FUNC! "emit_code_section"
+RUN!
+  # Nebulara bytecode interpreter
+  # _start: initialize VM, run bytecode, exit
+END!
+END!
+
+FUNC! "emit_data_section"
+RUN!
+  # Heap: 16MB
+  # Stack: 1MB  
+  # VM state structures
+END!
+END!
+
+FUNC! "run_nbs"
+RUN!
+  # Native bytecode dispatcher
+  # OPCODES:
+  #   0x01: PUSH_INT
+  #   0x02: ADD
+  #   0x03: SUB
+  #   0x04: PRINT
+  #   0x05: CALL
+  #   0x06: RET
+  #   0x07: JUMP
+  #   0x08: JUMP_IF
+  #   0x09: STORE
+  #   0x0A: LOAD
+  #   0x0B: ALLOC
+  #   0x0C: SYSCALL
+END!
+END!

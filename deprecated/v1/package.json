@@ -1,0 +1,17 @@
+# Nebulara v1.0 Package Manifest
+# v1/package.json
+
+{
+  "name": "nebulara",
+  "version": "1.0.0",
+  "description": "Self-hosted native compiler",
+  "platform": "windows-x64",
+  "files": [
+    "nebulara.exe",
+    "LICENSE",
+    "README.md"
+  ],
+  "downloads": [
+    "nebulara-v1.0-windows-x64.zip"
+  ]
+}

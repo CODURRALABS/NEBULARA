@@ -1,0 +1,4 @@
+PRINT "before read"
+LET content = READ_FILE("test_hello.nbs")
+PRINT "after read"
+PRINT content

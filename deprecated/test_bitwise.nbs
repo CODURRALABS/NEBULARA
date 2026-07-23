@@ -1,0 +1,4 @@
+PRINT 255 & 15
+PRINT 8 >> 2
+PRINT 2 << 3
+PRINT 6 | 3

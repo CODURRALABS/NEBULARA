@@ -1,0 +1,7 @@
+LET argc = ARGUMENT_COUNT()
+PRINT "argc = "
+PRINT argc
+IF? argc >= 2:
+  PRINT "arg1 = "
+  PRINT ARGUMENT(1)
+END!

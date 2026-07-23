@@ -1,0 +1,6 @@
+LET x = 1
+IF? x == 1:
+  PRINT "one"
+ELSEIF? x == 2:
+  PRINT "two"
+END!

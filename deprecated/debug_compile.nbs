@@ -1,0 +1,143 @@
+# Debug version of compiler.nbs
+# Traces execution with PRINT statements
+
+# Global state
+LET G_source = ""
+LET G_src_len = 0
+LET G_src_pos = 0
+LET G_line = 1
+LET G_tokens = []
+LET G_token_count = 0
+LET G_bytecode = []
+LET G_bc_len = 0
+LET G_strings = []
+LET G_string_count = 0
+LET G_varnames = []
+LET G_var_count = 0
+LET G_pos = 0
+
+# OPCODES
+LET OP_PUSH_INT = 1
+LET OP_PUSH_STR = 2
+LET OP_PUSH_BOOL = 3
+LET OP_POP = 4
+LET OP_ADD = 5
+LET OP_SUB = 6
+LET OP_MUL = 7
+LET OP_DIV = 8
+LET OP_MOD = 9
+LET OP_NEG = 10
+LET OP_EQ = 11
+LET OP_NEQ = 12
+LET OP_LT = 13
+LET OP_GT = 14
+LET OP_LTE = 15
+LET OP_GTE = 16
+LET OP_AND = 17
+LET OP_OR = 18
+LET OP_NOT = 19
+LET OP_STORE = 20
+LET OP_LOAD = 21
+LET OP_PRINT = 22
+LET OP_JUMP = 23
+LET OP_JUMP_IFNOT = 24
+LET OP_HALT = 25
+LET OP_CALL = 26
+LET OP_RET = 27
+LET OP_ARRAY_NEW = 28
+LET OP_ARRAY_GET = 29
+LET OP_ARRAY_LEN = 30
+LET OP_TYPEOF = 31
+LET OP_TOSTR = 32
+LET OP_TONUM = 33
+
+# TOKEN TYPES
+LET TOK_INT = 0
+LET TOK_STR = 1
+LET TOK_IDENT = 2
+LET TOK_PLUS = 3
+LET TOK_MINUS = 4
+LET TOK_STAR = 5
+LET TOK_SLASH = 6
+LET TOK_MOD = 7
+LET TOK_EQ = 8
+LET TOK_NEQ = 9
+LET TOK_LT = 10
+LET TOK_GT = 11
+LET TOK_LTE = 12
+LET TOK_GTE = 13
+LET TOK_AND = 14
+LET TOK_OR = 15
+LET TOK_NOT = 16
+LET TOK_ASSIGN = 17
+LET TOK_LPAREN = 18
+LET TOK_RPAREN = 19
+LET TOK_LBRACKET = 20
+LET TOK_RBRACKET = 21
+LET TOK_COMMA = 22
+LET TOK_COLON = 23
+LET TOK_PRINT = 24
+LET TOK_IF = 25
+LET TOK_ELSE = 26
+LET TOK_THEN = 27
+LET TOK_WHILE = 28
+LET TOK_FOR = 29
+LET TOK_TO = 30
+LET TOK_FUNC = 31
+LET TOK_END = 32
+LET TOK_RETURN = 33
+LET TOK_LET = 34
+LET TOK_BREAK = 35
+LET TOK_CONTINUE = 36
+LET TOK_EOF = 37
+
+# Helper functions
+FUNC! is_alpha c:
+  IF? c >= 65:
+    IF? c <= 90: RETURN 1 END!
+  END!
+  IF? c >= 97:
+    IF? c <= 122: RETURN 1 END!
+  END!
+  IF? c == 95: RETURN 1 END!
+  IF? c == 33: RETURN 1 END!
+  IF? c == 63: RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! is_digit c:
+  IF? c >= 48:
+    IF? c <= 57: RETURN 1 END!
+  END!
+  RETURN 0
+END!
+
+# Entry point
+PRINT "=== DEBUG: Starting ==="
+LET argc = ARGUMENT_COUNT()
+PRINT "argc = " + TO_STRING(argc)
+
+IF? argc >= 4:
+  LET cmd = ARGUMENT(3)
+  PRINT "cmd = " + cmd
+  IF? cmd == "compile":
+    LET path = ARGUMENT(4)
+    PRINT "path = " + path
+    PRINT "=== DEBUG: Reading file ==="
+    LET src = READ_FILE(path)
+    PRINT "src length = " + TO_STRING(LEN(src))
+    IF? LEN(src) == 0:
+      PRINT "Error: cannot read " + path
+    ELSE:
+      PRINT "=== DEBUG: File read OK, would compile here ==="
+      PRINT "First 50 chars of source:"
+      PRINT SUBSTR(src, 0, MIN(50, LEN(src)))
+    END!
+  ELSE:
+    PRINT "Usage: nebulara run compiler.nbs compile <file.nbs>"
+  END!
+ELSE:
+  PRINT "Nebulara Self-Hosted Compiler v1.0 (DEBUG)"
+  PRINT "Usage: nebulara run compiler.nbs compile <file.nbs>"
+END!
+PRINT "=== DEBUG: Done ==="

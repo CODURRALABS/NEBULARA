@@ -1,0 +1,7 @@
+FUNC! foo a b:
+  PRINT "a:" + TO_STRING(a)
+  PRINT "b:" + TO_STRING(b)
+END!
+
+foo(1, 2)
+PRINT "done"

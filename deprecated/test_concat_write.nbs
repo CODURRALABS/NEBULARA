@@ -1,0 +1,4 @@
+LET p = "test"
+LET full = p + ".txt"
+WRITE_FILE(full, "hello world")
+PRINT "done"

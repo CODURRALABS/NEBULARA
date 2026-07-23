@@ -1,0 +1,23 @@
+# Nebulara Tauri Shell
+# Desktop host logic executed via Tauri/Nebulara FFI
+
+FUNC! on_ready
+RUN!
+  PRINT '[Nebulara-Tauri] Shell ready'
+  RETURN true
+END!
+END!
+
+FUNC! open_devtools
+RUN!
+  PRINT '[Nebulara-Tauri] open_devtools'
+  RETURN true
+END!
+END!
+
+FUNC! launch_main_window
+RUN!
+  PRINT '[Nebulara-Tauri] launch_main_window'
+  RETURN true
+END!
+END!

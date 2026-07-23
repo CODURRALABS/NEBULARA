@@ -1,0 +1,49 @@
+# Test new features
+PRINT "Testing basic operations..."
+LET x = 10
+LET y = 20
+PRINT x + y
+
+# Test array
+LET arr = [1, 2, 3, 4, 5]
+PRINT "Array length: "
+PRINT LEN(arr)
+
+# Test string operations
+LET s = "Hello World"
+PRINT TO_UPPER(s)
+PRINT TO_LOWER(s)
+
+# Test error handling
+PRINT "Testing error handling..."
+TRY!
+    LET z = 10 / 0
+    PRINT "Should not reach here"
+CATCH! err:
+    PRINT "Caught division by zero: "
+    PRINT err
+END!
+
+# Test functions
+FUNC! add a b:
+    RETURN a + b
+END!
+
+PRINT "5 + 3 = "
+PRINT add(5, 3)
+
+# Test loops
+PRINT "Testing loops..."
+LET i = 0
+WHILE? i < 5:
+    PRINT i
+    i = i + 1
+END!
+
+# Test FOR loop
+PRINT "FOR loop:"
+FOR! j = 0 TO 4:
+    PRINT j
+END!
+
+PRINT "All tests passed!"

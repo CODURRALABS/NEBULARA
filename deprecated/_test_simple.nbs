@@ -1,0 +1,7 @@
+PRINT "19 >> 8 = " + TO_STRING(19 >> 8)
+PRINT "19 >> 16 = " + TO_STRING(19 >> 16)
+PRINT "19 & 255 = " + TO_STRING(19 & 255)
+LET x = 19
+PRINT "x = " + TO_STRING(x)
+PRINT "x >> 8 = " + TO_STRING(x >> 8)
+PRINT "x >> 16 = " + TO_STRING(x >> 16)

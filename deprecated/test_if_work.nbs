@@ -1,0 +1,15 @@
+LET a = [1]
+LET l = LEN(a)
+PRINT "l:" + TO_STRING(l)
+IF? l <= 2:
+  PRINT "le2"
+ELSE:
+  PRINT "gt2"
+END!
+PRINT "work1"
+IF? l > 0:
+  PRINT "gt0"
+ELSE:
+  PRINT "le0"
+END!
+PRINT "done"

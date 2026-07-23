@@ -1,0 +1,3 @@
+LET a = [1]
+PRINT "x" + TO_STRING(a[0])
+PRINT "done"

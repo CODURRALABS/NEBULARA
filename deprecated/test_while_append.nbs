@@ -1,0 +1,7 @@
+LET a = []
+LET i = 0
+WHILE? LEN(a) <= 2:
+  a = a + [1]
+END!
+PRINT TO_STRING(LEN(a))
+PRINT "done"

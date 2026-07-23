@@ -1,0 +1,22 @@
+LET G_source = ""
+LET G_src_len = 0
+LET G_src_pos = 0
+
+FUNC! test_inner:
+  G_src_len = 10
+  G_src_pos = 0
+  PRINT "before while"
+  LET dbg = 0
+  WHILE? G_src_pos < G_src_len:
+    dbg = dbg + 1
+    IF? dbg > 5:
+      PRINT "looped too many"
+      RETURN
+    END!
+    PRINT "loop " + TO_STRING(dbg)
+    G_src_pos = G_src_pos + 1
+  END!
+  PRINT "after while"
+END!
+
+test_inner()

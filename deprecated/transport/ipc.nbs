@@ -1,0 +1,46 @@
+# Nebulara Transport - IPC Bridge
+# Bridges Nebulara events to Tauri/OS IPC
+
+DATA! IPCChannels
+  aurora_assign_task = 'aurora:assign-task'
+  aurora_set_mode = 'aurora:set-mode'
+  aurora_set_platform = 'aurora:set-platform'
+  aurora_get_state = 'aurora:get-state'
+  nebulara_transpile = 'nebulara:transpile'
+  nebulara_interpret = 'nebulara:interpret'
+END!
+
+DATA! IPCBus
+  handlers = {}
+END!
+
+FUNC! register_handler
+RUN!
+  channel = ARGS[0]
+  handler = ARGS[1]
+  IPCBus.handlers[channel] = handler
+  RETURN true
+END!
+END!
+
+FUNC! send
+RUN!
+  channel = ARGS[0]
+  payload = ARGS[1]
+  # Forward to native platform layer
+  PRINT CONCAT '[IPC] ' channel
+  IPC_SEND channel payload
+  RETURN true
+END!
+END!
+
+FUNC! receive
+RUN!
+  channel = ARGS[0]
+  data = ARGS[1]
+  IF? IPCBus.handlers[channel] != null THEN:
+    IPCBus.handlers[channel](data)
+  END!
+  RETURN true
+END!
+END!

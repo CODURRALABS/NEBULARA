@@ -1,0 +1,83 @@
+# Void Knowledge Graph Engine
+# Semantic search and multi-hop reasoning
+
+DATA! "Node"
+  id = ""
+  content = ""
+  embeddings = []
+  relationships = []
+END!
+
+DATA! "KnowledgeGraph"
+  nodes = {}
+  edges = {}
+  dimensions = 512
+END!
+
+FUNC! "semantic_search"
+RUN!
+  QUERY = ARGS[0]
+  GRAPH = KNOWLEDGE_GRAPH
+  K = ARGS[1] OR 5
+  
+  # Convert query to geometric vector
+  QUERY_VEC = CALL embed_text QUERY
+  
+  # Find k-nearest neighbors
+  RESULTS = CALL _knn QUERY_VEC GRAPH.nodes K
+  
+  RETURN RESULTS
+END!
+END!
+
+FUNC! "_knn"
+RUN!
+  QUERY = ARGS[0]
+  NODES = ARGS[1]
+  K = ARGS[2]
+  
+  DISTANCES = []
+  FOR! ID, NODE in NODES:
+    DIST = CALL _distance QUERY NODE.embeddings
+    DISTANCES.ADD {id: ID, distance: DIST}
+  END!
+  
+  SORTED = SORT DISTANCES BY distance ASCENDING
+  RETURN SORTED.slice(0, K)
+END!
+END!
+
+FUNC! "_distance"
+RUN!
+  V1 = ARGS[0]
+  V2 = ARGS[1]
+  
+  SUM = 0
+  FOR! i in RANGE V1.length:
+    SUM += (V1[i] - V2[i]) ** 2
+  END!
+  
+  RETURN SQRT SUM
+END!
+END!
+
+FUNC! "multi_hop_reasoning"
+RUN!
+  START = ARGS[0]
+  END = ARGS[1]
+  GRAPH = KNOWLEDGE_GRAPH
+  
+  # Find path from start to end
+  PATH = CALL _find_path START END GRAPH
+  
+  RETURN PATH
+END!
+END!
+
+FUNC! "_find_path"
+RUN!
+  # Multi-hop graph traversal
+  # Uses stress gradients to guide search
+  RETURN "path_result"
+END!
+END!

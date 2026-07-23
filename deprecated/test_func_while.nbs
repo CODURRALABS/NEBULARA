@@ -1,0 +1,16 @@
+LET G_source = "PRINT"
+LET G_src_len = 0
+LET G_src_pos = 0
+
+FUNC! read_char:
+  LET c = CHAR_AT(G_source, G_src_pos)
+  G_src_pos = G_src_pos + 1
+  RETURN c
+END!
+
+G_src_len = LEN(G_source)
+WHILE? G_src_pos < G_src_len:
+  LET c = read_char()
+  PRINT c
+END!
+PRINT "done"

@@ -1,0 +1,8 @@
+LET a = []
+a = a + [1]
+IF? LEN(a) <= 2:
+  PRINT "le2"
+ELSE:
+  PRINT "gt2"
+END!
+PRINT "done"

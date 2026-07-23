@@ -1,0 +1,20 @@
+LET G_source = "PRINT"
+LET G_src_len = 0
+LET G_src_pos = 0
+
+FUNC! read_word:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c == 32:
+      BREAK
+    ELSE:
+      G_src_pos = G_src_pos + 1
+    END!
+  END!
+  RETURN SUBSTR(G_source, start, G_src_pos - start)
+END!
+
+G_src_len = LEN(G_source)
+LET word = read_word()
+PRINT "word=" + word

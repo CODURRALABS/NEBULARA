@@ -1,0 +1,100 @@
+# Void Wisdom - The Alchemist / Earned Insights
+# void/wisdom.nbs
+
+DATA! "Operation"
+  validate = 0
+  transform = 1
+  synthesize = 2
+  reject = 3
+END!
+
+DATA! "Insight"
+  id = ""
+  geometric_hash = ""
+  compressed_truth = ""
+  applicability_signature = ""
+END!
+
+DATA! "PathNode"
+  operation = Operation.validate
+  result_hash = ""
+END!
+
+DATA! "Pathway"
+  name = ""
+  nodes = []
+  resolution_pattern = { trigger_shape = "", solution_template = "" }
+END!
+
+DATA! "Wisdom"
+  insights = {}
+  pathways = {}
+END!
+
+FUNC! "crystallize"
+RUN!
+  # Compress resolution into earned wisdom
+  INSIGHT_ID = SHA256 RESOLUTION
+  
+  # Geometric compression of truth
+  GEOM_HASH = SHA256 RESOLUTION + CONTEXT_SIG
+  
+  INSIGHT = {
+    id = INSIGHT_ID
+    geometric_hash = GEOM_HASH
+    compressed_truth = RESOLUTION
+    applicability_signature = CONTEXT_SIG
+  }
+  
+  WISDOM.insights[INSIGHT_ID] = INSIGHT
+  RETURN INSIGHT_ID
+END!
+END!
+
+FUNC! "recognize"
+RUN!
+  # Find matching insight for current context
+  FOR! ID, INSIGHT in WISDOM.insights:
+    IF? INSIGHT.applicability_signature == CONTEXT_SHAPE THEN:
+      RETURN INSIGHT
+    END!
+  END!
+  RETURN null
+END!
+END!
+
+FUNC! "apply_pathway"
+RUN!
+  # Find resolution pathway for shape
+  FOR! NAME, PATHWAY in WISDOM.pathways:
+    IF? PATHWAY.resolution_pattern.trigger_shape == CONTEXT_SHAPE THEN:
+      RETURN PATHWAY
+    END!
+  END!
+  RETURN null
+END!
+END!
+
+FUNC! "build_pathway"
+RUN!
+  # Connect insight to pathway network
+  PATH_NODES = []
+  FOR! STEP in SOLUTION_STEPS:
+    PATH_NODES.ADD {
+      operation = Operation.transform
+      result_hash = SHA256 STEP
+    }
+  END!
+  
+  PATHWAY = {
+    name = "path_" + SHA256 SOLUTION
+    nodes = PATH_NODES
+    resolution_pattern = {
+      trigger_shape = CONTEXT_SIG
+      solution_template = SOLUTION
+    }
+  }
+  
+  WISDOM.pathways[PATHWAY.name] = PATHWAY
+END!
+END!
