@@ -1,0 +1,10 @@
+IMPORT "std/json.nbs"
+
+LET a2 = json_parse("[1,2,3]")
+PRINT("len=" + TO_STRING(LEN(a2)))
+PRINT("[0]=" + TO_STRING(a2[0]))
+PRINT("[1]=" + TO_STRING(a2[1]))
+
+# Also test by printing the raw return of parse_val
+LET x = parse_val("[1,2,3]", 1)
+PRINT("parse_val direct: val=" + TO_STRING(x[0]) + " pos=" + TO_STRING(x[1]))

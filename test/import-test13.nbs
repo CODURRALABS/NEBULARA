@@ -1,0 +1,5 @@
+IMPORT "std/math.nbs"
+LET x = abs(-10)
+LET y = max(5, 12)
+PRINT(x)
+PRINT(y)

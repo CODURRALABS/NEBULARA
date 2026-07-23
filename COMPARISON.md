@@ -1,4 +1,9 @@
+<p align="center">
+  <img src="logo.png" alt="Nebulara Logo" width="120"/>
+</p>
+
 # Nebulara vs Other Languages
+
 
 A practical comparison of Nebulara against Python, JavaScript, Go, Rust, C, C++, Java, TypeScript, Ruby, Lua, Swift, and Kotlin.
 

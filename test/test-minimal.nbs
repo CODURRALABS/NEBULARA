@@ -1,0 +1,17 @@
+FUNC! inner(s, p):
+    LET arr = []
+    LET r = parse_val(s, p)
+    arr = PUSH(arr, r[0])
+    RETURN [arr, r[1]]
+END!
+
+FUNC! parse_val(ps, pp):
+    LET pv = CHAR_AT(ps, pp)
+    LET res = [1, 2]
+    RETURN res
+END!
+
+LET x = inner("hello", 1)
+PRINT("type=" + TYPEOF(x))
+PRINT("x[0]=" + TO_STRING(x[0]))
+PRINT("x[1]=" + TO_STRING(x[1]))

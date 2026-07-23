@@ -1,0 +1,2 @@
+IMPORT "std/math.nbs"
+PRINT("after")

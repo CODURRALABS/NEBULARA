@@ -1,6 +1,6 @@
 {
   "name": "nebulara",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Nebulara - AI-native universal programming language ecosystem",
   "main": "dist/index.js",
   "bin": {
@@ -23,10 +23,11 @@
     "std/",
     "test/",
     "SPEC.md",
-    "README.md"
+    "README.md",
+    "logo.png"
   ],
   "keywords": ["compiler", "programming-language", "ai-native", "nebulara"],
-  "author": "Codurra",
+  "author": "CodurraLabs",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",

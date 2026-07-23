@@ -1,0 +1,3 @@
+PRINT("step1")
+IMPORT "std/math.nbs"
+PRINT("step2")

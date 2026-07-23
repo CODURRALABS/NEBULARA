@@ -1,0 +1,7 @@
+IMPORT "std/json.nbs"
+LET a = json_parse("[1,2,3]")
+PRINT("a[0]=" + TO_STRING(a[0]))
+PRINT("a[1]=" + TO_STRING(a[1]))
+PRINT("a[2]=" + TO_STRING(a[2]))
+LET b = json_parse("[1,[2,3],4]")
+PRINT("got b, len=" + TO_STRING(LEN(b)))

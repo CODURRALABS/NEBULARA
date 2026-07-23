@@ -1,0 +1,6 @@
+FFI_LOAD("msvcrt", "msvcrt.dll")
+PRINT("Loaded library")
+FFI_REGISTER("msvcrt", "abs", 1, 1)
+PRINT("Registered function")
+LET result = FFI_CALL("msvcrt", "abs", -42)
+PRINT("Result: " + TO_STRING(result))

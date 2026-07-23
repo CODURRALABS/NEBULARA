@@ -1,0 +1,13 @@
+IMPORT "std/json.nbs"
+# Direct call to parse_val returns [value, pos]
+LET r = parse_val("[1,2,3]", 0)
+PRINT("r type: " + TYPEOF(r))
+PRINT("r len: " + TO_STRING(LEN(r)))
+LET v = r[0]
+LET p = r[1]
+PRINT("value type: " + TYPEOF(v))
+PRINT("value len: " + TO_STRING(LEN(v)))
+PRINT("value[0]: " + TO_STRING(v[0]))
+PRINT("value[1]: " + TO_STRING(v[1]))
+PRINT("value[2]: " + TO_STRING(v[2]))
+PRINT("pos: " + TO_STRING(p))

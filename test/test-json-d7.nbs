@@ -1,0 +1,2 @@
+IMPORT "std/json.nbs"
+PRINT("raw: " + TO_STRING(json_parse("[1,2,3]")))

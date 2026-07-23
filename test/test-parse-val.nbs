@@ -1,0 +1,6 @@
+IMPORT "std/json.nbs"
+PRINT("calling parse_val with array")
+LET r = parse_val("[1,2,3]", 0)
+PRINT("r type=" + TYPEOF(r) + " len=" + TO_STRING(LEN(r)))
+PRINT("r[0]=" + TO_STRING(r[0]))
+PRINT("r[1]=" + TO_STRING(r[1]))

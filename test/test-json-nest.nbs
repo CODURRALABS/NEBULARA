@@ -1,0 +1,6 @@
+IMPORT "std/json.nbs"
+LET a = json_parse("[1,2,3]")
+PRINT("array: " + json_stringify(a))
+LET b = json_parse("[1,[2,3],4]")
+PRINT("nested: " + json_stringify(b))
+PRINT("done")

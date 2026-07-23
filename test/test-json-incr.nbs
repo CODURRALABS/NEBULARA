@@ -1,0 +1,32 @@
+IMPORT "std/json.nbs"
+
+PRINT("test1")
+LET x = json_parse("42")
+PRINT("x=" + TO_STRING(x))
+
+PRINT("test2")
+LET n = json_parse("null")
+PRINT("n=" + TO_STRING(n))
+
+PRINT("test3")
+LET t = json_parse("true")
+PRINT("t=" + TO_STRING(t))
+
+PRINT("test4")
+LET f = json_parse("false")
+PRINT("f=" + TO_STRING(f))
+
+PRINT("test5")
+LET a = json_parse("[]")
+PRINT("a len=" + TO_STRING(LEN(a)))
+
+PRINT("test6")
+LET a2 = json_parse("[1,2,3]")
+PRINT("a2 len=" + TO_STRING(LEN(a2)))
+PRINT("a2[0]=" + TO_STRING(a2[0]))
+
+PRINT("test7")
+LET w = json_parse("  42  ")
+PRINT("w=" + TO_STRING(w))
+
+PRINT("ALL OK")

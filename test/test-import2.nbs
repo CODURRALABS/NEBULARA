@@ -1,0 +1,3 @@
+PRINT("Before import")
+IMPORT "std/math.nbs"
+PRINT("After import")

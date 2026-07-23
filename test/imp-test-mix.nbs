@@ -1,0 +1,3 @@
+PRINT("before")
+IMPORT "std/empty.nbs"
+PRINT("after")

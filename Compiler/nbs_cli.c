@@ -12,6 +12,15 @@
 #include <math.h>
 #include <inttypes.h>
 
+// FFI platform headers
+#ifdef _WIN32
+#include <windows.h>
+typedef HMODULE NbsFFIHandle;
+#else
+#include <dlfcn.h>
+typedef void* NbsFFIHandle;
+#endif
+
 // ============================================================================
 // VM Types (shared with interpreter)
 // ============================================================================
@@ -100,6 +109,84 @@ void val_free(Value v) {
 }
 
 // ============================================================================
+// FFI SYSTEM — Foreign Function Interface
+// ============================================================================
+
+typedef enum {
+    NBS_FFI_VOID, NBS_FFI_INT, NBS_FFI_FLOAT, NBS_FFI_DOUBLE,
+    NBS_FFI_STRING, NBS_FFI_POINTER
+} NbsFFIType;
+
+typedef struct {
+    char name[256];
+    NbsFFIType return_type;
+    int param_count;
+    NbsFFIHandle handle;
+    void* fn_ptr;
+} NbsFFIFunc;
+
+typedef struct {
+    char name[256];
+    char path[512];
+    NbsFFIFunc functions[256];
+    int func_count;
+    int is_loaded;
+} NbsFFILib;
+
+static NbsFFILib ffi_libs[64];
+static int ffi_lib_count = 0;
+
+static int ffi_load_lib(const char* name, const char* path) {
+    if (ffi_lib_count >= 64) return -1;
+    NbsFFILib* lib = &ffi_libs[ffi_lib_count];
+    memset(lib, 0, sizeof(NbsFFILib));
+    strncpy(lib->name, name, 255);
+    strncpy(lib->path, path, 511);
+    lib->func_count = 0;
+#ifdef _WIN32
+    lib->is_loaded = 1;
+#else
+    void* handle = dlopen(path, RTLD_LAZY);
+    lib->is_loaded = (handle != NULL);
+    if (!handle) fprintf(stderr, "FFI WARNING: could not load '%s': %s\n", path, dlerror());
+#endif
+    ffi_lib_count++;
+    return 0;
+}
+
+static int ffi_register_func(const char* lib_name, const char* func_name, NbsFFIType ret_type, int param_count) {
+    for (int i = 0; i < ffi_lib_count; i++) {
+        if (strcmp(ffi_libs[i].name, lib_name) == 0) {
+            NbsFFILib* lib = &ffi_libs[i];
+            if (lib->func_count >= 256) return -2;
+            NbsFFIFunc* func = &lib->functions[lib->func_count];
+            memset(func, 0, sizeof(NbsFFIFunc));
+            strncpy(func->name, func_name, 255);
+            func->return_type = ret_type;
+            func->param_count = param_count;
+            lib->func_count++;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void* ffi_resolve_func(NbsFFILib* lib, NbsFFIFunc* func) {
+    if (func->fn_ptr) return func->fn_ptr;
+#ifdef _WIN32
+    HMODULE h = LoadLibraryA(lib->path);
+    if (!h) { fprintf(stderr, "FFI ERROR: Cannot load '%s'\n", lib->path); return NULL; }
+    func->fn_ptr = (void*)GetProcAddress(h, func->name);
+#else
+    void* handle = dlopen(lib->path, RTLD_LAZY);
+    if (!handle) { fprintf(stderr, "FFI ERROR: Cannot load '%s': %s\n", lib->path, dlerror()); return NULL; }
+    func->fn_ptr = dlsym(handle, func->name);
+#endif
+    if (!func->fn_ptr) fprintf(stderr, "FFI ERROR: Symbol '%s' not found in '%s'\n", func->name, lib->path);
+    return func->fn_ptr;
+}
+
+// ============================================================================
 // OPCODES
 // ============================================================================
 
@@ -173,6 +260,7 @@ void val_free(Value v) {
 #define OP_ENDTRY     0x43
 #define OP_CHAR       0x44
 #define OP_ORD        0x45
+#define OP_IMPORT     0x46
 
 // ============================================================================
 // LEXER
@@ -193,6 +281,7 @@ typedef struct { TT type; char txt[128]; int64_t ival; int line; } Tk;
     T_WHILE, T_FOR, T_TO, T_STEP, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
     T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
     T_TRY, T_CATCH, T_THROW, T_FINALLY,
+    T_IMPORT,
     T_TRUE, T_FALSE, T_NULL,
     T_EOF
 } TT;
@@ -267,6 +356,7 @@ static Tk lx(Lx*l) {
         else if(!strcmp(t.txt,"CATCH!"))t.type=T_CATCH;
         else if(!strcmp(t.txt,"THROW"))t.type=T_THROW;
         else if(!strcmp(t.txt,"FINALLY!"))t.type=T_FINALLY;
+        else if(!strcmp(t.txt,"IMPORT"))t.type=T_IMPORT;
         else t.type=T_IDENT;
         return t;
     }
@@ -590,6 +680,16 @@ static void compile_stmt(void) {
         tp++;
         compile_expr();
         bc(OP_THROW);
+        return;
+    }
+    // IMPORT "path"
+    if(t->type==T_IMPORT){
+        tp++;
+        if(tp<tn && tks[tp].type==T_STR){
+            int si=str_idx(tks[tp].txt);
+            tp++;
+            bc(OP_IMPORT);bc32(si);
+        }
         return;
     }
 
@@ -1297,6 +1397,30 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 vm_var_sp=vm_call_stack[vm_call_sp].var_sp;}
             else{vm_push(v);return;}
             vm_push(v);
+        }break;
+        case OP_IMPORT:{int32_t si;memcpy(&si,code+ip,4);ip+=4;
+            const char*path=strings[si];
+            static char imp_files[64][256];static int imp_count=0;
+            int skip=0;for(int i=0;i<imp_count;i++)if(!strcmp(imp_files[i],path)){skip=1;break;}
+            if(skip)break;
+            if(imp_count<64){strncpy(imp_files[imp_count],path,255);imp_files[imp_count][255]=0;imp_count++;}
+            FILE*f=fopen(path,"rb");
+            if(!f){char msg[256];snprintf(msg,256,"Cannot open import '%s'",path);vm_set_error(msg);break;}
+            fseek(f,0,SEEK_END);long sz=ftell(f);fseek(f,0,SEEK_SET);
+            char*src=malloc(sz+1);size_t r=fread(src,1,sz,f);src[r]=0;fclose(f);
+            int saved_bclen=bclen;
+            int saved_tn=tn,saved_tp=tp;
+            Lx imp_lx={src,0,(int)r,1};
+            tn=0;tp=0;
+            do{tks[tn++]=lx(&imp_lx);}while(tks[tn-1].type!=T_EOF&&tn<8192);
+            while(tp<tn&&tks[tp].type!=T_EOF)compile_stmt();
+            int saved_sp=vm_sp;
+            int saved_call_sp=vm_call_sp;
+            vm_exec(bytecode+saved_bclen,bclen-saved_bclen,strings,strcount);
+            vm_sp=saved_sp;
+            vm_call_sp=saved_call_sp;
+            tn=saved_tn;tp=saved_tp;
+            free(src);
         }break;
         case OP_HALT:return;
         default:

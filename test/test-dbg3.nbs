@@ -1,0 +1,11 @@
+IMPORT "std/json.nbs"
+
+PRINT("BEFORE simple")
+LET a = json_parse("[1,2,3]")
+PRINT("AFTER simple")
+PRINT(a)
+
+PRINT("BEFORE nested")
+LET b = json_parse("[1,[2,3],4]")
+PRINT("AFTER nested")
+PRINT(b)

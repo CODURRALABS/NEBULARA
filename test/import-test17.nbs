@@ -1,0 +1,5 @@
+IMPORT "std/math.nbs"
+
+LET nums = [1, 2, 3, 4, 5]
+PRINT(sum_array(nums))
+PRINT(average(nums))

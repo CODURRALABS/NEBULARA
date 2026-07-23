@@ -1,0 +1,5 @@
+LET a = [1,2,3]
+PRINT("len=" + TO_STRING(LEN(a)))
+IF? LEN(a) >= 1:
+    PRINT("has at least 1")
+END!

@@ -1,0 +1,2 @@
+IMPORT "std/math.nbs"
+PRINT(max(5, 12))

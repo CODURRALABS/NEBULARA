@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 /* Types */
 typedef enum {
@@ -21,7 +22,8 @@ typedef enum {
     TYPE_ARRAY,
     TYPE_NULL,
     TYPE_FUNC,
-    TYPE_FUNC_REF
+    TYPE_FUNC_REF,
+    TYPE_VOID
 } NebType;
 
 typedef struct {

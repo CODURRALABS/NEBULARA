@@ -1,0 +1,12 @@
+IMPORT "std/math.nbs"
+
+LET a = abs(-10)
+LET b = max(5, 12)
+LET c = min(8, 3)
+LET d = clamp(15, 0, 10)
+
+PRINT(a)
+PRINT(b)
+PRINT(c)
+PRINT(d)
+PRINT(a + b + c + d)

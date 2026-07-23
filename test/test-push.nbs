@@ -1,0 +1,9 @@
+LET arr = []
+PRINT("len=" + TO_STRING(LEN(arr)))
+arr = PUSH(arr, 1)
+PRINT("len=" + TO_STRING(LEN(arr)))
+PRINT("arr[0]=" + TO_STRING(arr[0]))
+arr = PUSH(arr, 2)
+PRINT("len=" + TO_STRING(LEN(arr)))
+PRINT("arr[0]=" + TO_STRING(arr[0]))
+PRINT("arr[1]=" + TO_STRING(arr[1]))

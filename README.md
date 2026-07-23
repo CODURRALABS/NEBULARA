@@ -1,6 +1,11 @@
 # Nebulara
 
+<p align="center">
+  <img src="logo.png" alt="Nebulara Logo" width="140"/>
+</p>
+
 **The AI-Native Universal Programming Language**
+
 
 A complete C-based toolchain: interpreter, CLI, transpiler (JS/Python), semantic analyzer, FFI bridge, native codegen, and knowledge graph. Install via npm with zero dependencies.
 

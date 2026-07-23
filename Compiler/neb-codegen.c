@@ -264,6 +264,7 @@ void codegen_free(void) {
 }
 
 /* Demo: generate simple function */
+#ifdef CODEGEN_STANDALONE
 int main(int argc, char *argv[]) {
     printf("=== Nebulara Native Codegen Module ===\n\n");
     printf("Target: x86-64\n\n");
@@ -285,3 +286,4 @@ int main(int argc, char *argv[]) {
     printf("\nNative codegen module: OK\n");
     return 0;
 }
+#endif

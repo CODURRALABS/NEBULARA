@@ -1,0 +1,7 @@
+IMPORT "std/math.nbs"
+
+PRINT(abs(-42))
+PRINT(max(100, 200))
+PRINT(min(8, 3))
+PRINT(clamp(15, 0, 10))
+PRINT(max(min(10, 20), min(5, 3)))
