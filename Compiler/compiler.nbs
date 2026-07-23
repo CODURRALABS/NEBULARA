@@ -1,0 +1,793 @@
+# Nebulara Self-Hosted Compiler v1.0
+# Compiles .nbs source files to .nbsc bytecode
+
+# Global state (no DATA! blocks - C runtime doesn't support them)
+LET G_source = ""
+LET G_src_len = 0
+LET G_src_pos = 0
+LET G_line = 1
+LET G_tokens = []
+LET G_token_count = 0
+LET G_bytecode = []
+LET G_bc_len = 0
+LET G_strings = []
+LET G_string_count = 0
+LET G_varnames = []
+LET G_var_count = 0
+LET G_pos = 0
+
+# ============================================================
+# OPCODES (must match nbs_cli.c)
+# ============================================================
+LET OP_PUSH_INT = 1
+LET OP_PUSH_STR = 2
+LET OP_PUSH_BOOL = 3
+LET OP_POP = 4
+LET OP_ADD = 5
+LET OP_SUB = 6
+LET OP_MUL = 7
+LET OP_DIV = 8
+LET OP_MOD = 9
+LET OP_NEG = 10
+LET OP_EQ = 11
+LET OP_NEQ = 12
+LET OP_LT = 13
+LET OP_GT = 14
+LET OP_LTE = 15
+LET OP_GTE = 16
+LET OP_AND = 17
+LET OP_OR = 18
+LET OP_NOT = 19
+LET OP_STORE = 20
+LET OP_LOAD = 21
+LET OP_PRINT = 22
+LET OP_JUMP = 23
+LET OP_JUMP_IFNOT = 24
+LET OP_HALT = 25
+LET OP_CALL = 26
+LET OP_RET = 27
+LET OP_ARRAY_NEW = 28
+LET OP_ARRAY_GET = 29
+LET OP_ARRAY_LEN = 30
+LET OP_TYPEOF = 31
+LET OP_TOSTR = 32
+LET OP_TONUM = 33
+
+# TOKEN TYPES
+LET TOK_INT = 0
+LET TOK_STR = 1
+LET TOK_IDENT = 2
+LET TOK_PLUS = 3
+LET TOK_MINUS = 4
+LET TOK_STAR = 5
+LET TOK_SLASH = 6
+LET TOK_MOD = 7
+LET TOK_EQ = 8
+LET TOK_NEQ = 9
+LET TOK_LT = 10
+LET TOK_GT = 11
+LET TOK_LTE = 12
+LET TOK_GTE = 13
+LET TOK_AND = 14
+LET TOK_OR = 15
+LET TOK_NOT = 16
+LET TOK_ASSIGN = 17
+LET TOK_LPAREN = 18
+LET TOK_RPAREN = 19
+LET TOK_LBRACKET = 20
+LET TOK_RBRACKET = 21
+LET TOK_COMMA = 22
+LET TOK_COLON = 23
+LET TOK_PRINT = 24
+LET TOK_IF = 25
+LET TOK_ELSE = 26
+LET TOK_THEN = 27
+LET TOK_WHILE = 28
+LET TOK_FOR = 29
+LET TOK_TO = 30
+LET TOK_FUNC = 31
+LET TOK_END = 32
+LET TOK_RETURN = 33
+LET TOK_LET = 34
+LET TOK_BREAK = 35
+LET TOK_CONTINUE = 36
+LET TOK_EOF = 37
+
+# ============================================================
+# LEXER
+# ============================================================
+
+FUNC! is_alpha c:
+  IF? c >= 65:
+    IF? c <= 90: RETURN 1 END!
+  END!
+  IF? c >= 97:
+    IF? c <= 122: RETURN 1 END!
+  END!
+  IF? c == 95: RETURN 1 END!
+  IF? c == 33: RETURN 1 END!
+  IF? c == 63: RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! is_digit c:
+  IF? c >= 48:
+    IF? c <= 57: RETURN 1 END!
+  END!
+  RETURN 0
+END!
+
+FUNC! lexer_init src:
+  G_source = src
+  G_src_len = LEN(src)
+  G_src_pos = 0
+  G_line = 1
+  G_token_count = 0
+  G_tokens = []
+END!
+
+FUNC! lexer_advance:
+  LET c = CHAR_AT(G_source, G_src_pos)
+  G_src_pos = G_src_pos + 1
+  IF? c == 10:
+    G_line = G_line + 1
+  END!
+  RETURN c
+END!
+
+FUNC! lexer_skip_ws:
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c == 32 OR c == 9 OR c == 13 OR c == 10:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      IF? c == 35:
+        WHILE? G_src_pos < G_src_len:
+          LET c2 = CHAR_AT(G_source, G_src_pos)
+          IF? c2 == 10:
+            G_src_pos = G_src_pos + 1
+            G_line = G_line + 1
+            BREAK
+          END!
+          G_src_pos = G_src_pos + 1
+        END!
+      ELSE:
+        BREAK
+      END!
+    END!
+  END!
+END!
+
+FUNC! add_token type val:
+  LET i = G_token_count * 3
+  WHILE? LEN(G_tokens) <= i + 2:
+    G_tokens = G_tokens + [0]
+  END!
+  G_tokens[i] = type
+  G_tokens[i + 1] = val
+  G_tokens[i + 2] = G_line
+  G_token_count = G_token_count + 1
+END!
+
+FUNC! add_str_token type s:
+  LET idx = G_string_count
+  G_strings = G_strings + [s]
+  G_string_count = G_string_count + 1
+  add_token(type, idx)
+END!
+
+FUNC! read_word:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? is_alpha(c) == 1 OR is_digit(c) == 1:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      BREAK
+    END!
+  END!
+  RETURN SUBSTR(G_source, start, G_src_pos - start)
+END!
+
+FUNC! read_number:
+  LET start = G_src_pos
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? is_digit(c) == 1:
+      G_src_pos = G_src_pos + 1
+    ELSE:
+      BREAK
+    END!
+  END!
+  RETURN SUBSTR(G_source, start, G_src_pos - start)
+END!
+
+FUNC! read_string:
+  G_src_pos = G_src_pos + 1
+  LET result = ""
+  WHILE? G_src_pos < G_src_len:
+    LET c = CHAR_AT(G_source, G_src_pos)
+    IF? c == 34:
+      G_src_pos = G_src_pos + 1
+      RETURN result
+    END!
+    IF? c == 92:
+      G_src_pos = G_src_pos + 1
+      LET e = CHAR_AT(G_source, G_src_pos)
+      G_src_pos = G_src_pos + 1
+      IF? e == 110: result = result + CHAR(10) END!
+      IF? e == 116: result = result + CHAR(9) END!
+      IF? e == 92: result = result + CHAR(92) END!
+      IF? e == 34: result = result + CHAR(34) END!
+      IF? e != 110 AND e != 116 AND e != 92 AND e != 34: result = result + CHAR(e) END!
+    ELSE:
+      result = result + CHAR(c)
+      G_src_pos = G_src_pos + 1
+    END!
+  END!
+  RETURN result
+END!
+
+FUNC! classify_char c:
+  IF? is_digit(c) == 1: RETURN "digit" END!
+  IF? c == 34: RETURN "quote" END!
+  IF? is_alpha(c) == 1: RETURN "alpha" END!
+  IF? c == 43: RETURN "plus" END!
+  IF? c == 45: RETURN "minus" END!
+  IF? c == 42: RETURN "star" END!
+  IF? c == 47: RETURN "slash" END!
+  IF? c == 37: RETURN "mod" END!
+  IF? c == 40: RETURN "lparen" END!
+  IF? c == 41: RETURN "rparen" END!
+  IF? c == 91: RETURN "lbracket" END!
+  IF? c == 93: RETURN "rbracket" END!
+  IF? c == 44: RETURN "comma" END!
+  IF? c == 58: RETURN "colon" END!
+  IF? c == 61: RETURN "eq" END!
+  IF? c == 33: RETURN "bang" END!
+  IF? c == 60: RETURN "lt" END!
+  IF? c == 62: RETURN "gt" END!
+  IF? c == 46: RETURN "dot" END!
+  IF? c == 35: RETURN "hash" END!
+  RETURN "other"
+END!
+
+FUNC! classify_word word:
+  IF? word == "PRINT": RETURN "PRINT" END!
+  IF? word == "LET": RETURN "LET" END!
+  IF? word == "IF?" OR word == "IF": RETURN "IF" END!
+  IF? word == "ELSE": RETURN "ELSE" END!
+  IF? word == "ELSEIF?" OR word == "ELSEIF": RETURN "ELSEIF" END!
+  IF? word == "THEN": RETURN "THEN" END!
+  IF? word == "WHILE?" OR word == "WHILE": RETURN "WHILE" END!
+  IF? word == "FOR!": RETURN "FOR" END!
+  IF? word == "TO": RETURN "TO" END!
+  IF? word == "FUNC!": RETURN "FUNC" END!
+  IF? word == "END!": RETURN "END" END!
+  IF? word == "RETURN": RETURN "RETURN" END!
+  IF? word == "AND": RETURN "AND" END!
+  IF? word == "OR": RETURN "OR" END!
+  IF? word == "NOT": RETURN "NOT" END!
+  IF? word == "TRUE": RETURN "TRUE" END!
+  IF? word == "FALSE": RETURN "FALSE" END!
+  RETURN "ident"
+END!
+
+FUNC! tokenize_source src:
+  lexer_init(src)
+  WHILE? G_src_pos < G_src_len:
+    lexer_skip_ws()
+    IF? G_src_pos >= G_src_len: BREAK END!
+    LET c = CHAR_AT(G_source, G_src_pos)
+    LET kind = classify_char(c)
+    
+    IF? kind == "digit": add_str_token(TOK_INT, read_number()) END!
+    IF? kind == "quote": add_str_token(TOK_STR, read_string()) END!
+    IF? kind == "alpha":
+      LET word = read_word()
+      LET wkind = classify_word(word)
+      IF? wkind == "PRINT": add_token(TOK_PRINT, 0) END!
+      IF? wkind == "LET": add_token(TOK_LET, 0) END!
+      IF? wkind == "IF": add_token(TOK_IF, 0) END!
+      IF? wkind == "ELSE": add_token(TOK_ELSE, 0) END!
+      IF? wkind == "ELSEIF": add_token(TOK_ELSEIF, 0) END!
+      IF? wkind == "THEN": add_token(TOK_THEN, 0) END!
+      IF? wkind == "WHILE": add_token(TOK_WHILE, 0) END!
+      IF? wkind == "FOR": add_token(TOK_FOR, 0) END!
+      IF? wkind == "TO": add_token(TOK_TO, 0) END!
+      IF? wkind == "FUNC": add_token(TOK_FUNC, 0) END!
+      IF? wkind == "END": add_token(TOK_END, 0) END!
+      IF? wkind == "RETURN": add_token(TOK_RETURN, 0) END!
+      IF? wkind == "AND": add_token(TOK_AND, 0) END!
+      IF? wkind == "OR": add_token(TOK_OR, 0) END!
+      IF? wkind == "NOT": add_token(TOK_NOT, 0) END!
+      IF? wkind == "TRUE": add_str_token(TOK_INT, "1") END!
+      IF? wkind == "FALSE": add_str_token(TOK_INT, "0") END!
+      IF? wkind == "ident": add_str_token(TOK_IDENT, word) END!
+    END!
+    IF? kind == "plus": add_token(TOK_PLUS, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "minus": add_token(TOK_MINUS, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "star": add_token(TOK_STAR, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "slash": add_token(TOK_SLASH, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "mod": add_token(TOK_MOD, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "lparen": add_token(TOK_LPAREN, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "rparen": add_token(TOK_RPAREN, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "lbracket": add_token(TOK_LBRACKET, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "rbracket": add_token(TOK_RBRACKET, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "comma": add_token(TOK_COMMA, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "colon": add_token(TOK_COLON, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "dot": add_token(TOK_DOT, 0); G_src_pos = G_src_pos + 1 END!
+    IF? kind == "hash": G_src_pos = G_src_pos + 1
+      WHILE? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) != 10: G_src_pos = G_src_pos + 1 END! END!
+    IF? kind == "eq":
+      G_src_pos = G_src_pos + 1
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+        add_token(TOK_EQ, 0); G_src_pos = G_src_pos + 1
+      ELSE:
+        add_token(TOK_ASSIGN, 0)
+      END!
+    END!
+    IF? kind == "bang":
+      G_src_pos = G_src_pos + 1
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+        add_token(TOK_NEQ, 0); G_src_pos = G_src_pos + 1
+      ELSE:
+        add_token(TOK_NOT, 0)
+      END!
+    END!
+    IF? kind == "lt":
+      G_src_pos = G_src_pos + 1
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+        add_token(TOK_LTE, 0); G_src_pos = G_src_pos + 1
+      ELSE:
+        add_token(TOK_LT, 0)
+      END!
+    END!
+    IF? kind == "gt":
+      G_src_pos = G_src_pos + 1
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+        add_token(TOK_GTE, 0); G_src_pos = G_src_pos + 1
+      ELSE:
+        add_token(TOK_GT, 0)
+      END!
+    END!
+    IF? kind == "other": G_src_pos = G_src_pos + 1 END!
+  END!
+  add_token(TOK_EOF, 0)
+END!
+
+# ============================================================
+# TOKEN ACCESS
+# ============================================================
+
+FUNC! tok_type idx:
+  IF? idx >= G_token_count: RETURN TOK_EOF END!
+  RETURN G_tokens[idx * 3]
+END!
+
+FUNC! tok_value idx:
+  IF? idx >= G_token_count: RETURN "" END!
+  RETURN G_tokens[idx * 3 + 1]
+END!
+
+# ============================================================
+# BYTECODE EMITTER
+# ============================================================
+
+FUNC! emit_byte b:
+  G_bytecode = G_bytecode + [b]
+  G_bc_len = G_bc_len + 1
+END!
+
+FUNC! emit_i32 v:
+  emit_byte(v & 255)
+  emit_byte((v >> 8) & 255)
+  emit_byte((v >> 16) & 255)
+  emit_byte((v >> 24) & 255)
+END!
+
+FUNC! emit_i64 v:
+  emit_byte(v & 255)
+  emit_byte((v >> 8) & 255)
+  emit_byte((v >> 16) & 255)
+  emit_byte((v >> 24) & 255)
+  emit_byte((v >> 32) & 255)
+  emit_byte((v >> 40) & 255)
+  emit_byte((v >> 48) & 255)
+  emit_byte((v >> 56) & 255)
+END!
+
+FUNC! emit_op op:
+  emit_byte(op)
+END!
+
+FUNC! emit_push_int v:
+  emit_op(OP_PUSH_INT)
+  emit_i64(v)
+END!
+
+FUNC! emit_push_str s:
+  LET idx = G_string_count
+  G_strings = G_strings + [s]
+  G_string_count = G_string_count + 1
+  emit_op(OP_PUSH_STR)
+  emit_i32(idx)
+END!
+
+FUNC! str_intern s:
+  LET i = 0
+  WHILE? i < G_string_count:
+    IF? G_strings[i] == s: RETURN i END!
+    i = i + 1
+  END!
+  LET idx = G_string_count
+  G_strings = G_strings + [s]
+  G_string_count = G_string_count + 1
+  RETURN idx
+END!
+
+# ============================================================
+# VARIABLE TABLE
+# ============================================================
+
+FUNC! var_idx name:
+  LET i = 0
+  WHILE? i < G_var_count:
+    IF? G_varnames[i] == name: RETURN i END!
+    i = i + 1
+  END!
+  LET idx = G_var_count
+  G_varnames = G_varnames + [name]
+  G_var_count = G_var_count + 1
+  RETURN idx
+END!
+
+# ============================================================
+# PARSER
+# ============================================================
+
+FUNC! p_advance:
+  G_pos = G_pos + 1
+END!
+
+FUNC! p_peek:
+  RETURN tok_type(G_pos)
+END!
+
+FUNC! p_match expected:
+  IF? p_peek() == expected: p_advance(); RETURN 1 END!
+  RETURN 0
+END!
+
+FUNC! compile_primary:
+  LET t = p_peek()
+  IF? t == TOK_INT:
+    emit_push_int(TO_NUMBER(tok_value(G_pos)))
+    p_advance()
+    RETURN
+  END!
+  IF? t == TOK_STR:
+    emit_push_str(tok_value(G_pos))
+    p_advance()
+    RETURN
+  END!
+  IF? t == TOK_LBRACKET:
+    p_advance()
+    LET count = 0
+    WHILE? p_peek() != TOK_RBRACKET AND p_peek() != TOK_EOF:
+      compile_expr()
+      count = count + 1
+      IF? p_peek() == TOK_COMMA: p_advance() END!
+    END!
+    p_match(TOK_RBRACKET)
+    emit_op(OP_ARRAY_NEW)
+    emit_i32(count)
+    RETURN
+  END!
+  IF? t == TOK_LPAREN:
+    p_advance()
+    compile_expr()
+    p_match(TOK_RPAREN)
+    RETURN
+  END!
+  IF? t == TOK_MINUS:
+    p_advance()
+    compile_primary()
+    emit_op(OP_NEG)
+    RETURN
+  END!
+  IF? t == TOK_NOT:
+    p_advance()
+    compile_primary()
+    emit_op(OP_NOT)
+    RETURN
+  END!
+  IF? t == TOK_IDENT:
+    LET name = tok_value(G_pos)
+    p_advance()
+    IF? p_peek() == TOK_LPAREN:
+      p_advance()
+      LET arg_count = 0
+      WHILE? p_peek() != TOK_RPAREN AND p_peek() != TOK_EOF:
+        compile_expr()
+        arg_count = arg_count + 1
+        IF? p_peek() == TOK_COMMA: p_advance() END!
+      END!
+      p_match(TOK_RPAREN)
+      IF? name == "PRINT": emit_op(OP_PRINT) END!
+      IF? name == "LEN": emit_op(OP_ARRAY_LEN) END!
+      IF? name == "TYPEOF": emit_op(OP_TYPEOF) END!
+      IF? name == "TO_STRING": emit_op(OP_TOSTR) END!
+      IF? name == "TO_NUMBER": emit_op(OP_TONUM) END!
+      IF? name != "PRINT" AND name != "LEN" AND name != "TYPEOF" AND name != "TO_STRING" AND name != "TO_NUMBER":
+        emit_op(OP_CALL)
+        emit_i32(str_intern(name))
+        emit_i32(arg_count)
+      END!
+      RETURN
+    END!
+    emit_op(OP_LOAD)
+    emit_i32(var_idx(name))
+    WHILE? p_peek() == TOK_LBRACKET:
+      p_advance()
+      compile_expr()
+      p_match(TOK_RBRACKET)
+      emit_op(OP_ARRAY_GET)
+    END!
+    RETURN
+  END!
+  emit_push_int(0)
+END!
+
+FUNC! compile_expr:
+  compile_primary()
+  WHILE? p_peek() == TOK_PLUS OR p_peek() == TOK_MINUS OR p_peek() == TOK_STAR OR p_peek() == TOK_SLASH OR p_peek() == TOK_MOD OR p_peek() == TOK_EQ OR p_peek() == TOK_NEQ OR p_peek() == TOK_LT OR p_peek() == TOK_GT OR p_peek() == TOK_LTE OR p_peek() == TOK_GTE OR p_peek() == TOK_AND OR p_peek() == TOK_OR:
+    LET op = p_peek()
+    p_advance()
+    compile_primary()
+    IF? op == TOK_PLUS: emit_op(OP_ADD) END!
+    IF? op == TOK_MINUS: emit_op(OP_SUB) END!
+    IF? op == TOK_STAR: emit_op(OP_MUL) END!
+    IF? op == TOK_SLASH: emit_op(OP_DIV) END!
+    IF? op == TOK_MOD: emit_op(OP_MOD) END!
+    IF? op == TOK_EQ: emit_op(OP_EQ) END!
+    IF? op == TOK_NEQ: emit_op(OP_NEQ) END!
+    IF? op == TOK_LT: emit_op(OP_LT) END!
+    IF? op == TOK_GT: emit_op(OP_GT) END!
+    IF? op == TOK_LTE: emit_op(OP_LTE) END!
+    IF? op == TOK_GTE: emit_op(OP_GTE) END!
+    IF? op == TOK_AND: emit_op(OP_AND) END!
+    IF? op == TOK_OR: emit_op(OP_OR) END!
+  END!
+END!
+
+FUNC! compile_block_end:
+  WHILE? p_peek() != TOK_END AND p_peek() != TOK_ELSE AND p_peek() != TOK_EOF:
+    compile_stmt()
+  END!
+END!
+
+# Patch a jump offset at position pos
+FUNC! patch_jump pos:
+  LET off = G_bc_len - pos - 4
+  G_bytecode[pos] = off & 255
+  G_bytecode[pos + 1] = (off >> 8) & 255
+  G_bytecode[pos + 2] = (off >> 16) & 255
+  G_bytecode[pos + 3] = (off >> 24) & 255
+END!
+
+# Patch a forward offset at position pos
+FUNC! patch_fwd pos target:
+  LET off = target - pos - 4
+  G_bytecode[pos] = off & 255
+  G_bytecode[pos + 1] = (off >> 8) & 255
+  G_bytecode[pos + 2] = (off >> 16) & 255
+  G_bytecode[pos + 3] = (off >> 24) & 255
+END!
+
+FUNC! compile_stmt:
+  IF? p_peek() == TOK_PRINT:
+    p_advance()
+    compile_expr()
+    emit_op(OP_PRINT)
+    RETURN
+  END!
+  IF? p_peek() == TOK_LET:
+    p_advance()
+    IF? p_peek() == TOK_IDENT:
+      LET name = tok_value(G_pos)
+      p_advance()
+      p_match(TOK_ASSIGN)
+      compile_expr()
+      emit_op(OP_STORE)
+      emit_i32(var_idx(name))
+    END!
+    RETURN
+  END!
+  IF? p_peek() == TOK_IDENT AND G_pos + 1 < G_token_count:
+    LET next = tok_type(G_pos + 1)
+    IF? next == TOK_ASSIGN:
+      LET name = tok_value(G_pos)
+      p_advance()
+      p_advance()
+      compile_expr()
+      emit_op(OP_STORE)
+      emit_i32(var_idx(name))
+      RETURN
+    END!
+    IF? next == TOK_LBRACKET:
+      LET name = tok_value(G_pos)
+      p_advance()
+      emit_op(OP_LOAD)
+      emit_i32(var_idx(name))
+      p_advance()
+      compile_expr()
+      p_match(TOK_RBRACKET)
+      p_match(TOK_ASSIGN)
+      compile_expr()
+      emit_op(OP_ARRAY_SET)
+      RETURN
+    END!
+  END!
+  IF? p_peek() == TOK_IF:
+    p_advance()
+    compile_expr()
+    p_match(TOK_THEN)
+    p_match(TOK_COLON)
+    emit_op(OP_JUMP_IFNOT)
+    LET patch1 = G_bc_len
+    emit_i32(0)
+    compile_block_end()
+    IF? p_peek() == TOK_ELSE:
+      p_advance()
+      p_match(TOK_COLON)
+      emit_op(OP_JUMP)
+      LET patch2 = G_bc_len
+      emit_i32(0)
+      patch_jump(patch1)
+      compile_block_end()
+      patch_jump(patch2)
+    ELSE:
+      patch_jump(patch1)
+    END!
+    p_match(TOK_END)
+    RETURN
+  END!
+  IF? p_peek() == TOK_WHILE:
+    p_advance()
+    LET loop_start = G_bc_len
+    compile_expr()
+    p_match(TOK_THEN)
+    p_match(TOK_COLON)
+    emit_op(OP_JUMP_IFNOT)
+    LET patch1 = G_bc_len
+    emit_i32(0)
+    compile_block_end()
+    emit_op(OP_JUMP)
+    emit_i32(loop_start - G_bc_len - 4)
+    patch_jump(patch1)
+    p_match(TOK_END)
+    RETURN
+  END!
+  IF? p_peek() == TOK_FOR:
+    p_advance()
+    IF? p_peek() == TOK_IDENT:
+      LET var_name = tok_value(G_pos)
+      p_advance()
+      p_match(TOK_ASSIGN)
+      compile_expr()
+      emit_op(OP_STORE)
+      emit_i32(var_idx(var_name))
+      p_match(TOK_TO)
+      compile_expr()
+      emit_op(OP_STORE)
+      emit_i32(var_idx("__for_end"))
+      LET loop_start = G_bc_len
+      emit_op(OP_LOAD)
+      emit_i32(var_idx(var_name))
+      emit_op(OP_LOAD)
+      emit_i32(var_idx("__for_end"))
+      emit_op(OP_LTE)
+      emit_op(OP_JUMP_IFNOT)
+      LET patch1 = G_bc_len
+      emit_i32(0)
+      p_match(TOK_COLON)
+      compile_block_end()
+      emit_op(OP_LOAD)
+      emit_i32(var_idx(var_name))
+      emit_push_int(1)
+      emit_op(OP_ADD)
+      emit_op(OP_STORE)
+      emit_i32(var_idx(var_name))
+      emit_op(OP_JUMP)
+      emit_i32(loop_start - G_bc_len - 4)
+      patch_jump(patch1)
+    END!
+    p_match(TOK_END)
+    RETURN
+  END!
+  IF? p_peek() == TOK_FUNC:
+    p_advance()
+    IF? p_peek() == TOK_IDENT:
+      LET fname = tok_value(G_pos)
+      p_advance()
+      WHILE? p_peek() != TOK_COLON AND p_peek() != TOK_EOF:
+        p_advance()
+      END!
+      p_match(TOK_COLON)
+      emit_op(OP_JUMP)
+      LET skip_patch = G_bc_len
+      emit_i32(0)
+      # Function body starts here
+      compile_block_end()
+      emit_push_int(0)
+      emit_op(OP_RET)
+      patch_jump(skip_patch)
+    END!
+    p_match(TOK_END)
+    RETURN
+  END!
+  IF? p_peek() == TOK_RETURN:
+    p_advance()
+    IF? p_peek() != TOK_END AND p_peek() != TOK_EOF:
+      compile_expr()
+    ELSE:
+      emit_push_int(0)
+    END!
+    emit_op(OP_RET)
+    RETURN
+  END!
+  compile_expr()
+END!
+
+# ============================================================
+# MAIN
+# ============================================================
+
+FUNC! compile_source src:
+  G_bytecode = []
+  G_bc_len = 0
+  G_strings = []
+  G_string_count = 0
+  G_varnames = []
+  G_var_count = 0
+  G_pos = 0
+  tokenize_source(src)
+  WHILE? p_peek() != TOK_EOF:
+    compile_stmt()
+  END!
+  emit_op(OP_HALT)
+END!
+
+FUNC! compile_file path:
+  LET src = READ_FILE(path)
+  IF? LEN(src) == 0:
+    PRINT "Error: cannot read " + path
+    RETURN
+  END!
+  compile_source(src)
+  # Write bytecode
+  LET data = ""
+  LET i = 0
+  WHILE? i < G_bc_len:
+    data = data + CHAR(G_bytecode[i])
+    i = i + 1
+  END!
+  WRITE_FILE(path + ".nbsc", data)
+  PRINT "Compiled " + path + " -> " + path + ".nbsc (" + TO_STRING(G_bc_len) + " bytes)"
+  PRINT "Strings: " + TO_STRING(G_string_count) + " Vars: " + TO_STRING(G_var_count)
+END!
+
+# Entry point
+LET argc = ARGUMENT_COUNT()
+IF? argc >= 4:
+  LET cmd = ARGUMENT(3)
+  IF? cmd == "compile":
+    compile_file(ARGUMENT(4))
+  ELSE:
+    PRINT "Usage: nebulara run compiler.nbs compile <file.nbs>"
+  END!
+ELSE:
+  PRINT "Nebulara Self-Hosted Compiler v1.0"
+  PRINT "Usage: nebulara run compiler.nbs compile <file.nbs>"
+END!

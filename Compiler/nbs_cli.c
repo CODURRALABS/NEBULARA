@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <windows.h>
 #include <time.h>
 #include <math.h>
 #include <inttypes.h>
@@ -270,6 +271,13 @@ typedef enum {
     T_EQ, T_NEQ, T_LT, T_GT, T_LTE, T_GTE, T_AND, T_OR, T_NOT,
     T_ASSIGN, T_LPAREN, T_RPAREN, T_LBRACKET, T_RBRACKET,
     T_COMMA, T_COLON, T_PRINT, T_IF, T_ELSE, T_ELSEIF, T_THEN,
+    T_WHILE, T_FOR, T_TO, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
+    T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
+    T_TRY, T_CATCH, T_THROW, T_FINALLY,
+    T_EOF
+} TT;
+
+typedef struct { TT type; char txt[128]; int64_t ival; int line; } Tk;
     T_WHILE, T_FOR, T_TO, T_STEP, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
     T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
     T_TRY, T_CATCH, T_THROW, T_FINALLY,
@@ -303,6 +311,7 @@ static Tk lx(Lx*l) {
     }
     if(c=='"'){
         l->p++;int i=0;
+        while(l->p<l->l&&l->s[l->p]!='"'&&i<127){
         while(l->p<l->l&&l->s[l->p]!='"'&&i<254){
             if(l->s[l->p]=='\\'){
                 if(l->p+1<l->l){
@@ -317,6 +326,7 @@ static Tk lx(Lx*l) {
     }
     if((c>='a'&&c<='z')||(c>='A'&&c<='Z')||c=='_'){
         int i=0;
+        while(l->p<l->l&&i<126&&((l->s[l->p]>='a'&&l->s[l->p]<='z')||(l->s[l->p]>='A'&&l->s[l->p]<='Z')||(l->s[l->p]>='0'&&l->s[l->p]<='9')||l->s[l->p]=='_'||l->s[l->p]=='!'||l->s[l->p]=='?'))t.txt[i++]=l->s[l->p++];
         while(l->p<l->l&&i<254&&((l->s[l->p]>='a'&&l->s[l->p]<='z')||(l->s[l->p]>='A'&&l->s[l->p]<='Z')||(l->s[l->p]>='0'&&l->s[l->p]<='9')||l->s[l->p]=='_'||l->s[l->p]=='!'||l->s[l->p]=='?'))t.txt[i++]=l->s[l->p++];
         t.txt[i]=0;
         if(!strcmp(t.txt,"PRINT"))t.type=T_PRINT;
@@ -337,6 +347,8 @@ static Tk lx(Lx*l) {
         else if(!strcmp(t.txt,"NOT"))t.type=T_NOT;
         else if(!strcmp(t.txt,"BREAK"))t.type=T_BREAK;
         else if(!strcmp(t.txt,"CONTINUE"))t.type=T_CONTINUE;
+        else if(!strcmp(t.txt,"TRUE")){t.type=T_INT;t.ival=1;}
+        else if(!strcmp(t.txt,"FALSE")){t.type=T_INT;t.ival=0;}
         else if(!strcmp(t.txt,"TRUE")){t.type=T_TRUE;}
         else if(!strcmp(t.txt,"FALSE")){t.type=T_FALSE;}
         else if(!strcmp(t.txt,"NULL")){t.type=T_NULL;}
@@ -376,6 +388,7 @@ static char strings[65536][256];
 static int strcount=0;
 
 // Loop break/continue patch stack
+typedef struct { int break_patches[64]; int break_count; int continue_ip; } LoopInfo;
 typedef struct { int break_patches[64]; int break_count; int continue_patches[64]; int continue_count; int continue_ip; } LoopInfo;
 static LoopInfo loop_stack[64];
 static int loop_sp=0;
@@ -408,6 +421,7 @@ static int str_idx(const char* s){
 }
 
 // Function table
+typedef struct { char name[64]; int addr; char params[8][64]; int param_count; } FuncEntry;
 typedef struct { char name[64]; int addr; char params[8][64]; int param_count; int entry_varcount; int local_count; } FuncEntry;
 static FuncEntry func_table[256];
 static int func_count=0;
@@ -443,6 +457,10 @@ static void compile_primary(void) {
     Tk* t=&tks[tp];
     if(t->type==T_INT){tp++;bc(OP_PUSH_INT);bc64(t->ival);return;}
     if(t->type==T_STR){tp++;int si=str_idx(t->txt);bc(OP_PUSH_STR);bc32(si);return;}
+    if(t->type==T_IDENT){
+        if(tp+1<tn && tks[tp+1].type==T_LPAREN) {
+            if(!strcmp(t->txt,"TO_STRING")||!strcmp(t->txt,"TYPEOF")||!strcmp(t->txt,"LEN")||
+               !strcmp(t->txt,"TO_NUMBER")||!strcmp(t->txt,"RANDOM")||!strcmp(t->txt,"TIME")||
     if(t->type==T_TRUE){tp++;bc(OP_PUSH_BOOL);bc(1);return;}
     if(t->type==T_FALSE){tp++;bc(OP_PUSH_BOOL);bc(0);return;}
     if(t->type==T_NULL){tp++;bc(OP_PUSH_NULL);return;}
@@ -460,6 +478,8 @@ static void compile_primary(void) {
                 char fname[64]; strncpy(fname,t->txt,63); fname[63]=0; tp+=2;
                 int nargs=0;
                 if(tp<tn&&tks[tp].type!=T_RPAREN) {
+                    compile_primary(); nargs++;
+                    while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_primary(); nargs++; }
                     compile_expr(); nargs++;
                     while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_expr(); nargs++; }
                 }
@@ -468,6 +488,8 @@ static void compile_primary(void) {
                 else if(!strcmp(fname,"TO_NUMBER"))bc(OP_TONUM);
                 else if(!strcmp(fname,"TYPEOF"))bc(OP_TYPEOF);
                 else if(!strcmp(fname,"LEN"))bc(OP_ARRAY_LEN);
+                else if(!strcmp(fname,"RANDOM")){bc(OP_PUSH_INT);bc64((int64_t)rand()%100);}
+                else if(!strcmp(fname,"TIME")){bc(OP_PUSH_INT);bc64((int64_t)time(NULL));}
                 else if(!strcmp(fname,"ABS"))bc(OP_ABS);
                 else if(!strcmp(fname,"MIN"))bc(OP_MIN);
                 else if(!strcmp(fname,"MAX"))bc(OP_MAX);
@@ -513,11 +535,13 @@ static void compile_primary(void) {
         }
         return;
     }
+    if(t->type==T_LPAREN){tp++;compile_primary();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
     if(t->type==T_LPAREN){tp++;compile_expr();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
     if(t->type==T_MINUS){tp++;compile_primary();bc(OP_NEG);return;}
     if(t->type==T_NOT){tp++;compile_primary();bc(OP_NOT);return;}
     if(t->type==T_LBRACKET){
         tp++;int count=0;
+        while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_primary();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
         while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_expr();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
         if(tp<tn)tp++;
         bc(OP_ARRAY_NEW);bc32(count);return;
@@ -526,6 +550,22 @@ static void compile_primary(void) {
     tp++;bc(OP_PUSH_INT);bc64(0);
 }
 
+static void compile_comparison(void) {
+    compile_primary();
+    while(tp<tn){
+        TT op=tks[tp].type;
+        if(op!=T_PLUS&&op!=T_MINUS&&op!=T_STAR&&op!=T_SLASH&&op!=T_MOD&&
+           op!=T_EQ&&op!=T_NEQ&&op!=T_LT&&op!=T_GT&&op!=T_LTE&&op!=T_GTE&&
+           op!=T_BITAND&&op!=T_BITOR&&op!=T_LSHIFT&&op!=T_RSHIFT) break;
+        tp++;
+        compile_primary();
+        switch(op){
+            case T_PLUS:bc(OP_ADD);break;case T_MINUS:bc(OP_SUB);break;
+            case T_STAR:bc(OP_MUL);break;case T_SLASH:bc(OP_DIV);break;
+            case T_MOD:bc(OP_MOD);break;case T_EQ:bc(OP_EQ);break;
+            case T_NEQ:bc(OP_NEQ);break;case T_LT:bc(OP_LT);break;
+            case T_GT:bc(OP_GT);break;case T_LTE:bc(OP_LTE);break;
+            case T_GTE:bc(OP_GTE);break;
 // Precedence: 1=multiplicative (* / %), 2=additive (+ - << >> & |), 3=comparison (== != < > <= >=)
 static void compile_mul(void) {
     compile_primary();
@@ -594,6 +634,8 @@ static void compile_stmt(void) {
     if(t->type==T_CONTINUE){
         tp++;
         if(loop_sp>0){
+            int target=loop_stack[loop_sp-1].continue_ip;
+            bc(OP_JUMP);bc32(target-bclen-4);
             LoopInfo* li=&loop_stack[loop_sp-1];
             bc(OP_JUMP);
             if(li->continue_count<64) li->continue_patches[li->continue_count++]=bclen;
@@ -725,6 +767,7 @@ static void compile_stmt(void) {
         int loop=bclen;
         // Push loop info for BREAK/CONTINUE
         loop_stack[loop_sp].break_count=0;
+        loop_stack[loop_sp].continue_ip=loop;
         loop_stack[loop_sp].continue_count=0;
         loop_sp++;
         compile_expr();
@@ -759,6 +802,10 @@ static void compile_stmt(void) {
             compile_expr(); // end
             int end_idx=var_idx("__for_end");
             bc(OP_STORE);bc32(end_idx);
+
+            int loop=bclen;
+            loop_stack[loop_sp].break_count=0;
+            loop_stack[loop_sp].continue_ip=loop;
             // Optional STEP
             int step_idx=-1;
             if(tp<tn&&tks[tp].type==T_STEP){
@@ -779,6 +826,9 @@ static void compile_stmt(void) {
             // body
             if(tp<tn&&tks[tp].type==T_COLON)tp++;
             compile_block();
+            // increment
+            bc(OP_LOAD);bc32(idx);
+            bc(OP_PUSH_INT);bc64(1);
             // Record increment position for CONTINUE patching
             int increment_pos=bclen;
             // increment
@@ -812,6 +862,7 @@ static void compile_stmt(void) {
         // Parse: FUNC! name param1 param2 ... :  body  END!
         if(tp<tn && tks[tp].type==T_IDENT) {
             char fname[64]; strncpy(fname, tks[tp].txt, 63); fname[63]=0;
+            int fi = ft_add(fname, bclen); // will patch address after body
             int fi = ft_add(fname, bclen);
             func_table[fi].entry_varcount = varcount;
             tp++;
@@ -860,6 +911,7 @@ static void compile_block(void) {
 #define VM_STACK_SIZE 4096
 #define VM_VAR_SIZE 4096
 #define VM_CALL_STACK_SIZE 256
+#define VM_MAX_INSTRUCTIONS 100000000LL
 #define VM_MAX_INSTRUCTIONS 2000000000LL
 
 static Value vm_stack[VM_STACK_SIZE];
@@ -880,6 +932,7 @@ typedef struct { int handler_ip; int saved_sp; int saved_call_sp; } VMTryFrame;
 static VMTryFrame vm_try_stack[32];
 static int vm_try_sp=0;
 
+typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[8]; Value saved_vars[8]; int saved_count; } VMCallFrame;
 typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[256]; Value saved_vars[256]; int saved_count; } VMCallFrame;
 static VMCallFrame vm_call_stack[VM_CALL_STACK_SIZE];
 static int vm_call_sp=0;
@@ -956,6 +1009,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->cap=nc>0?nc:8;result->items=calloc(result->cap,sizeof(Value));result->count=0;
                 for(int i=0;i<aa->count;i++)result->items[result->count++]=val_copy(aa->items[i]);
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
+                val_free(a);val_free(b);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_ARRAY){
                 ValueArray*aa=a.as.a;
@@ -964,6 +1019,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->cap=nc;result->items=calloc(result->cap,sizeof(Value));result->count=0;
                 for(int i=0;i<aa->count;i++)result->items[result->count++]=val_copy(aa->items[i]);
                 result->items[result->count++]=val_copy(b);
+                val_free(a);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(b.type==VAL_ARRAY){
                 ValueArray*ba=b.as.a;
@@ -972,6 +1029,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->cap=nc;result->items=calloc(result->cap,sizeof(Value));result->count=0;
                 result->items[result->count++]=val_copy(a);
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
+                val_free(b);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_INT&&b.type==VAL_INT)vm_push(val_int_v(a.as.i+b.as.i));
             else{Value sa=val_to_string(a),sb=val_to_string(b);
@@ -1029,6 +1088,9 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
             if(a.type==VAL_INT&&b.type==VAL_INT) vm_push(val_bool_v(a.as.i>=b.as.i));
             else vm_push(val_bool_v(0));
             val_free(a);val_free(b);}break;
+        case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)&&(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
+        case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)||(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
+        case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(a.type==VAL_NULL||a.as.i==0));val_free(a);}break;
         case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)&&val_truthy(b)));val_free(a);val_free(b);}break;
         case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)||val_truthy(b)));val_free(a);val_free(b);}break;
         case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(!val_truthy(a)));val_free(a);}break;
@@ -1046,6 +1108,12 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
             if(vi<0||vi>=VM_VAR_SIZE){vm_set_error("Variable index out of bounds");break;}
             Value v=vm_vars[vi];
             if(v.type==VAL_STRING)vm_push(val_string_v(v.as.s));
+            else if(v.type==VAL_ARRAY) vm_push(val_copy(v));
+            else vm_push(v);
+        }break;
+        case OP_PRINT:{Value v=vm_pop();Value s=val_to_string(v);
+            DWORD written;WriteFile(GetStdHandle((DWORD)-11),s.as.s,(DWORD)strlen(s.as.s),&written,NULL);
+            WriteFile(GetStdHandle((DWORD)-11),"\n",1,&written,NULL);
             else if(v.type==VAL_ARRAY){
                 ValueArray* src=v.as.a;
                 ValueArray* dst=calloc(1,sizeof(ValueArray));
@@ -1062,6 +1130,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
         }break;
         case OP_JUMP:{int32_t off;memcpy(&off,code+ip,4);ip+=4;ip+=off;}break;
         case OP_JUMP_IFNOT:{int32_t off;memcpy(&off,code+ip,4);ip+=4;Value v=vm_pop();
+            if(v.type==VAL_NULL||(v.type==VAL_INT&&v.as.i==0)||(v.type==VAL_BOOL&&!v.as.b))ip+=off;
             if(!val_truthy(v))ip+=off;
             val_free(v);}break;
         case OP_ARRAY_NEW:{int32_t count;memcpy(&count,code+ip,4);ip+=4;
@@ -1078,6 +1147,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 if(i>=0 && i<arr.as.a->count){
                     Value v=arr.as.a->items[i];
                     if(v.type==VAL_STRING) vm_push(val_string_v(v.as.s));
+                    else if(v.type==VAL_ARRAY) vm_push(val_copy(v));
                     else vm_push(v);
                 } else { vm_push(val_null_v()); }
             } else { vm_push(val_null_v()); }
@@ -1277,86 +1347,6 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
             } else if(!strcmp(name,"ORD")){Value v=vm_pop();
                 if(v.type==VAL_STRING && strlen(v.as.s)>0){vm_push(val_int_v((int)(unsigned char)v.as.s[0]));val_free(v);}
                 else{val_free(v);vm_push(val_int_v(0));}
-            } else if(!strcmp(name,"READ_FILE")){Value v=vm_pop();
-                if(v.type==VAL_STRING){
-                    FILE*f=fopen(v.as.s,"rb");
-                    if(f){fseek(f,0,SEEK_END);long fsize=ftell(f);
-                        if(fsize<0){fclose(f);vm_push(val_string_v(""));}
-                        else{fseek(f,0,SEEK_SET);
-                        char*buf=malloc(fsize+1);size_t r=fread(buf,1,fsize,f);buf[r]=0;fclose(f);
-                        vm_push(val_string_v(buf));free(buf);}}
-                    else{vm_set_error("Cannot open file");vm_push(val_string_v(""));}
-                }else{val_free(v);vm_set_error("READ_FILE requires string");vm_push(val_string_v(""));}
-            } else if(!strcmp(name,"WRITE_FILE")){Value v2=vm_pop(),v1=vm_pop();
-                if(v1.type==VAL_STRING&&v2.type==VAL_STRING){
-                    FILE*f=fopen(v1.as.s,"wb");
-                    if(f){fwrite(v2.as.s,1,strlen(v2.as.s),f);fclose(f);}
-                    else{vm_set_error("Cannot write file");}
-                }
-                val_free(v1);val_free(v2);vm_push(val_int_v(0));
-            } else if(!strcmp(name,"WRITE_BYTES")){Value arr=vm_pop(),fn=vm_pop();
-                if(fn.type==VAL_STRING&&arr.type==VAL_ARRAY){
-                    FILE*f=fopen(fn.as.s,"wb");
-                    if(f){
-                        for(int i=0;i<arr.as.a->count;i++){
-                            uint8_t b=(uint8_t)(arr.as.a->items[i].as.i&0xFF);
-                            fwrite(&b,1,1,f);
-                        }
-                        fclose(f);
-                    } else { vm_set_error("Cannot write file"); }
-                }
-                val_free(fn);val_free(arr);vm_push(val_int_v(0));
-            } else if(!strcmp(name,"FFI_LOAD")){Value path_val=vm_pop(),name_val=vm_pop();
-                if(name_val.type==VAL_STRING&&path_val.type==VAL_STRING){
-                    ffi_load_lib(name_val.as.s,path_val.as.s);
-                    val_free(name_val);val_free(path_val);vm_push(val_int_v(0));
-                }else{fprintf(stderr,"FFI_LOAD requires two string arguments\n");
-                    val_free(name_val);val_free(path_val);vm_push(val_int_v(-1));}
-            } else if(!strcmp(name,"FFI_REGISTER")){Value pc_val=vm_pop(),rt_val=vm_pop(),fn_val=vm_pop(),ln_val=vm_pop();
-                if(ln_val.type==VAL_STRING&&fn_val.type==VAL_STRING&&rt_val.type==VAL_INT&&pc_val.type==VAL_INT){
-                    int rc=ffi_register_func(ln_val.as.s,fn_val.as.s,(NbsFFIType)rt_val.as.i,(int)pc_val.as.i);
-                    val_free(ln_val);val_free(fn_val);val_free(rt_val);val_free(pc_val);vm_push(val_int_v(rc));
-                }else{fprintf(stderr,"FFI_REGISTER requires (string, string, int, int)\n");
-                    val_free(ln_val);val_free(fn_val);val_free(rt_val);val_free(pc_val);vm_push(val_int_v(-1));}
-            } else if(!strcmp(name,"FFI_CALL")){int ffi_argc=arity-2;if(ffi_argc<0)ffi_argc=0;
-                Value ffi_args[16];
-                for(int i=ffi_argc-1;i>=0;i--) ffi_args[i]=vm_pop();
-                Value fn_val=vm_pop(),ln_val=vm_pop();
-                Value result=val_int_v(0);
-                if(ln_val.type==VAL_STRING&&fn_val.type==VAL_STRING){
-                    NbsFFILib*lib=NULL;NbsFFIFunc*func=NULL;
-                    for(int i=0;i<ffi_lib_count;i++){
-                        if(strcmp(ffi_libs[i].name,ln_val.as.s)==0){lib=&ffi_libs[i];break;}
-                    }
-                    if(lib){for(int j=0;j<lib->func_count;j++){
-                        if(strcmp(lib->functions[j].name,fn_val.as.s)==0){func=&lib->functions[j];break;}
-                    }}
-                    if(lib&&func){
-                        void*fn=ffi_resolve_func(lib,func);
-                        if(fn){
-                            intptr_t vals[16];
-                            for(int k=0;k<ffi_argc&&k<16;k++){
-                                if(ffi_args[k].type==VAL_INT) vals[k]=(intptr_t)ffi_args[k].as.i;
-                                else if(ffi_args[k].type==VAL_STRING) vals[k]=(intptr_t)ffi_args[k].as.s;
-                                else vals[k]=0;
-                            }
-                            typedef intptr_t(*ffi_fn)();
-                            ffi_fn call=(ffi_fn)fn;
-                            intptr_t ret=call(
-                                ffi_argc>0?vals[0]:0,ffi_argc>1?vals[1]:0,
-                                ffi_argc>2?vals[2]:0,ffi_argc>3?vals[3]:0,
-                                ffi_argc>4?vals[4]:0,ffi_argc>5?vals[5]:0);
-                            switch(func->return_type){
-                                case NBS_FFI_INT:case NBS_FFI_VOID:result=val_int_v((int64_t)ret);break;
-                                case NBS_FFI_STRING:case NBS_FFI_POINTER:
-                                    if(ret)result=val_string_v((const char*)ret);else result=val_null_v();break;
-                                default:result=val_int_v((int64_t)ret);break;
-                            }
-                        }
-                    }else{fprintf(stderr,"FFI_CALL: library or function not found: %s.%s\n",ln_val.as.s,fn_val.as.s);}
-                }
-                for(int i=0;i<ffi_argc;i++)val_free(ffi_args[i]);
-                val_free(ln_val);val_free(fn_val);vm_push(result);
             } else {
                 // User-defined function
                 int fi=ft_find(name);
@@ -1369,39 +1359,19 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 vm_call_stack[vm_call_sp].ret_ip=ip;
                 vm_call_stack[vm_call_sp].var_base=vm_var_base;
                 vm_call_stack[vm_call_sp].var_sp=vm_var_sp;
-                vm_call_stack[vm_call_sp].saved_count=0;
-                // Save param slots and local variable slots
-                int sc=0;
-                // Mark which indices have been saved (to avoid duplicates)
-                int saved_flag[256]={0};
-                // 1) Save param slots (will be overwritten by args)
-                int pcount=func_table[fi].param_count<arity?func_table[fi].param_count:arity;
-                for(int i=0;i<pcount;i++){
-                    const char* pname=func_table[fi].params[i];
-                    int gidx=var_idx(pname);
-                    if(gidx>=0 && gidx<256 && !saved_flag[gidx] && sc<256){
-                        vm_call_stack[vm_call_sp].saved_var_idx[sc]=gidx;
-                        vm_call_stack[vm_call_sp].saved_vars[sc]=vm_vars[gidx];
-                        vm_call_stack[vm_call_sp].saved_count=++sc;
-                        saved_flag[gidx]=1;
-                    }
-                }
-                // 2) Save local variables (new names created inside function body)
-                int ev=func_table[fi].entry_varcount;
-                int lc=func_table[fi].local_count;
-                for(int i=ev;i<ev+lc && i<256;i++){
-                    if(!saved_flag[i] && sc<256){
-                        vm_call_stack[vm_call_sp].saved_var_idx[sc]=i;
-                        vm_call_stack[vm_call_sp].saved_vars[sc]=vm_vars[i];
-                        vm_call_stack[vm_call_sp].saved_count=++sc;
-                        saved_flag[i]=1;
-                    }
-                }
-                // Assign params in REVERSE order so params[0] gets leftmost arg
-                for(int i=pcount-1;i>=0;i--){
+                vm_call_stack[vm_call_sp].saved_count=0;\
+                // Save global variable slots that params will overwrite, then store params
+                for(int i=0;i<arity && i<func_table[fi].param_count;i++){
                     const char* pname=func_table[fi].params[i];
                     int gidx=var_idx(pname);
                     if(gidx>=0 && gidx<VM_VAR_SIZE){
+                        int sc=vm_call_stack[vm_call_sp].saved_count;
+                        if(sc<8){
+                            vm_call_stack[vm_call_sp].saved_var_idx[sc]=gidx;
+                            vm_call_stack[vm_call_sp].saved_vars[sc]=vm_vars[gidx];
+                            vm_call_stack[vm_call_sp].saved_count=sc+1;
+                        }
+                        val_free(vm_vars[gidx]);
                         vm_vars[gidx]=vm_pop();
                     }
                 }
