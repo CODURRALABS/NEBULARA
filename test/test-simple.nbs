@@ -1,0 +1,9 @@
+IMPORT "std/json.nbs"
+PRINT("about to test")
+LET a = json_parse("42")
+PRINT("type=" + TYPEOF(a))
+PRINT("len=" + TO_STRING(LEN(a)))
+IF? LEN(a) >= 1:
+    PRINT("a[0]=" + TO_STRING(a[0]))
+END!
+PRINT("done")

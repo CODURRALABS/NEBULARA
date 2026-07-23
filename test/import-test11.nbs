@@ -1,0 +1,3 @@
+IMPORT "std/math.nbs"
+LET x = max(5, 12)
+PRINT(x)

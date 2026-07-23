@@ -1,6 +1,11 @@
 # Nebulara Language
 
+<p align="center">
+  <img src="../logo.png" alt="Nebulara Logo" width="140"/>
+</p>
+
 **AI-Native Universal Programming Language**
+
 
 ## Quick Start
 

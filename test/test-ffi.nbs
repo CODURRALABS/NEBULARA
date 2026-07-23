@@ -1,0 +1,4 @@
+FFI_LOAD("msvcrt", "msvcrt.dll")
+FFI_REGISTER("msvcrt", "abs", 1, 1)
+LET result = FFI_CALL("msvcrt", "abs", -42)
+PRINT("FFI abs(-42) = " + TO_STRING(result))

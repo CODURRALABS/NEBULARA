@@ -1,0 +1,4 @@
+IMPORT "std/json.nbs"
+PRINT("parsing nested")
+LET b = json_parse("[1,[2,3],4]")
+PRINT("nested OK, len=" + TO_STRING(LEN(b)))

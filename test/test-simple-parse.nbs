@@ -1,0 +1,28 @@
+FUNC! inner(s, p):
+    LET arr = []
+    LET np = p
+    LET r = parse_val(s, np)
+    arr = PUSH(arr, r[0])
+    np = r[1]
+    RETURN [arr, np]
+END!
+
+FUNC! parse_val(ps, pp):
+    LET pnp = pp + 0
+    LET pn = parse_num(ps, pnp)
+    RETURN pn
+END!
+
+FUNC! parse_num(pns, pnp2):
+    LET pnc = CHAR_AT(pns, pnp2)
+    IF? ORD(pnc) >= 48 AND ORD(pnc) <= 57:
+        LET pnum_str = SUBSTR(pns, pnp2, 1)
+        RETURN [TO_NUMBER(pnum_str), pnp2 + 1]
+    END!
+    RETURN [0, pnp2]
+END!
+
+LET x = inner("[5]", 0)
+PRINT("type=" + TYPEOF(x))
+PRINT("x[0]=" + TO_STRING(x[0]))
+PRINT("x[1]=" + TO_STRING(x[1]))

@@ -1,0 +1,2 @@
+PRINT("hello from import")
+LET x = 42

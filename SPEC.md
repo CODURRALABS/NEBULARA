@@ -1,4 +1,9 @@
+<p align="center">
+  <img src="logo.png" alt="Nebulara Logo" width="120"/>
+</p>
+
 # Nebulara Language Specification v3.0
+
 
 ## File Extension
 `.nbs` - Nebulara Source

@@ -1,0 +1,4 @@
+IMPORT "std/math.nbs"
+PRINT("after import")
+LET x = abs(-42)
+PRINT("abs(-42) = " + TO_STRING(x))

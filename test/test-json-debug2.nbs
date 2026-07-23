@@ -1,0 +1,9 @@
+IMPORT "std/json.nbs"
+
+LET a2 = json_parse("[1,2,3]")
+PRINT("json_parse result type: " + TYPEOF(a2))
+PRINT("is array: " + TO_STRING(TYPEOF(a2) == "array"))
+PRINT("len: " + TO_STRING(LEN(a2)))
+PRINT("[0]: " + TO_STRING(a2[0]))
+PRINT("[1]: " + TO_STRING(a2[1]))
+PRINT("[2]: " + TO_STRING(a2[2]))

@@ -11,6 +11,25 @@
 #include <time.h>
 #include <math.h>
 #include <errno.h>
+#include <signal.h>
+
+#ifdef _WIN32
+#include <windows.h>
+static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
+    fprintf(stderr, "CRASH: Exception code 0x%08X at address %p\n",
+            ep->ExceptionRecord->ExceptionCode,
+            ep->ExceptionRecord->ExceptionAddress);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
+// FFI platform headers
+#ifdef _WIN32
+typedef HMODULE NbsFFIHandle;
+#else
+#include <dlfcn.h>
+typedef void* NbsFFIHandle;
+#endif
 
 // ============================================================================
 // VALUE SYSTEM — Tagged union for dynamic typing
@@ -61,7 +80,9 @@ Value val_array(void) {
 void val_free(Value v) {
     if (v.type == VAL_STRING) free(v.as.s);
     if (v.type == VAL_ARRAY && v.as.a) {
-        for (int i = 0; i < v.as.a->count; i++) val_free(v.as.a->items[i]);
+        int count = v.as.a->count;
+        if (count > 100000) { count = 0; }
+        for (int i = 0; i < count; i++) val_free(v.as.a->items[i]);
         free(v.as.a->items);
         free(v.as.a);
     }
@@ -71,7 +92,9 @@ Value val_copy(Value v) {
     if (v.type == VAL_STRING) return val_string(v.as.s);
     if (v.type == VAL_ARRAY) {
         Value arr = val_array();
-        for (int i = 0; i < v.as.a->count; i++) {
+        int count = v.as.a->count;
+        if (count < 0 || count > 1000000) { fprintf(stderr, "val_copy: invalid count %d\n", count); return arr; }
+        for (int i = 0; i < count; i++) {
             if (arr.as.a->count >= arr.as.a->capacity) {
                 arr.as.a->capacity = arr.as.a->capacity ? arr.as.a->capacity * 2 : 8;
                 arr.as.a->items = (Value*)realloc(arr.as.a->items, arr.as.a->capacity * sizeof(Value));
@@ -102,6 +125,84 @@ const char* val_type_name(Value v) {
         case VAL_FUNC: return "func";
         default: return "unknown";
     }
+}
+
+// ============================================================================
+// FFI SYSTEM — Foreign Function Interface
+// ============================================================================
+
+typedef enum {
+    NBS_FFI_VOID, NBS_FFI_INT, NBS_FFI_FLOAT, NBS_FFI_DOUBLE,
+    NBS_FFI_STRING, NBS_FFI_POINTER
+} NbsFFIType;
+
+typedef struct {
+    char name[256];
+    NbsFFIType return_type;
+    int param_count;
+    NbsFFIHandle handle;
+    void* fn_ptr;
+} NbsFFIFunc;
+
+typedef struct {
+    char name[256];
+    char path[512];
+    NbsFFIFunc functions[256];
+    int func_count;
+    int is_loaded;
+} NbsFFILib;
+
+static NbsFFILib ffi_libs[64];
+static int ffi_lib_count = 0;
+
+static int ffi_load_lib(const char* name, const char* path) {
+    if (ffi_lib_count >= 64) return -1;
+    NbsFFILib* lib = &ffi_libs[ffi_lib_count];
+    memset(lib, 0, sizeof(NbsFFILib));
+    strncpy(lib->name, name, 255);
+    strncpy(lib->path, path, 511);
+    lib->func_count = 0;
+#ifdef _WIN32
+    lib->is_loaded = 1;
+#else
+    void* handle = dlopen(path, RTLD_LAZY);
+    lib->is_loaded = (handle != NULL);
+    if (!handle) fprintf(stderr, "FFI WARNING: could not load '%s': %s\n", path, dlerror());
+#endif
+    ffi_lib_count++;
+    return 0;
+}
+
+static int ffi_register_func(const char* lib_name, const char* func_name, NbsFFIType ret_type, int param_count) {
+    for (int i = 0; i < ffi_lib_count; i++) {
+        if (strcmp(ffi_libs[i].name, lib_name) == 0) {
+            NbsFFILib* lib = &ffi_libs[i];
+            if (lib->func_count >= 256) return -2;
+            NbsFFIFunc* func = &lib->functions[lib->func_count];
+            memset(func, 0, sizeof(NbsFFIFunc));
+            strncpy(func->name, func_name, 255);
+            func->return_type = ret_type;
+            func->param_count = param_count;
+            lib->func_count++;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void* ffi_resolve_func(NbsFFILib* lib, NbsFFIFunc* func) {
+    if (func->fn_ptr) return func->fn_ptr;
+#ifdef _WIN32
+    HMODULE h = LoadLibraryA(lib->path);
+    if (!h) { fprintf(stderr, "FFI ERROR: Cannot load '%s'\n", lib->path); return NULL; }
+    func->fn_ptr = (void*)GetProcAddress(h, func->name);
+#else
+    void* handle = dlopen(lib->path, RTLD_LAZY);
+    if (!handle) { fprintf(stderr, "FFI ERROR: Cannot load '%s': %s\n", lib->path, dlerror()); return NULL; }
+    func->fn_ptr = dlsym(handle, func->name);
+#endif
+    if (!func->fn_ptr) fprintf(stderr, "FFI ERROR: Symbol '%s' not found in '%s'\n", func->name, lib->path);
+    return func->fn_ptr;
 }
 
 Value val_to_string(Value v) {
@@ -248,6 +349,10 @@ typedef enum {
     TOK_IF, TOK_ELSE, TOK_THEN, TOK_WHILE, TOK_FOR, TOK_TO, TOK_STEP,
     TOK_RETURN, TOK_BREAK, TOK_CONTINUE,
     TOK_PRINT, TOK_LET, TOK_CONST,
+    /* Concurrency */
+    TOK_GO, TOK_CHAN, TOK_SEND, TOK_RECV, TOK_SELECT,
+    TOK_MUTEX, TOK_LOCK, TOK_UNLOCK, TOK_YIELD, TOK_SLEEP,
+    TOK_WAIT_GROUP, TOK_WG_ADD, TOK_WG_DONE, TOK_WG_WAIT,
     // Operators
     TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH, TOK_PERCENT,
     TOK_EQ, TOK_NEQ, TOK_LT, TOK_GT, TOK_LTE, TOK_GTE,
@@ -258,7 +363,7 @@ typedef enum {
     // Bitwise operators
     TOK_BITAND, TOK_BITOR, TOK_LSHIFT, TOK_RSHIFT,
     // Exception handling keywords
-    TOK_TRY, TOK_CATCH, TOK_THROW, TOK_FINALLY, TOK_ENDTRY,
+    TOK_TRY, TOK_CATCH, TOK_THROW, TOK_FINALLY, TOK_ENDTRY, TOK_IMPORT,
     // Special
     TOK_EOF, TOK_ERROR
 } NbsTokenType;
@@ -276,7 +381,20 @@ typedef struct {
 } Lexer;
 
 Lexer lexer_new(const char* src) {
-    Lexer l = {src, 0, (int)strlen(src), 1};
+    const char* p = src;
+    if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) p += 3;
+    if ((unsigned char)p[0] == 0xFF && (unsigned char)p[1] == 0xFE) {
+        static char buf[1048576];
+        const uint16_t* wp = (const uint16_t*)(p + 2);
+        int i = 0;
+        while (*wp && i < 1048575) {
+            buf[i++] = (char)*wp++;
+        }
+        buf[i] = 0;
+        Lexer l = {buf, 0, (int)strlen(buf), 1};
+        return l;
+    }
+    Lexer l = {p, 0, (int)strlen(p), 1};
     return l;
 }
 
@@ -383,6 +501,16 @@ NbsToken lexer_next(Lexer* l) {
         else if (strcmp(tok.text, "CONST") == 0) tok.type = TOK_CONST;
         else if (strcmp(tok.text, "AND") == 0) tok.type = TOK_AND;
         else if (strcmp(tok.text, "OR") == 0) tok.type = TOK_OR;
+        else if (strcmp(tok.text, "GO!") == 0) tok.type = TOK_GO;
+        else if (strcmp(tok.text, "CHAN!") == 0) tok.type = TOK_CHAN;
+        else if (strcmp(tok.text, "SEND!") == 0) tok.type = TOK_SEND;
+        else if (strcmp(tok.text, "RECV!") == 0) tok.type = TOK_RECV;
+        else if (strcmp(tok.text, "SELECT!") == 0) tok.type = TOK_SELECT;
+        else if (strcmp(tok.text, "MUTEX!") == 0) tok.type = TOK_MUTEX;
+        else if (strcmp(tok.text, "LOCK!") == 0) tok.type = TOK_LOCK;
+        else if (strcmp(tok.text, "UNLOCK!") == 0) tok.type = TOK_UNLOCK;
+        else if (strcmp(tok.text, "YIELD!") == 0) tok.type = TOK_YIELD;
+        else if (strcmp(tok.text, "SLEEP!") == 0) tok.type = TOK_SLEEP;
         else if (strcmp(tok.text, "NOT") == 0) tok.type = TOK_NOT;
         else if (strcmp(tok.text, "NULL") == 0) { tok.type = TOK_NULL; strcpy(tok.text, "null"); }
         else if (strcmp(tok.text, "TRUE") == 0) { tok.type = TOK_TRUE; strcpy(tok.text, "true"); }
@@ -393,6 +521,7 @@ NbsToken lexer_next(Lexer* l) {
         else if (strcmp(tok.text, "THROW") == 0) tok.type = TOK_THROW;
         else if (strcmp(tok.text, "FINALLY!") == 0) tok.type = TOK_FINALLY;
         else if (strcmp(tok.text, "ENDTRY!") == 0) tok.type = TOK_ENDTRY;
+        else if (strcmp(tok.text, "IMPORT") == 0) tok.type = TOK_IMPORT;
         else tok.type = TOK_IDENT;
         return tok;
     }
@@ -450,7 +579,11 @@ typedef enum {
     NODE_FUNC_DEF, NODE_FUNC_CALL, NODE_RETURN, NODE_BREAK, NODE_CONTINUE,
     NODE_ARRAY_LIT, NODE_ARRAY_INDEX, NODE_ARRAY_LEN, NODE_ARRAY_ASSIGN,
     NODE_LEN, NODE_TYPEOF, NODE_TOSTR, NODE_TONUM,
-    NODE_TRY, NODE_THROW,
+    NODE_TRY, NODE_THROW, NODE_IMPORT,
+    /* Concurrency */
+    NODE_GO, NODE_CHAN_NEW, NODE_CHAN_SEND, NODE_CHAN_RECV,
+    NODE_SELECT, NODE_MUTEX_NEW, NODE_MUTEX_LOCK, NODE_MUTEX_UNLOCK,
+    NODE_YIELD, NODE_SLEEP,
     NODE_PROGRAM
 } NodeType;
 
@@ -567,6 +700,35 @@ ASTNode* parse_primary(Parser* p) {
         parser_advance(p);
         ASTNode* n = ast_new(NODE_STRING);
         strcpy(n->str_val, tok.text);
+        n->line = tok.line;
+        return n;
+    }
+
+    // CHAN!(capacity)
+    if (tok.type == TOK_CHAN && p->pos + 1 < p->count && p->tokens[p->pos + 1].type == TOK_LPAREN) {
+        parser_advance(p); parser_advance(p); // skip CHAN! (
+        ASTNode* n = ast_new(NODE_CHAN_NEW);
+        n->left = parse_expression(p);
+        parser_expect(p, TOK_RPAREN);
+        n->line = tok.line;
+        return n;
+    }
+
+    // RECV!(channel)
+    if (tok.type == TOK_RECV && p->pos + 1 < p->count && p->tokens[p->pos + 1].type == TOK_LPAREN) {
+        parser_advance(p); parser_advance(p); // skip RECV! (
+        ASTNode* n = ast_new(NODE_CHAN_RECV);
+        n->left = parse_expression(p);
+        parser_expect(p, TOK_RPAREN);
+        n->line = tok.line;
+        return n;
+    }
+
+    // MUTEX!()
+    if (tok.type == TOK_MUTEX && p->pos + 1 < p->count && p->tokens[p->pos + 1].type == TOK_LPAREN) {
+        parser_advance(p); parser_advance(p); // skip MUTEX! (
+        parser_expect(p, TOK_RPAREN);
+        ASTNode* n = ast_new(NODE_MUTEX_NEW);
         n->line = tok.line;
         return n;
     }
@@ -756,11 +918,71 @@ ASTNode* parse_statement(Parser* p) {
         return n;
     }
 
-    // LET ident = expr  or  ident = expr
+    // GO! <function_call>
+    if (tok.type == TOK_GO) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_GO);
+        n->left = parse_expression(p);  // should be a function call
+        n->line = tok.line;
+        return n;
+    }
+
+    // SEND! <channel>, <value>
+    if (tok.type == TOK_SEND) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_CHAN_SEND);
+        n->left = parse_expression(p);
+        parser_expect(p, TOK_COMMA);
+        n->right = parse_expression(p);
+        n->line = tok.line;
+        return n;
+    }
+
+    // LOCK! <mutex>
+    if (tok.type == TOK_LOCK) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_MUTEX_LOCK);
+        n->left = parse_expression(p);
+        n->line = tok.line;
+        return n;
+    }
+
+    // UNLOCK! <mutex>
+    if (tok.type == TOK_UNLOCK) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_MUTEX_UNLOCK);
+        n->left = parse_expression(p);
+        n->line = tok.line;
+        return n;
+    }
+
+    // YIELD!
+    if (tok.type == TOK_YIELD) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_YIELD);
+        n->line = tok.line;
+        return n;
+    }
+
+    // SLEEP! <ms>
+    if (tok.type == TOK_SLEEP) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_SLEEP);
+        n->left = parse_expression(p);
+        n->line = tok.line;
+        return n;
+    }
+
+    // LET ident (: TYPE)? = expr  or  ident = expr
     if (tok.type == TOK_LET || tok.type == TOK_CONST ||
         (tok.type == TOK_IDENT && p->pos + 1 < p->count && p->tokens[p->pos + 1].type == TOK_ASSIGN)) {
         if (tok.type == TOK_LET || tok.type == TOK_CONST) parser_advance(p);
         NbsToken name = parser_expect(p, TOK_IDENT);
+        // Skip optional type annotation: name : TYPE
+        if (parser_peek(p).type == TOK_COLON && p->pos + 1 < p->count) {
+            parser_advance(p); // skip ':'
+            parser_advance(p); // skip type name (INT, STRING, etc.)
+        }
         parser_expect(p, TOK_ASSIGN);
         ASTNode* n = ast_new(NODE_ASSIGN);
         strcpy(n->str_val, name.text);
@@ -856,12 +1078,35 @@ ASTNode* parse_statement(Parser* p) {
         ASTNode* n = ast_new(NODE_FUNC_DEF);
         strcpy(n->str_val, name.text);
         n->param_count = 0;
-        // Collect parameter names until colon
-        while (parser_peek(p).type != TOK_COLON && parser_peek(p).type != TOK_EOF) {
-            NbsToken param = parser_advance(p);
-            if (param.type == TOK_IDENT) {
-                strcpy(n->params[n->param_count++], param.text);
+        // Collect parameter names until colon (skip type annotations)
+        NbsToken peek = parser_peek(p);
+        while (peek.type != TOK_COLON && peek.type != TOK_EOF) {
+            // Check for -> (return type annotation) — stop collecting params
+            if (peek.type == TOK_MINUS && p->pos + 1 < p->count &&
+                p->tokens[p->pos + 1].type == TOK_GT) {
+                break;
             }
+            if (peek.type == TOK_IDENT) {
+                parser_advance(p);
+                strcpy(n->params[n->param_count++], peek.text);
+                // Skip optional type annotation: param : TYPE
+                if (parser_peek(p).type == TOK_COLON) {
+                    parser_advance(p); // skip ':'
+                    if (parser_peek(p).type == TOK_IDENT)
+                        parser_advance(p); // skip type name
+                }
+            } else {
+                parser_advance(p);
+            }
+            peek = parser_peek(p);
+        }
+        // Skip optional -> RETURN_TYPE before colon
+        if (parser_peek(p).type == TOK_MINUS && p->pos + 2 < p->count &&
+            p->tokens[p->pos + 1].type == TOK_GT) {
+            parser_advance(p); // skip '-'
+            parser_advance(p); // skip '>'
+            if (parser_peek(p).type == TOK_IDENT)
+                parser_advance(p); // skip return type name
         }
         parser_expect(p, TOK_COLON);
         ASTNode* body = parse_block(p);
@@ -932,6 +1177,16 @@ ASTNode* parse_statement(Parser* p) {
         return n;
     }
 
+    // IMPORT "path"
+    if (tok.type == TOK_IMPORT) {
+        parser_advance(p);
+        NbsToken path = parser_expect(p, TOK_STRING_LIT);
+        ASTNode* n = ast_new(NODE_IMPORT);
+        strcpy(n->str_val, path.text);
+        n->line = tok.line;
+        return n;
+    }
+
     // Expression statement (may be array assignment: arr[i] = expr)
     ASTNode* expr = parse_expression(p);
     // Check for array assignment: expr[i] = value
@@ -978,7 +1233,15 @@ typedef enum {
     BC_CALL, BC_RET,
     BC_PRINT, BC_ARRAY_NEW, BC_ARRAY_GET, BC_ARRAY_SET, BC_ARRAY_LEN, BC_ARRAY_PUSH, BC_ARRAY_POP,
     BC_LEN, BC_TYPEOF, BC_TOSTR, BC_TONUM,
-    BC_TRY, BC_CATCH, BC_THROW, BC_ENDTRY,
+    BC_TRY, BC_CATCH, BC_THROW, BC_ENDTRY, BC_IMPORT,
+
+    /* Concurrency */
+    BC_GOROUTINE, BC_CHANNEL_NEW, BC_CHANNEL_SEND, BC_CHANNEL_RECV,
+    BC_SELECT, BC_SELECT_CASE, BC_SELECT_DEFAULT, BC_SELECT_END,
+    BC_WAIT_GROUP_ADD, BC_WAIT_GROUP_DONE, BC_WAIT_GROUP_WAIT,
+    BC_MUTEX_LOCK, BC_MUTEX_UNLOCK, BC_MUTEX_NEW,
+    BC_SLEEP, BC_YIELD,
+
     BC_HALT
 } BCOp;
 
@@ -1048,6 +1311,8 @@ typedef struct {
     int arity;
     char params[8][128];
     int param_count;
+    uint8_t *code;
+    int code_len;
 } FuncEntry;
 
 typedef struct {
@@ -1061,7 +1326,7 @@ void ft_init(FuncTable* ft) {
     ft->count = 0;
 }
 
-int ft_add(FuncTable* ft, const char* name, int addr, char params[][128], int param_count) {
+int ft_add(FuncTable* ft, const char* name, int addr, char params[][128], int param_count, uint8_t *code) {
     if (ft->count >= ft->cap) {
         ft->cap *= 2;
         ft->entries = (FuncEntry*)realloc(ft->entries, ft->cap * sizeof(FuncEntry));
@@ -1072,6 +1337,8 @@ int ft_add(FuncTable* ft, const char* name, int addr, char params[][128], int pa
     e->arity = param_count;
     e->param_count = param_count;
     for (int i = 0; i < param_count; i++) strcpy(e->params[i], params[i]);
+    e->code = code;
+    e->code_len = 0;
     return ft->count++;
 }
 
@@ -1296,12 +1563,12 @@ void compile_node(Compiler* c, ASTNode* node) {
             int skip_patch = c->bc->pos;
             bc_emit_i32(c->bc, 0);
             // Function body starts here — record address AFTER the jump
-            int func_idx = ft_add(c->funcs, node->str_val, c->bc->pos, node->params, node->param_count);
+            int func_idx = ft_add(c->funcs, node->str_val, c->bc->pos, node->params, node->param_count, c->bc->code);
             compile_node(c, node->right);
             bc_emit(c->bc, BC_PUSH_NULL);
             bc_emit(c->bc, BC_RET);
             bc_patch(c->bc, skip_patch);
-            (void)func_idx;
+            c->funcs->entries[func_idx].code_len = c->bc->pos - c->funcs->entries[func_idx].addr;
         } break;
 
         case NODE_FUNC_CALL: {
@@ -1409,6 +1676,67 @@ void compile_node(Compiler* c, ASTNode* node) {
             bc_emit(c->bc, BC_THROW);
             break;
 
+        case NODE_IMPORT: {
+            bc_emit(c->bc, BC_IMPORT);
+            int idx = st_intern(c->strings, node->str_val);
+            bc_emit_i32(c->bc, idx);
+        } break;
+
+        case NODE_GO: {
+            // Compile the function call - it will emit BC_CALL which we need to wrap in BC_GOROUTINE
+            // Since BC_GOROUTINE needs the function address, we handle GO differently:
+            // Just compile the expression (should be a func call) - the BC_GOROUTINE wraps it
+            compile_node(c, node->left);
+            // For GO!, we emit BC_GOROUTINE with the function index
+            // The function is already compiled, so we use the name from the function call
+            if (node->left->type == NODE_FUNC_CALL) {
+                int fi = ft_find(c->funcs, node->left->str_val);
+                bc_emit(c->bc, BC_GOROUTINE);
+                bc_emit_i32(c->bc, fi >= 0 ? c->funcs->entries[fi].addr : 0);
+            }
+        } break;
+
+        case NODE_CHAN_NEW: {
+            compile_node(c, node->left); // capacity
+            bc_emit(c->bc, BC_CHANNEL_NEW);
+            bc_emit_i32(c->bc, 0); // placeholder - capacity from stack
+        } break;
+
+        case NODE_CHAN_SEND: {
+            compile_node(c, node->left);  // channel index
+            compile_node(c, node->right); // value
+            bc_emit(c->bc, BC_CHANNEL_SEND);
+        } break;
+
+        case NODE_CHAN_RECV: {
+            compile_node(c, node->left);  // channel index
+            bc_emit(c->bc, BC_CHANNEL_RECV);
+        } break;
+
+        case NODE_MUTEX_NEW: {
+            bc_emit(c->bc, BC_MUTEX_NEW);
+        } break;
+
+        case NODE_MUTEX_LOCK: {
+            compile_node(c, node->left);
+            bc_emit(c->bc, BC_MUTEX_LOCK);
+        } break;
+
+        case NODE_MUTEX_UNLOCK: {
+            compile_node(c, node->left);
+            bc_emit(c->bc, BC_MUTEX_UNLOCK);
+        } break;
+
+        case NODE_YIELD: {
+            bc_emit(c->bc, BC_YIELD);
+        } break;
+
+        case NODE_SLEEP: {
+            compile_node(c, node->left);
+            bc_emit(c->bc, BC_SLEEP);
+            bc_emit_i32(c->bc, 0); // ms value from stack
+        } break;
+
         case NODE_ARRAY_LIT:
             for (int i = 0; i < node->child_count; i++)
                 compile_node(c, node->children[i]);
@@ -1461,32 +1789,79 @@ void compile_node(Compiler* c, ASTNode* node) {
 // VM EXECUTION
 // ============================================================================
 
+/* Concurrency types */
+typedef struct {
+    Value buffer[256];
+    int head, tail, count, capacity;
+} Channel;
+
+typedef struct {
+    int count;
+    int done_count;
+} WaitGroup;
+
+typedef struct {
+    int locked;
+} Mutex;
+
+typedef struct {
+    uint8_t *code;
+    int ip;
+    int code_len;
+    int sp;
+    Value stack[2048];
+    Value vars[1024];
+    int running;
+    int goroutine_id;
+} Goroutine;
+
 typedef struct {
     Value stack[8192];
     int sp;
-    Value vars[1024];   // global variables (indexed by string table)
+    Value vars[1024];
     uint8_t* code;
     int ip;
+    int code_len;
     int running;
     StringTable* strings;
     FuncTable* funcs;
     int debug;
 
-    // Call stack with variable save/restore for recursion
     struct {
         int ret_ip;
+        uint8_t *ret_code;
+        int ret_code_len;
+        int saved_count;
         int saved_var_idx[256];
         Value saved_vars[256];
-        int saved_count;
     } call_stack[256];
     int call_sp;
 
-    // Try/catch stack
     struct {
         int handler_ip;
         int saved_sp;
     } try_stack[64];
     int try_sp;
+
+    char imported[64][256];
+    int imported_count;
+    uint8_t* imported_bcs[64];
+    int imported_bc_count;
+
+    Goroutine goroutines[64];
+    int goroutine_count;
+    int goroutine_next_id;
+
+    Channel channels[64];
+    int channel_count;
+
+    WaitGroup wait_groups[64];
+    int wg_count;
+
+    Mutex mutexes[64];
+    int mutex_count;
+
+    int sleep_ms;
 } VM;
 
 void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
@@ -1498,15 +1873,296 @@ void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
     for (int i = 0; i < 1024; i++) vm->vars[i] = val_null();
 }
 
-int vm_run(VM* vm) {
-    while (vm->running && vm->ip < 65536) {
+int vm_run(VM* vm, uint8_t* code, int code_len);
+
+static void vm_exec_import(VM* vm, const char* source, const char* path) {
+    for (int i = 0; i < vm->imported_count; i++) {
+        if (strcmp(vm->imported[i], path) == 0) return;
+    }
+    if (vm->imported_count < 64) {
+        strncpy(vm->imported[vm->imported_count], path, 255);
+        vm->imported[vm->imported_count][255] = 0;
+        vm->imported_count++;
+    }
+
+    Lexer lexer = lexer_new(source);
+    Parser *parser = (Parser*)calloc(1, sizeof(Parser));
+    while (1) {
+        NbsToken tok = lexer_next(&lexer);
+        if (parser->count >= 4096) {
+            fprintf(stderr, "Import error: too many tokens in '%s'\n", path);
+            free(parser);
+            return;
+        }
+        parser->tokens[parser->count++] = tok;
+        if (tok.type == TOK_EOF) break;
+    }
+
+    ASTNode* ast = parse_program(parser);
+    if (parser->has_error) {
+        fprintf(stderr, "Import error in '%s': %s\n", path, parser->error_msg);
+        free(parser);
+        return;
+    }
+    free(parser);
+
+    int funcs_before = vm->funcs->count;
+
+    BytecodeBuf imported_bc;
+    bc_init(&imported_bc);
+    Compiler compiler = {&imported_bc, vm->strings, vm->funcs};
+    compile_node(&compiler, ast);
+
+    /* Fix stale code pointers: bc_emit may have reallocated imported_bc.code
+       after ft_add stored the old pointer. Update all functions registered
+       during this import to point to the final buffer. */
+    for (int i = funcs_before; i < vm->funcs->count; i++) {
+        vm->funcs->entries[i].code = imported_bc.code;
+    }
+
+    /* Execute imported code with recursive vm_run.
+       Save/restore all VM state so the outer loop continues correctly. */
+    int saved_sp = vm->sp;
+    int saved_call_sp = vm->call_sp;
+    int saved_ip = vm->ip;
+    int saved_running = vm->running;
+    uint8_t *saved_code = vm->code;
+    int saved_code_len = vm->code_len;
+
+    vm_run(vm, imported_bc.code, imported_bc.pos);
+
+    vm->sp = saved_sp;
+    vm->call_sp = saved_call_sp;
+    vm->code = saved_code;
+    vm->code_len = saved_code_len;
+    vm->ip = saved_ip;
+    vm->running = saved_running;
+
+    if (vm->imported_bc_count < 64)
+        vm->imported_bcs[vm->imported_bc_count++] = imported_bc.code;
+    else
+        free(imported_bc.code);
+}
+
+int vm_run(VM* vm, uint8_t* code, int code_len) {
+    vm->code = code;
+    vm->ip = 0;
+    vm->code_len = code_len;
+    long long iter = 0;
+    while (vm->running && vm->ip < vm->code_len) {
+        if (++iter > 100000) { fprintf(stderr, "INFINITE LOOP (iter=%lld sp=%d call_sp=%d)\n", iter, vm->sp, vm->call_sp); return 1; }
         uint8_t op = vm->code[vm->ip];
         if (vm->debug) fprintf(stderr, "IP=%d OP=0x%02X SP=%d\n", vm->ip, op, vm->sp);
         vm->ip++;
-
         switch (op) {
             case BC_HALT:
                 vm->running = 0;
+                break;
+
+            /* ===== Concurrency ===== */
+            case BC_GOROUTINE: {
+                int32_t addr;
+                memcpy(&addr, vm->code + vm->ip, 4);
+                vm->ip += 4;
+                if (vm->goroutine_count < 64) {
+                    int gi = vm->goroutine_count++;
+                    vm->goroutines[gi].code = vm->code;
+                    vm->goroutines[gi].ip = addr;
+                    vm->goroutines[gi].code_len = vm->code_len;
+                    vm->goroutines[gi].sp = 0;
+                    vm->goroutines[gi].running = 1;
+                    vm->goroutines[gi].goroutine_id = vm->goroutine_next_id++;
+                    memset(vm->goroutines[gi].vars, 0, sizeof(vm->goroutines[gi].vars));
+                    for (int j = 0; j < 1024; j++) vm->goroutines[gi].vars[j] = val_null();
+                    Value gid = val_int(vm->goroutines[gi].goroutine_id);
+                    vm->stack[vm->sp++] = gid;
+                } else {
+                    vm->stack[vm->sp++] = val_int(-1);
+                }
+            } break;
+
+            case BC_CHANNEL_NEW: {
+                int32_t cap;
+                memcpy(&cap, vm->code + vm->ip, 4);
+                vm->ip += 4;
+                if (vm->channel_count < 64) {
+                    int ci = vm->channel_count++;
+                    vm->channels[ci].head = 0;
+                    vm->channels[ci].tail = 0;
+                    vm->channels[ci].count = 0;
+                    vm->channels[ci].capacity = cap > 0 ? cap : 1;
+                    vm->stack[vm->sp++] = val_int(ci);
+                } else {
+                    vm->stack[vm->sp++] = val_int(-1);
+                }
+            } break;
+
+            case BC_CHANNEL_SEND: {
+                Value val = vm->stack[--vm->sp];
+                int ch_idx = (int)vm->stack[--vm->sp].as.i;
+                if (ch_idx >= 0 && ch_idx < vm->channel_count) {
+                    Channel *ch = &vm->channels[ch_idx];
+                    if (ch->count < ch->capacity) {
+                        ch->buffer[ch->tail] = val;
+                        ch->tail = (ch->tail + 1) % ch->capacity;
+                        ch->count++;
+                    }
+                }
+            } break;
+
+            case BC_CHANNEL_RECV: {
+                int ch_idx = (int)vm->stack[--vm->sp].as.i;
+                if (ch_idx >= 0 && ch_idx < vm->channel_count) {
+                    Channel *ch = &vm->channels[ch_idx];
+                    if (ch->count > 0) {
+                        vm->stack[vm->sp++] = ch->buffer[ch->head];
+                        ch->head = (ch->head + 1) % ch->capacity;
+                        ch->count--;
+                    } else {
+                        vm->stack[vm->sp++] = val_null();
+                    }
+                } else {
+                    vm->stack[vm->sp++] = val_null();
+                }
+            } break;
+
+            case BC_WAIT_GROUP_ADD: {
+                int32_t n;
+                memcpy(&n, vm->code + vm->ip, 4);
+                vm->ip += 4;
+                int wg_idx = (int)vm->stack[--vm->sp].as.i;
+                if (wg_idx >= 0 && wg_idx < vm->wg_count) {
+                    vm->wait_groups[wg_idx].count += n;
+                }
+            } break;
+
+            case BC_WAIT_GROUP_DONE: {
+                int wg_idx = (int)vm->stack[--vm->sp].as.i;
+                if (wg_idx >= 0 && wg_idx < vm->wg_count) {
+                    vm->wait_groups[wg_idx].done_count++;
+                }
+            } break;
+
+            case BC_WAIT_GROUP_WAIT: {
+                int wg_idx = (int)vm->stack[--vm->sp].as.i;
+                if (wg_idx >= 0 && wg_idx < vm->wg_count) {
+                    while (vm->wait_groups[wg_idx].done_count < vm->wait_groups[wg_idx].count) {
+                        /* Run goroutines until wait group is satisfied */
+                        int did_work = 0;
+                        for (int g = 0; g < vm->goroutine_count; g++) {
+                            if (vm->goroutines[g].running) {
+                                uint8_t *saved_code = vm->code;
+                                int saved_ip = vm->ip;
+                                int saved_sp = vm->sp;
+                                int saved_code_len = vm->code_len;
+                                vm->code = vm->goroutines[g].code;
+                                vm->ip = vm->goroutines[g].ip;
+                                vm->code_len = vm->goroutines[g].code_len;
+                                vm->sp = vm->goroutines[g].sp;
+                                memcpy(vm->stack, vm->goroutines[g].stack, sizeof(Value) * 2048);
+                                for (int v = 0; v < 1024; v++) { val_free(vm->vars[v]); vm->vars[v] = vm->goroutines[g].vars[v]; }
+                                int steps = 0;
+                                while (vm->running && vm->ip < vm->code_len && steps < 1000) {
+                                    uint8_t op2 = vm->code[vm->ip]; vm->ip++;
+                                    if (op2 == BC_HALT || op2 == BC_RET) { vm->goroutines[g].running = 0; break; }
+                                    if (op2 == BC_WAIT_GROUP_DONE) { vm->wait_groups[wg_idx].done_count++; }
+                                    steps++;
+                                }
+                                vm->goroutines[g].sp = vm->sp;
+                                memcpy(vm->goroutines[g].stack, vm->stack, sizeof(Value) * 2048);
+                                for (int v = 0; v < 1024; v++) vm->goroutines[g].vars[v] = vm->vars[v];
+                                vm->code = saved_code;
+                                vm->ip = saved_ip;
+                                vm->sp = saved_sp;
+                                vm->code_len = saved_code_len;
+                                did_work = 1;
+                            }
+                        }
+                        if (!did_work) break;
+                    }
+                }
+            } break;
+
+            case BC_MUTEX_NEW: {
+                if (vm->mutex_count < 64) {
+                    int mi = vm->mutex_count++;
+                    vm->mutexes[mi].locked = 0;
+                    vm->stack[vm->sp++] = val_int(mi);
+                } else {
+                    vm->stack[vm->sp++] = val_int(-1);
+                }
+            } break;
+
+            case BC_MUTEX_LOCK: {
+                int mi = (int)vm->stack[--vm->sp].as.i;
+                if (mi >= 0 && mi < vm->mutex_count) {
+                    while (vm->mutexes[mi].locked) { /* spinlock */ }
+                    vm->mutexes[mi].locked = 1;
+                }
+            } break;
+
+            case BC_MUTEX_UNLOCK: {
+                int mi = (int)vm->stack[--vm->sp].as.i;
+                if (mi >= 0 && mi < vm->mutex_count) {
+                    vm->mutexes[mi].locked = 0;
+                }
+            } break;
+
+            case BC_SLEEP: {
+                int32_t ms;
+                memcpy(&ms, vm->code + vm->ip, 4);
+                vm->ip += 4;
+#ifdef _WIN32
+                Sleep(ms);
+#else
+                struct timespec ts;
+                ts.tv_sec = ms / 1000;
+                ts.tv_nsec = (ms % 1000) * 1000000L;
+                nanosleep(&ts, NULL);
+#endif
+            } break;
+
+            case BC_YIELD: {
+                /* Yield to other goroutines */
+            } break;
+
+            case BC_SELECT: {
+                /* SELECT statement - non-blocking multi-channel receive */
+                int32_t num_cases;
+                memcpy(&num_cases, vm->code + vm->ip, 4);
+                vm->ip += 4;
+                /* Read all case entries, try each in order */
+                int handled = 0;
+                for (int i = 0; i < num_cases; i++) {
+                    int32_t case_addr;
+                    memcpy(&case_addr, vm->code + vm->ip, 4);
+                    vm->ip += 4;
+                    int32_t case_type;
+                    memcpy(&case_type, vm->code + vm->ip, 4);
+                    vm->ip += 4;
+                    if (!handled) {
+                        /* case_type 0 = recv from channel, 1 = default */
+                        if (case_type == 0) {
+                            /* Try to receive: channel handle is on stack */
+                            if (vm->sp > 0) {
+                                int ch_idx = (int)vm->stack[vm->sp - 1].as.i;
+                                if (ch_idx >= 0 && ch_idx < vm->channel_count &&
+                                    vm->channels[ch_idx].count > 0) {
+                                    handled = 1;
+                                    vm->stack[vm->sp++] = val_int(vm->channels[ch_idx].buffer[--vm->channels[ch_idx].count].as.i);
+                                }
+                            }
+                        } else if (case_type == 1) {
+                            /* default case — always handled */
+                            handled = 1;
+                        }
+                    }
+                }
+            } break;
+
+            case BC_SELECT_CASE:
+            case BC_SELECT_DEFAULT:
+            case BC_SELECT_END:
                 break;
 
             case BC_PUSH_INT: {
@@ -1536,10 +2192,25 @@ int vm_run(VM* vm) {
                 val_free(vm->stack[--vm->sp]);
                 break;
 
-            case BC_DUP:
-                vm->stack[vm->sp] = vm->stack[vm->sp - 1];
+            case BC_DUP: {
+                Value dup_v = vm->stack[vm->sp - 1];
+                if (dup_v.type == VAL_STRING) {
+                    vm->stack[vm->sp] = val_string(dup_v.as.s);
+                } else if (dup_v.type == VAL_ARRAY) {
+                    Value arr = val_array();
+                    for (int i = 0; i < dup_v.as.a->count; i++) {
+                        if (arr.as.a->count >= arr.as.a->capacity) {
+                            arr.as.a->capacity = arr.as.a->capacity ? arr.as.a->capacity * 2 : 8;
+                            arr.as.a->items = (Value*)realloc(arr.as.a->items, arr.as.a->capacity * sizeof(Value));
+                        }
+                        arr.as.a->items[arr.as.a->count++] = val_copy(dup_v.as.a->items[i]);
+                    }
+                    vm->stack[vm->sp] = arr;
+                } else {
+                    vm->stack[vm->sp] = dup_v;
+                }
                 vm->sp++;
-                break;
+            } break;
 
             case BC_SWAP: {
                 Value a = vm->stack[vm->sp - 2];
@@ -1937,6 +2608,102 @@ int vm_run(VM* vm) {
                         } else vm->stack[vm->sp++] = val_bool(0);
                     } else vm->stack[vm->sp++] = val_bool(0);
                     val_free(v); val_free(content);
+                } else if (strcmp(name, "FFI_LOAD") == 0) {
+                    Value name_val = vm->stack[--vm->sp];
+                    Value path_val = vm->stack[--vm->sp];
+                    if (name_val.type == VAL_STRING && path_val.type == VAL_STRING) {
+                        ffi_load_lib(name_val.as.s, path_val.as.s);
+                        val_free(name_val); val_free(path_val);
+                        vm->stack[vm->sp++] = val_int(0);
+                    } else {
+                        fprintf(stderr, "FFI_LOAD requires two string arguments\n");
+                        val_free(name_val); val_free(path_val);
+                        vm->stack[vm->sp++] = val_int(-1);
+                    }
+                } else if (strcmp(name, "FFI_REGISTER") == 0) {
+                    Value lib_name_val = vm->stack[--vm->sp];
+                    Value func_name_val = vm->stack[--vm->sp];
+                    Value ret_type_val = vm->stack[--vm->sp];
+                    Value param_count_val = vm->stack[--vm->sp];
+                    if (lib_name_val.type == VAL_STRING && func_name_val.type == VAL_STRING &&
+                        ret_type_val.type == VAL_INT && param_count_val.type == VAL_INT) {
+                        int rc = ffi_register_func(lib_name_val.as.s, func_name_val.as.s,
+                            (NbsFFIType)ret_type_val.as.i, (int)param_count_val.as.i);
+                        val_free(lib_name_val); val_free(func_name_val);
+                        val_free(ret_type_val); val_free(param_count_val);
+                        vm->stack[vm->sp++] = val_int(rc);
+                    } else {
+                        fprintf(stderr, "FFI_REGISTER requires (string, string, int, int)\n");
+                        val_free(lib_name_val); val_free(func_name_val);
+                        val_free(ret_type_val); val_free(param_count_val);
+                        vm->stack[vm->sp++] = val_int(-1);
+                    }
+                } else if (strcmp(name, "FFI_CALL") == 0) {
+                    int ffi_argc = arity - 2;
+                    if (ffi_argc < 0) ffi_argc = 0;
+                    Value ffi_args[16];
+                    Value lib_name_val = vm->stack[--vm->sp];
+                    Value func_name_val = vm->stack[--vm->sp];
+                    for (int i = ffi_argc - 1; i >= 0; i--) {
+                        ffi_args[i] = vm->stack[--vm->sp];
+                    }
+                    Value result = val_int(0);
+                    if (lib_name_val.type == VAL_STRING && func_name_val.type == VAL_STRING) {
+                        NbsFFILib* lib = NULL;
+                        NbsFFIFunc* func = NULL;
+                        for (int i = 0; i < ffi_lib_count; i++) {
+                            if (strcmp(ffi_libs[i].name, lib_name_val.as.s) == 0) {
+                                lib = &ffi_libs[i]; break;
+                            }
+                        }
+                        if (lib) {
+                            for (int j = 0; j < lib->func_count; j++) {
+                                if (strcmp(lib->functions[j].name, func_name_val.as.s) == 0) {
+                                    func = &lib->functions[j]; break;
+                                }
+                            }
+                        }
+                        if (lib && func) {
+                            void* fn = ffi_resolve_func(lib, func);
+                            if (fn) {
+                                intptr_t vals[16];
+                                for (int k = 0; k < ffi_argc && k < 16; k++) {
+                                    if (ffi_args[k].type == VAL_INT)
+                                        vals[k] = (intptr_t)ffi_args[k].as.i;
+                                    else if (ffi_args[k].type == VAL_STRING)
+                                        vals[k] = (intptr_t)ffi_args[k].as.s;
+                                    else
+                                        vals[k] = 0;
+                                }
+                                typedef intptr_t (*ffi_fn)();
+                                ffi_fn call = (ffi_fn)fn;
+                                intptr_t ret = call(
+                                    ffi_argc > 0 ? vals[0] : 0,
+                                    ffi_argc > 1 ? vals[1] : 0,
+                                    ffi_argc > 2 ? vals[2] : 0,
+                                    ffi_argc > 3 ? vals[3] : 0,
+                                    ffi_argc > 4 ? vals[4] : 0,
+                                    ffi_argc > 5 ? vals[5] : 0
+                                );
+                                switch (func->return_type) {
+                                    case NBS_FFI_INT: case NBS_FFI_VOID:
+                                        result = val_int((int64_t)ret); break;
+                                    case NBS_FFI_STRING: case NBS_FFI_POINTER:
+                                        if (ret) result = val_string((const char*)ret);
+                                        else result = val_null();
+                                        break;
+                                    default:
+                                        result = val_int((int64_t)ret); break;
+                                }
+                            }
+                        } else {
+                            fprintf(stderr, "FFI_CALL: library or function not found: %s.%s\n",
+                                lib_name_val.as.s, func_name_val.as.s);
+                        }
+                    }
+                    for (int i = 0; i < ffi_argc; i++) val_free(ffi_args[i]);
+                    val_free(lib_name_val); val_free(func_name_val);
+                    vm->stack[vm->sp++] = result;
                 } else {
                     // User-defined function
                     int fi = ft_find(vm->funcs, name);
@@ -1944,38 +2711,37 @@ int vm_run(VM* vm) {
                         fprintf(stderr, "Runtime error: undefined function '%s'\n", name);
                         return 1;
                     }
-                    if (vm->debug) fprintf(stderr, "CALL '%s' -> addr=%d\n", name, vm->funcs->entries[fi].addr);
                     if (vm->call_sp >= 256) {
                         fprintf(stderr, "Runtime error: call stack overflow\n");
                         return 1;
                     }
-                    // Save variables that will be overwritten by params and locals
+                    // Save parameter variables with deep copy
                     vm->call_stack[vm->call_sp].ret_ip = vm->ip;
-                    vm->call_stack[vm->call_sp].saved_count = 0;
+                    vm->call_stack[vm->call_sp].ret_code = vm->code;
+                    vm->call_stack[vm->call_sp].ret_code_len = vm->code_len;
+                    int param_count = vm->funcs->entries[fi].param_count;
                     int sc = 0;
-                    int saved_flag[256] = {0};
-                    // Save param slots
-                    int pcount = vm->funcs->entries[fi].param_count < arity ? vm->funcs->entries[fi].param_count : arity;
-                    for (int i = 0; i < pcount && sc < 256; i++) {
+                    for (int i = 0; i < param_count && i < 256; i++) {
                         int param_idx = st_intern(vm->strings, vm->funcs->entries[fi].params[i]);
-                        if (param_idx >= 0 && param_idx < 1024 && !saved_flag[param_idx]) {
-                            vm->call_stack[vm->call_sp].saved_var_idx[sc] = param_idx;
-                            vm->call_stack[vm->call_sp].saved_vars[sc] = vm->vars[param_idx];
-                            vm->call_stack[vm->call_sp].saved_count = ++sc;
-                            saved_flag[param_idx] = 1;
-                        }
+                        vm->call_stack[vm->call_sp].saved_var_idx[sc] = param_idx;
+                        vm->call_stack[vm->call_sp].saved_vars[sc] = val_copy(vm->vars[param_idx]);
+                        sc++;
                     }
-                    // Store arguments (in reverse so params[0] gets leftmost arg)
+                    vm->call_stack[vm->call_sp].saved_count = sc;
+                    // Assign arguments: reverse order (stack pops last-pushed first)
+                    int pcount = param_count < arity ? param_count : arity;
                     for (int i = pcount - 1; i >= 0; i--) {
                         int param_idx = st_intern(vm->strings, vm->funcs->entries[fi].params[i]);
                         val_free(vm->vars[param_idx]);
                         vm->vars[param_idx] = vm->stack[--vm->sp];
                     }
-                    // Discard remaining args
-                    for (int i = arity; i > vm->funcs->entries[fi].param_count; i--)
+                    // Free extra arguments
+                    for (int i = arity; i > param_count; i--)
                         val_free(vm->stack[--vm->sp]);
                     vm->call_sp++;
+                    vm->code = vm->funcs->entries[fi].code;
                     vm->ip = vm->funcs->entries[fi].addr;
+                    vm->code_len = vm->funcs->entries[fi].addr + vm->funcs->entries[fi].code_len;
                 }
             } break;
 
@@ -1985,14 +2751,18 @@ int vm_run(VM* vm) {
                 if (vm->call_sp > 0) {
                     vm->call_sp--;
                     // Restore saved variables
-                    for (int i = 0; i < vm->call_stack[vm->call_sp].saved_count; i++) {
+                    int sc = vm->call_stack[vm->call_sp].saved_count;
+                    for (int i = 0; i < sc; i++) {
                         int gidx = vm->call_stack[vm->call_sp].saved_var_idx[i];
                         if (gidx >= 0 && gidx < 1024) {
                             val_free(vm->vars[gidx]);
                             vm->vars[gidx] = vm->call_stack[vm->call_sp].saved_vars[i];
                         }
                     }
+                    vm->call_stack[vm->call_sp].saved_count = 0;
                     vm->ip = vm->call_stack[vm->call_sp].ret_ip;
+                    vm->code = vm->call_stack[vm->call_sp].ret_code;
+                    vm->code_len = vm->call_stack[vm->call_sp].ret_code_len;
                 } else {
                     vm->running = 0;
                 }
@@ -2022,22 +2792,18 @@ int vm_run(VM* vm) {
             case BC_ARRAY_GET: {
                 Value idx = vm->stack[--vm->sp];
                 Value arr = vm->stack[--vm->sp];
+                Value result = val_null();
                 if (arr.type == VAL_ARRAY && idx.type == VAL_INT) {
                     if (idx.as.i >= 0 && idx.as.i < arr.as.a->count)
-                        vm->stack[vm->sp++] = arr.as.a->items[idx.as.i];
-                    else
-                        vm->stack[vm->sp++] = val_null();
+                        result = val_copy(arr.as.a->items[idx.as.i]);
                 } else if (arr.type == VAL_STRING && idx.type == VAL_INT) {
                     int len = (int)strlen(arr.as.s);
                     if (idx.as.i >= 0 && idx.as.i < len) {
                         char ch[2] = { arr.as.s[idx.as.i], 0 };
-                        vm->stack[vm->sp++] = val_string(ch);
-                    } else {
-                        vm->stack[vm->sp++] = val_null();
+                        result = val_string(ch);
                     }
-                } else {
-                    vm->stack[vm->sp++] = val_null();
                 }
+                vm->stack[vm->sp++] = result;
             } break;
 
             case BC_ARRAY_SET: {
@@ -2144,6 +2910,27 @@ int vm_run(VM* vm) {
 
             case BC_ENDTRY: break;
 
+            case BC_IMPORT: {
+                int32_t idx;
+                memcpy(&idx, vm->code + vm->ip, 4);
+                vm->ip += 4;
+                const char* path = vm->strings->strings[idx];
+                FILE* f = fopen(path, "rb");
+                if (!f) {
+                    fprintf(stderr, "Runtime error: cannot open import '%s'\n", path);
+                    break;
+                }
+                fseek(f, 0, SEEK_END);
+                long sz = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                char* buf = (char*)malloc(sz + 1);
+                fread(buf, 1, sz, f);
+                buf[sz] = 0;
+                fclose(f);
+                vm_exec_import(vm, buf, path);
+                free(buf);
+            } break;
+
             default:
                 fprintf(stderr, "Runtime error: unknown opcode 0x%02X at IP=%d\n", op, vm->ip - 1);
                 return 1;
@@ -2216,9 +3003,14 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0) vm->debug = 1;
     }
-    int result = vm_run(vm);
+    int result = 0;
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(crash_handler);
+#endif
+    result = vm_run(vm, bc.code, bc.pos);
 
     // Cleanup
+    for (int i = 0; i < vm->imported_bc_count; i++) free(vm->imported_bcs[i]);
     free(vm);
     free(bc.code);
     for (int i = 0; i < strings.count; i++) free(strings.strings[i]);

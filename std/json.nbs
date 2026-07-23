@@ -1,15 +1,204 @@
-# Nebulara Standard Library - JSON
-# Simple JSON operations (basic implementation)
+# JSON parser and stringifier
+# Pure Nebulara implementation
+# Each parse function returns [value, new_position]
 
-# JSON is not natively supported yet.
-# These are placeholder functions that demonstrate the API.
-
-FUNC! json_stringify(value):
-  RETURN TO_STRING(value)
+FUNC! json_parse(xstr):
+    IF? LEN(xstr) == 0: RETURN NULL
+    END!
+    LET xr = parse_val(xstr, 0)
+    LET xinner = xr[0]
+    LET xpos = xr[1]
+    RETURN xinner
 END!
 
-# json_parse is not yet implemented - requires FFI to C JSON parser library
-FUNC! json_parse(str):
-  PRINT "JSON.parse: not yet implemented - requires FFI to C JSON parser library"
-  RETURN NULL
+FUNC! parse_val(ps, pp):
+    LET pnp = skip_ws(ps, pp)
+    LET pc = CHAR_AT(ps, pnp)
+    IF? pc == "\"":
+        RETURN parse_str(ps, pnp + 1)
+    ELSEIF? pc == "t" OR pc == "T":
+        RETURN [TRUE, pnp + 4]
+    ELSEIF? pc == "f" OR pc == "F":
+        RETURN [FALSE, pnp + 5]
+    ELSEIF? pc == "n" OR pc == "N":
+        RETURN [NULL, pnp + 4]
+    ELSEIF? pc == "{":
+        RETURN parse_obj(ps, pnp + 1)
+    ELSEIF? pc == "[":
+        RETURN parse_arr(ps, pnp + 1)
+    ELSEIF? (ORD(pc) >= 48 AND ORD(pc) <= 57) OR pc == "-":
+        RETURN parse_num(ps, pnp)
+    END!
+    RETURN [NULL, pnp]
+END!
+
+FUNC! skip_ws(ss, sp):
+    LET sn = LEN(ss)
+    WHILE? sp < sn:
+        LET sc = CHAR_AT(ss, sp)
+        IF? sc == " " OR sc == "\n" OR sc == "\r" OR sc == "\t":
+            sp = sp + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    RETURN sp
+END!
+
+FUNC! parse_str(ps2, pp2):
+    LET pn = LEN(ps2)
+    LET presult = ""
+    WHILE? pp2 < pn:
+        LET pc2 = CHAR_AT(ps2, pp2)
+        IF? pc2 == "\"":
+            RETURN [presult, pp2 + 1]
+        ELSEIF? pc2 == "\\":
+            pp2 = pp2 + 1
+            IF? pp2 < pn:
+                LET pesc = CHAR_AT(ps2, pp2)
+                IF? pesc == "n": presult = presult + "\n"
+                ELSEIF? pesc == "t": presult = presult + "\t"
+                ELSEIF? pesc == "\\": presult = presult + "\\"
+                ELSEIF? pesc == "\"": presult = presult + "\""
+                ELSEIF? pesc == "/": presult = presult + "/"
+                ELSE: presult = presult + pesc
+                END!
+            END!
+            pp2 = pp2 + 1
+        ELSE:
+            presult = presult + pc2
+            pp2 = pp2 + 1
+        END!
+    END!
+    RETURN [presult, pp2]
+END!
+
+FUNC! parse_num(pns, pnp2):
+    LET pstart = pnp2
+    LET pnn = LEN(pns)
+    IF? CHAR_AT(pns, pnp2) == "-":
+        pnp2 = pnp2 + 1
+    END!
+    WHILE? pnp2 < pnn:
+        LET pnc = CHAR_AT(pns, pnp2)
+        IF? ORD(pnc) >= 48 AND ORD(pnc) <= 57:
+            pnp2 = pnp2 + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    LET pnum_str = SUBSTR(pns, pstart, pnp2 - pstart)
+    RETURN [TO_NUMBER(pnum_str), pnp2]
+END!
+
+FUNC! parse_arr(xs, xp):
+    LET xarr = []
+    LET xnp = skip_ws(xs, xp)
+    IF? CHAR_AT(xs, xnp) == "]":
+        RETURN [xarr, xnp + 1]
+    END!
+    LET xiter = 0
+    WHILE? TRUE:
+        xiter = xiter + 1
+        IF? xiter > 1000:
+            PRINT("INFINITE LOOP in parse_arr")
+            RETURN [xarr, xnp]
+        END!
+        LET xr = parse_val(xs, xnp)
+        xarr = PUSH(xarr, xr[0])
+        xnp = skip_ws(xs, xr[1])
+        IF? CHAR_AT(xs, xnp) == ",":
+            xnp = xnp + 1
+        ELSEIF? CHAR_AT(xs, xnp) == "]":
+            RETURN [xarr, xnp + 1]
+        ELSE:
+            RETURN [xarr, xnp]
+        END!
+    END!
+    RETURN [xarr, xnp]
+END!
+
+FUNC! parse_obj(os, op):
+    LET oobj = []
+    LET onp = skip_ws(os, op)
+    IF? CHAR_AT(os, onp) == "}":
+        RETURN [oobj, onp + 1]
+    END!
+    WHILE? TRUE:
+        LET okr = parse_str(os, onp)
+        onp = skip_ws(os, okr[1])
+        IF? CHAR_AT(os, onp) == ":":
+            onp = onp + 1
+        END!
+        LET ovr = parse_val(os, onp)
+        oobj = PUSH(oobj, okr[0])
+        oobj = PUSH(oobj, ovr[0])
+        onp = skip_ws(os, ovr[1])
+        IF? CHAR_AT(os, onp) == ",":
+            onp = onp + 1
+        ELSEIF? CHAR_AT(os, onp) == "}":
+            RETURN [oobj, onp + 1]
+        ELSE:
+            RETURN [oobj, onp]
+        END!
+    END!
+    RETURN [oobj, onp]
+END!
+
+FUNC! json_stringify(val):
+    LET t = TYPEOF(val)
+    IF? t == "null": RETURN "null"
+    ELSEIF? t == "bool":
+        IF? val: RETURN "true"
+        ELSE: RETURN "false"
+        END!
+    ELSEIF? t == "int": RETURN TO_STRING(val)
+    ELSEIF? t == "string": RETURN "\"" + escape_str(val) + "\""
+    ELSEIF? t == "array":
+        LET n = LEN(val)
+        IF? n == 0: RETURN "[]"
+        END!
+        IF? n % 2 == 0 AND n > 1:
+            LET all_keys = TRUE
+            FOR! i = 0 TO n - 1 STEP 2:
+                IF? TYPEOF(val[i]) != "string":
+                    all_keys = FALSE
+                    BREAK
+                END!
+            END!
+            IF? all_keys:
+                LET result = "{"
+                FOR! i = 0 TO n - 1 STEP 2:
+                    IF? i > 0: result = result + ","
+                    END!
+                    result = result + json_stringify(val[i]) + ":" + json_stringify(val[i + 1])
+                END!
+                RETURN result + "}"
+            END!
+        END!
+        LET result = "["
+        FOR! i = 0 TO n - 1:
+            IF? i > 0: result = result + ","
+            END!
+            result = result + json_stringify(val[i])
+        END!
+        RETURN result + "]"
+    END!
+    RETURN "null"
+END!
+
+FUNC! escape_str(s):
+    LET n = LEN(s)
+    LET result = ""
+    FOR! i = 0 TO n - 1:
+        LET c = CHAR_AT(s, i)
+        IF? c == "\"": result = result + "\\\""
+        ELSEIF? c == "\\": result = result + "\\\\"
+        ELSEIF? c == "\n": result = result + "\\n"
+        ELSEIF? c == "\t": result = result + "\\t"
+        ELSEIF? c == "\r": result = result + "\\r"
+        ELSE: result = result + c
+        END!
+    END!
+    RETURN result
 END!

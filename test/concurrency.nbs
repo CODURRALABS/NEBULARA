@@ -1,0 +1,14 @@
+LET ch = CHAN!(10)
+PRINT(ch)
+
+LET m = MUTEX!()
+PRINT(m)
+
+LOCK! m
+UNLOCK! m
+
+YIELD!
+
+SLEEP! 100
+
+PRINT("concurrency primitives ok")

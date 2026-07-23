@@ -15,6 +15,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include "neb-semantic.c"
+#include "neb-ir.c"
+#include "neb-codegen.c"
 
 /* ============================================================================
  * LEXER (copied from nbs-bootstrap.c, adapted)
@@ -593,7 +595,12 @@ static int is_sema_keyword(const char *t) {
            strcmp(t, "TRUE") == 0 || strcmp(t, "FALSE") == 0 ||
            strcmp(t, "NULL") == 0 || strcmp(t, "THEN") == 0 ||
            strcmp(t, "TRY") == 0 || strcmp(t, "CATCH") == 0 ||
-           strcmp(t, "THROW") == 0;
+           strcmp(t, "THROW") == 0 ||
+           strcmp(t, "GO!") == 0 || strcmp(t, "CHAN!") == 0 ||
+           strcmp(t, "SEND!") == 0 || strcmp(t, "RECV!") == 0 ||
+           strcmp(t, "SELECT!") == 0 || strcmp(t, "MUTEX!") == 0 ||
+           strcmp(t, "LOCK!") == 0 || strcmp(t, "UNLOCK!") == 0 ||
+           strcmp(t, "YIELD!") == 0 || strcmp(t, "SLEEP!") == 0;
 }
 
 static int is_sema_builtin(const char *t) {
@@ -643,6 +650,26 @@ static int is_sema_literal_or_punct(const char *t) {
     return 0;
 }
 
+/* Type name parsing for type annotations */
+NebType parse_type_name(const char *name) {
+    if (!name) return TYPE_UNKNOWN;
+    if (strcmp(name, "INT") == 0 || strcmp(name, "int") == 0 || strcmp(name, "Int") == 0)
+        return TYPE_INT;
+    if (strcmp(name, "STRING") == 0 || strcmp(name, "string") == 0 || strcmp(name, "String") == 0)
+        return TYPE_STRING;
+    if (strcmp(name, "BOOL") == 0 || strcmp(name, "bool") == 0 || strcmp(name, "Bool") == 0)
+        return TYPE_BOOL;
+    if (strcmp(name, "ARRAY") == 0 || strcmp(name, "array") == 0 || strcmp(name, "Array") == 0)
+        return TYPE_ARRAY;
+    if (strcmp(name, "NULL") == 0 || strcmp(name, "null") == 0)
+        return TYPE_NULL;
+    if (strcmp(name, "VOID") == 0 || strcmp(name, "void") == 0 || strcmp(name, "Void") == 0)
+        return TYPE_VOID;
+    if (strcmp(name, "FUNC") == 0 || strcmp(name, "func") == 0)
+        return TYPE_FUNC;
+    return TYPE_UNKNOWN;
+}
+
 int sema_analyze(SemaContext *ctx, const char **tokens, int *token_types, int token_count) {
     for (int i = 0; i < token_count; i++) {
         const char *t = tokens[i];
@@ -651,16 +678,26 @@ int sema_analyze(SemaContext *ctx, const char **tokens, int *token_types, int to
         if (token_types && (token_types[i] == TOK_STRING_LIT || token_types[i] == TOK_INT_LIT)) continue;
         if ((strcmp(t, "LET") == 0 || strcmp(t, "CONST") == 0) && i + 1 < token_count) {
             const char *name = tokens[i + 1];
+            NebType annotated_type = TYPE_UNKNOWN;
+            /* Check for type annotation: LET name : TYPE */
+            if (i + 2 < token_count && strcmp(tokens[i + 2], ":") == 0 && i + 3 < token_count) {
+                annotated_type = parse_type_name(tokens[i + 3]);
+                if (annotated_type == TYPE_UNKNOWN) {
+                    sema_ctx_error(ctx, i + 3, "unknown type annotation '%s'", tokens[i + 3]);
+                }
+            }
             if (symbol_lookup(name)) {
                 sema_ctx_error(ctx, i + 1, "duplicate definition of '%s'", name);
             } else {
-                symbol_define(name, TYPE_UNKNOWN, i + 1, 0, strcmp(t, "LET") == 0);
+                symbol_define(name, annotated_type, i + 1, 0, strcmp(t, "LET") == 0);
             }
             i++;
             continue;
         }
         if (strcmp(t, "FUNC!") == 0 && i + 1 < token_count) {
             const char *name = tokens[i + 1];
+            /* Check for return type annotation: FUNC! name -> TYPE: */
+            NebType return_type = TYPE_VOID;
             if (symbol_lookup(name)) {
                 sema_ctx_error(ctx, i + 1, "duplicate definition of function '%s'", name);
             } else {
@@ -704,21 +741,567 @@ int sema_analyze(SemaContext *ctx, const char **tokens, int *token_types, int to
 }
 
 /* ============================================================================
+ * IR LOWERING (AST -> IR)
+ * ============================================================================ */
+
+static int ir_break_stack[64];
+static int ir_continue_stack[64];
+static int ir_break_top = 0;
+static int ir_continue_top = 0;
+
+static int ir_find_var(const char *name) {
+    for (int i = 0; i < ir_program.var_count; i++)
+        if (strcmp(ir_program.variables[i].name, name) == 0)
+            return ir_program.variables[i].id;
+    return -1;
+}
+
+static int ir_get_var(const char *name) {
+    int idx = ir_find_var(name);
+    if (idx >= 0) return idx;
+    return ir_alloc_var(name);
+}
+
+static IROpcode ast_op_to_ir(const char *op) {
+    if (strcmp(op, "+") == 0) return IR_ADD;
+    if (strcmp(op, "-") == 0) return IR_SUB;
+    if (strcmp(op, "*") == 0) return IR_MUL;
+    if (strcmp(op, "/") == 0) return IR_DIV;
+    if (strcmp(op, "%") == 0) return IR_MOD;
+    if (strcmp(op, "==") == 0) return IR_EQ;
+    if (strcmp(op, "!=") == 0) return IR_NEQ;
+    if (strcmp(op, "<") == 0) return IR_LT;
+    if (strcmp(op, ">") == 0) return IR_GT;
+    if (strcmp(op, "<=") == 0) return IR_LTE;
+    if (strcmp(op, ">=") == 0) return IR_GTE;
+    if (strcmp(op, "AND") == 0) return IR_AND;
+    if (strcmp(op, "OR") == 0) return IR_OR;
+    return IR_NOP;
+}
+
+int ir_lower_expr(ASTNode *n) {
+    if (!n) return -1;
+    switch (n->type) {
+        case NODE_INT: {
+            int d = ir_next_temp();
+            ir_emit_imm(d, (int)n->int_val, n->line, 0);
+            return d;
+        }
+        case NODE_STRING: {
+            int d = ir_next_temp();
+            ir_emit(IR_LOAD_IMM, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = d;
+            strncpy(ir_program.instructions[ir_program.count - 1].str, n->str_val, 255);
+            return d;
+        }
+        case NODE_TRUE: {
+            int d = ir_next_temp();
+            ir_emit_imm(d, 1, n->line, 0);
+            return d;
+        }
+        case NODE_FALSE: {
+            int d = ir_next_temp();
+            ir_emit_imm(d, 0, n->line, 0);
+            return d;
+        }
+        case NODE_NULL: {
+            int d = ir_next_temp();
+            ir_emit_imm(d, 0, n->line, 0);
+            return d;
+        }
+        case NODE_IDENT: {
+            int vi = ir_get_var(n->str_val);
+            int d = ir_next_temp();
+            ir_emit(IR_LOAD_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = d;
+            ir_program.instructions[ir_program.count - 1].src1 = vi;
+            return d;
+        }
+        case NODE_BINARY: {
+            int l = ir_lower_expr(n->left);
+            int r = ir_lower_expr(n->right);
+            int d = ir_next_temp();
+            ir_emit_binary(d, l, r, ast_op_to_ir(n->op), n->line, 0);
+            return d;
+        }
+        case NODE_UNARY: {
+            int l = ir_lower_expr(n->left);
+            int d = ir_next_temp();
+            IROpcode op = (strcmp(n->op, "-") == 0) ? IR_NEG : IR_NOT;
+            ir_emit(op, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = d;
+            ir_program.instructions[ir_program.count - 1].src1 = l;
+            return d;
+        }
+        case NODE_FUNC_CALL: {
+            int args[16];
+            int argc = n->child_count < 16 ? n->child_count : 16;
+            for (int i = 0; i < argc; i++)
+                args[i] = ir_lower_expr(n->children[i]);
+
+            if (strcmp(n->str_val, "LEN") == 0 && argc == 1) {
+                int d = ir_next_temp();
+                ir_emit(IR_ARRAY_LEN, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].dst = d;
+                ir_program.instructions[ir_program.count - 1].src1 = args[0];
+                return d;
+            }
+            if (strcmp(n->str_val, "TYPEOF") == 0 && argc == 1) {
+                int d = ir_next_temp();
+                ir_emit(IR_TYPEOF, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].dst = d;
+                ir_program.instructions[ir_program.count - 1].src1 = args[0];
+                return d;
+            }
+            if (strcmp(n->str_val, "TO_STRING") == 0 && argc == 1) {
+                int d = ir_next_temp();
+                ir_emit(IR_TO_STRING, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].dst = d;
+                ir_program.instructions[ir_program.count - 1].src1 = args[0];
+                return d;
+            }
+            if (strcmp(n->str_val, "TO_NUMBER") == 0 && argc == 1) {
+                int d = ir_next_temp();
+                ir_emit(IR_TO_NUMBER, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].dst = d;
+                ir_program.instructions[ir_program.count - 1].src1 = args[0];
+                return d;
+            }
+
+            int d = ir_next_temp();
+            ir_emit(IR_CALL, n->line, 0);
+            IRInstruction *ins = &ir_program.instructions[ir_program.count - 1];
+            ins->dst = d;
+            strncpy(ins->func_name, n->str_val, 255);
+            ins->arg_count = argc;
+            for (int i = 0; i < argc; i++)
+                ins->args[i] = args[i];
+            return d;
+        }
+        case NODE_ARRAY_LIT: {
+            int d = ir_next_temp();
+            ir_emit(IR_ARRAY_NEW, n->line, 0);
+            IRInstruction *ins = &ir_program.instructions[ir_program.count - 1];
+            ins->dst = d;
+            ins->imm = n->child_count;
+            ins->arg_count = n->child_count;
+            for (int i = 0; i < n->child_count && i < 16; i++)
+                ins->args[i] = ir_lower_expr(n->children[i]);
+            return d;
+        }
+        case NODE_ARRAY_INDEX: {
+            int arr = ir_lower_expr(n->left);
+            int idx = ir_lower_expr(n->right);
+            int d = ir_next_temp();
+            ir_emit(IR_LOAD_ARRAY, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = d;
+            ir_program.instructions[ir_program.count - 1].src1 = arr;
+            ir_program.instructions[ir_program.count - 1].src2 = idx;
+            return d;
+        }
+        case NODE_ARRAY_LEN: {
+            int l = ir_lower_expr(n->left);
+            int d = ir_next_temp();
+            ir_emit(IR_ARRAY_LEN, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = d;
+            ir_program.instructions[ir_program.count - 1].src1 = l;
+            return d;
+        }
+        default:
+            return -1;
+    }
+}
+
+void ir_lower_stmt(ASTNode *n) {
+    if (!n) return;
+    switch (n->type) {
+        case NODE_ASSIGN: {
+            int src = ir_lower_expr(n->right);
+            int vi = ir_get_var(n->str_val);
+            ir_emit(IR_STORE_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = vi;
+            ir_program.instructions[ir_program.count - 1].src1 = src;
+            break;
+        }
+        case NODE_PRINT: {
+            int arg = ir_lower_expr(n->left);
+            ir_emit(IR_PRINT, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].src1 = arg;
+            break;
+        }
+        case NODE_IF: {
+            int L_end = ir_new_label();
+            ASTNode *conds[64];
+            ASTNode *bodies[64];
+            int count = 0;
+            ASTNode *else_body = NULL;
+            ASTNode *cur = n;
+            while (cur && cur->type == NODE_IF) {
+                conds[count] = cur->left;
+                bodies[count] = cur->right;
+                count++;
+                cur = cur->third;
+            }
+            if (cur) else_body = cur;
+            for (int i = 0; i < count; i++) {
+                int c = ir_lower_expr(conds[i]);
+                int neg = ir_next_temp();
+                ir_emit(IR_NOT, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].dst = neg;
+                ir_program.instructions[ir_program.count - 1].src1 = c;
+                int L_skip = (i < count - 1 || else_body) ? ir_new_label() : L_end;
+                ir_emit_if_goto(neg, L_skip, n->line, 0);
+                ir_lower_stmt(bodies[i]);
+                ir_emit_goto(L_end, n->line, 0);
+                ir_emit_label(L_skip);
+            }
+            if (else_body) ir_lower_stmt(else_body);
+            ir_emit_label(L_end);
+            break;
+        }
+        case NODE_WHILE: {
+            int L_top = ir_new_label();
+            int L_end = ir_new_label();
+            ir_break_stack[ir_break_top++] = L_end;
+            ir_continue_stack[ir_continue_top++] = L_top;
+            ir_emit_label(L_top);
+            int c = ir_lower_expr(n->left);
+            int neg = ir_next_temp();
+            ir_emit(IR_NOT, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = neg;
+            ir_program.instructions[ir_program.count - 1].src1 = c;
+            ir_emit_if_goto(neg, L_end, n->line, 0);
+            ir_lower_stmt(n->right);
+            ir_emit_goto(L_top, n->line, 0);
+            ir_emit_label(L_end);
+            ir_break_top--;
+            ir_continue_top--;
+            break;
+        }
+        case NODE_FOR: {
+            int vi = ir_get_var(n->str_val);
+            int L_check = ir_new_label();
+            int L_end = ir_new_label();
+            ir_break_stack[ir_break_top++] = L_end;
+            ir_continue_stack[ir_continue_top++] = L_check;
+            ASTNode *start_e, *end_e, *step_e = NULL;
+            if (n->left && n->left->type == NODE_BINARY && strcmp(n->left->op, "STEP") == 0) {
+                start_e = n->left->left->left;
+                end_e = n->left->left->right;
+                step_e = n->left->right;
+            } else {
+                start_e = n->left->left;
+                end_e = n->left->right;
+            }
+            int ts = ir_lower_expr(start_e);
+            ir_emit(IR_STORE_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = vi;
+            ir_program.instructions[ir_program.count - 1].src1 = ts;
+            ir_emit_label(L_check);
+            int te = ir_lower_expr(end_e);
+            int ti = ir_next_temp();
+            ir_emit(IR_LOAD_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = ti;
+            ir_program.instructions[ir_program.count - 1].src1 = vi;
+            int cmp = ir_next_temp();
+            ir_emit_binary(cmp, ti, te, IR_GT, n->line, 0);
+            ir_emit_if_goto(cmp, L_end, n->line, 0);
+            ir_lower_stmt(n->right);
+            int ti2 = ir_next_temp();
+            ir_emit(IR_LOAD_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = ti2;
+            ir_program.instructions[ir_program.count - 1].src1 = vi;
+            int tstep;
+            if (step_e) {
+                tstep = ir_lower_expr(step_e);
+            } else {
+                tstep = ir_next_temp();
+                ir_emit_imm(tstep, 1, n->line, 0);
+            }
+            int tnew = ir_next_temp();
+            ir_emit_binary(tnew, ti2, tstep, IR_ADD, n->line, 0);
+            ir_emit(IR_STORE_VAR, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].dst = vi;
+            ir_program.instructions[ir_program.count - 1].src1 = tnew;
+            ir_emit_goto(L_check, n->line, 0);
+            ir_emit_label(L_end);
+            ir_break_top--;
+            ir_continue_top--;
+            break;
+        }
+        case NODE_FUNC_DEF: {
+            int L_body = ir_new_label();
+            ir_emit_goto(L_body, n->line, 0);
+            ir_emit_label(L_body);
+            ir_lower_stmt(n->right);
+            if (ir_program.count == 0 || ir_program.instructions[ir_program.count - 1].op != IR_RET) {
+                int z = ir_next_temp();
+                ir_emit_imm(z, 0, n->line, 0);
+                ir_emit(IR_RET, n->line, 0);
+                ir_program.instructions[ir_program.count - 1].src1 = z;
+            }
+            break;
+        }
+        case NODE_RETURN: {
+            int src = n->left ? ir_lower_expr(n->left) : -1;
+            ir_emit(IR_RET, n->line, 0);
+            ir_program.instructions[ir_program.count - 1].src1 = src;
+            break;
+        }
+        case NODE_BREAK: {
+            if (ir_break_top > 0)
+                ir_emit_goto(ir_break_stack[ir_break_top - 1], n->line, 0);
+            break;
+        }
+        case NODE_CONTINUE: {
+            if (ir_continue_top > 0)
+                ir_emit_goto(ir_continue_stack[ir_continue_top - 1], n->line, 0);
+            break;
+        }
+        case NODE_BLOCK:
+        case NODE_PROGRAM:
+            for (int i = 0; i < n->child_count; i++)
+                ir_lower_stmt(n->children[i]);
+            break;
+        default:
+            ir_lower_expr(n);
+            break;
+    }
+}
+
+IRProgram *ast_to_ir(ASTNode *ast) {
+    ir_reset();
+    ir_lower_stmt(ast);
+    return &ir_program;
+}
+
+/* ============================================================================
+ * IR TO NATIVE CODE GENERATION
+ * ============================================================================ */
+
+void emit_cmp_reg_imm32(int reg, int imm) {
+    if (current_target == TARGET_X64) code_emit(0x48);
+    code_emit(0x81);
+    code_emit(0xF8 + (reg & 7));
+    code_emit32((unsigned int)imm);
+}
+
+void ir_to_native(IRProgram *ir, const char *outname) {
+    if (!ir || ir->count == 0) { fprintf(stderr, "No IR instructions to compile\n"); return; }
+
+    code_init();
+    current_target = TARGET_X64;
+
+    /* We'll track which virtual registers map to physical registers */
+    int reg_map[1024];
+    for (int i = 0; i < 1024; i++) reg_map[i] = -1;
+
+    for (int i = 0; i < ir->count; i++) {
+        IRInstruction *inst = &ir->instructions[i];
+        switch (inst->op) {
+        case IR_LOAD_IMM: {
+            int r = reg_alloc_alloc();
+            if (r < 0) { fprintf(stderr, "Register exhausted\n"); break; }
+            reg_map[inst->dst] = r;
+            emit_mov_reg_imm(r, (unsigned long long)inst->imm);
+            break;
+        }
+        case IR_LOAD_VAR: {
+            int r = reg_alloc_alloc();
+            if (r < 0) break;
+            reg_map[inst->dst] = r;
+            /* Variable load: mov r, [rbp - offset] - placeholder */
+            emit_mov_reg_imm(r, 0);
+            break;
+        }
+        case IR_STORE_VAR: {
+            int src_r = reg_map[inst->src1];
+            if (src_r < 0) break;
+            /* Variable store: mov [rbp - offset], r - placeholder */
+            break;
+        }
+        case IR_ADD: {
+            int dst_r = reg_alloc_alloc();
+            if (dst_r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) {
+                emit_mov_reg_reg(dst_r, src1_r);
+            }
+            if (src2_r >= 0 && dst_r >= 0) {
+                emit_add_reg_reg(dst_r, src2_r);
+            }
+            reg_map[inst->dst] = dst_r;
+            break;
+        }
+        case IR_SUB: {
+            int dst_r = reg_alloc_alloc();
+            if (dst_r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) emit_mov_reg_reg(dst_r, src1_r);
+            if (src2_r >= 0) emit_sub_reg_reg(dst_r, src2_r);
+            reg_map[inst->dst] = dst_r;
+            break;
+        }
+        case IR_MUL: {
+            int dst_r = reg_alloc_alloc();
+            if (dst_r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) emit_mov_reg_reg(dst_r, src1_r);
+            if (src2_r >= 0) emit_imul_reg_reg(dst_r, src2_r);
+            reg_map[inst->dst] = dst_r;
+            break;
+        }
+        case IR_NEG: {
+            int r = reg_map[inst->src1];
+            if (r < 0) break;
+            /* neg r: F7 /3 */
+            if (current_target == TARGET_X64) code_emit(0x48);
+            code_emit(0xF7);
+            code_emit(0xD8 + (r & 7));
+            reg_map[inst->dst] = r;
+            break;
+        }
+        case IR_EQ:
+        case IR_NEQ:
+        case IR_LT:
+        case IR_GT:
+        case IR_LTE:
+        case IR_GTE: {
+            int r = reg_alloc_alloc();
+            if (r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) emit_mov_reg_imm(r, 0);
+            if (src1_r >= 0 && src2_r >= 0) emit_cmp_reg_reg(src1_r, src2_r);
+            /* setcc al */
+            int cc;
+            switch (inst->op) {
+            case IR_EQ: cc = 0x4; break;
+            case IR_NEQ: cc = 0x5; break;
+            case IR_LT: cc = 0xC; break;
+            case IR_GT: cc = 0xF; break;
+            case IR_LTE: cc = 0xE; break;
+            case IR_GTE: cc = 0xD; break;
+            default: cc = 0x4; break;
+            }
+            code_emit(0x0F);
+            code_emit(0x90 + cc);
+            code_emit(0xC0 + (r & 7));
+            /* movzx r, al */
+            if (current_target == TARGET_X64) code_emit(0x48);
+            code_emit(0x0F);
+            code_emit(0xB6);
+            code_emit(0xC0 + ((r & 7) << 3) | (r & 7));
+            reg_map[inst->dst] = r;
+            break;
+        }
+        case IR_AND: {
+            int dst_r = reg_alloc_alloc();
+            if (dst_r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) emit_mov_reg_reg(dst_r, src1_r);
+            if (src2_r >= 0 && dst_r >= 0) {
+                if (current_target == TARGET_X64) code_emit(0x48);
+                code_emit(0x21);
+                code_emit(0xC0 + (((src2_r & 7) << 3) | (dst_r & 7)));
+            }
+            reg_map[inst->dst] = dst_r;
+            break;
+        }
+        case IR_OR: {
+            int dst_r = reg_alloc_alloc();
+            if (dst_r < 0) break;
+            int src1_r = reg_map[inst->src1];
+            int src2_r = reg_map[inst->src2];
+            if (src1_r >= 0) emit_mov_reg_reg(dst_r, src1_r);
+            if (src2_r >= 0 && dst_r >= 0) {
+                if (current_target == TARGET_X64) code_emit(0x48);
+                code_emit(0x09);
+                code_emit(0xC0 + (((src2_r & 7) << 3) | (dst_r & 7)));
+            }
+            reg_map[inst->dst] = dst_r;
+            break;
+        }
+        case IR_NOT: {
+            int r = reg_map[inst->src1];
+            if (r < 0) break;
+            /* xor r, 1 */
+            if (current_target == TARGET_X64) code_emit(0x48);
+            code_emit(0x83);
+            code_emit(0xF0 + (r & 7));
+            code_emit(0x01);
+            reg_map[inst->dst] = r;
+            break;
+        }
+        case IR_GOTO: {
+            /* Jump - placeholder, would need label resolution */
+            break;
+        }
+        case IR_IF_GOTO: {
+            int r = reg_map[inst->src1];
+            if (r >= 0) {
+                emit_cmp_reg_imm32(r, 0);
+                emit_jcc(0x84, 0); /* je placeholder */
+            }
+            break;
+        }
+        case IR_LABEL: {
+            codegen_label(inst->label_id);
+            break;
+        }
+        case IR_PRINT: {
+            /* mov rdi, value; call print */
+            int r = reg_map[inst->src1];
+            if (r >= 0) {
+                emit_mov_reg_reg(RDI, r);
+                emit_mov_reg_imm(RAX, 0);
+            }
+            break;
+        }
+        case IR_RET: {
+            int r = reg_map[inst->src1];
+            if (r >= 0) emit_mov_reg_reg(RAX, r);
+            code_emit(0xC3);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    /* If no ret was emitted, add one */
+    if (ir->count == 0 || ir->instructions[ir->count - 1].op != IR_RET) {
+        emit_mov_reg_imm(RAX, 0);
+        code_emit(0xC3);
+    }
+
+    codegen_save(outname);
+    codegen_free();
+}
+
+/* ============================================================================
  * MAIN
  * ============================================================================ */
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "Nebulara Pipeline v2.0\n");
-        fprintf(stderr, "Usage: %s <file.nbs> [--target js|py|check] [--check]\n", argv[0]);
+        fprintf(stderr, "Usage: %s <file.nbs> [--target js|py|ir|check] [--check] [--ir]\n", argv[0]);
         return 1;
     }
 
     const char* target = "check";
     const char* filename = NULL;
     int do_check = 0;
+    int do_native = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--check") == 0) { do_check = 1; }
+        else if (strcmp(argv[i], "--ir") == 0) { target = "ir"; }
+        else if (strcmp(argv[i], "--native") == 0) { do_native = 1; target = "native"; }
         else if (strcmp(argv[i], "--target") == 0 && i + 1 < argc) { target = argv[++i]; }
         else { filename = argv[i]; }
     }
@@ -782,6 +1365,30 @@ int main(int argc, char** argv) {
         printf("%s", transpile_to_js(ast));
     } else if (strcmp(target, "py") == 0) {
         printf("%s", transpile_to_python(ast));
+    } else if (strcmp(target, "ir") == 0) {
+        ast_to_ir(ast);
+        ir_print();
+    } else if (do_native) {
+        IRProgram *ir = ast_to_ir(ast);
+        if (!ir) { fprintf(stderr, "IR generation failed\n"); return 1; }
+
+        /* Determine output filename */
+        const char *outname = "a.out";
+        {
+            const char *dot = strrchr(filename, '.');
+            if (dot) {
+                static char buf[256];
+                int len = dot - filename;
+                if (len > 254) len = 254;
+                memcpy(buf, filename, len);
+                buf[len] = 0;
+                outname = buf;
+            }
+        }
+
+        code_init();
+        ir_to_native(ir, outname);
+        fprintf(stderr, "Native binary written to: %s\n", outname);
     }
     return 0;
 }

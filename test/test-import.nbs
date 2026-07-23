@@ -1,0 +1,5 @@
+IMPORT "std/math.nbs"
+LET x = abs(-42)
+PRINT("abs(-42) = " + TO_STRING(x))
+LET m = max(10, 20)
+PRINT("max(10,20) = " + TO_STRING(m))

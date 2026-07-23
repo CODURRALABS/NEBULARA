@@ -1,0 +1,3 @@
+IMPORT "std/math.nbs"
+LET result = abs(-42)
+PRINT(result)

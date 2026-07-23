@@ -1,0 +1,4 @@
+IMPORT "std/json.nbs"
+PRINT("output will show:")
+LET x = json_parse("42")
+PRINT("x=" + TO_STRING(x))

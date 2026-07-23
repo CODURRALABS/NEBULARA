@@ -1,0 +1,6 @@
+IMPORT "std/json.nbs"
+
+PRINT("BEFORE")
+LET x = parse_val("[1,2,3]", 0)
+PRINT("AFTER")
+PRINT(x)

@@ -1,0 +1,2 @@
+IMPORT "test/simple.nbs"
+PRINT("done")

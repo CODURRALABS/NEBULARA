@@ -1,0 +1,7 @@
+PRINT(TO_NUMBER("42"))
+PRINT(SUBSTR("hello", 0, 2))
+PRINT(ORD("0"))
+PRINT(ORD("4"))
+LET c = CHAR_AT("42", 0)
+PRINT(c)
+PRINT(ORD(c) >= ORD("0") AND ORD(c) <= ORD("9"))

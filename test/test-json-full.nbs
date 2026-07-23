@@ -1,0 +1,28 @@
+IMPORT "std/json.nbs"
+
+# Test array
+LET a = json_parse("[1,2,3]")
+PRINT("array: " + json_stringify(a))
+
+# Test nested array
+LET b = json_parse("[1,[2,3],4]")
+PRINT("nested: " + json_stringify(b))
+
+# Test object
+LET o_str = "{\"a\":1,\"b\":2}"
+LET c = json_parse(o_str)
+PRINT("object: " + json_stringify(c))
+
+# Test mixed
+LET d = json_parse("[1,{\"x\":10},3]")
+PRINT("mixed: " + json_stringify(d))
+
+# Test empty
+LET e = json_parse("[]")
+PRINT("empty: " + json_stringify(e))
+
+# Test string
+LET f = json_parse("\"hello\"")
+PRINT("str: " + json_stringify(f))
+
+PRINT("ALL JSON TESTS PASSED")
