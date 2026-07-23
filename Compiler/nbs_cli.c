@@ -77,6 +77,15 @@ Value val_to_string(Value v) {
     }
 }
 
+int val_truthy(Value v) {
+    if (v.type == VAL_NULL) return 0;
+    if (v.type == VAL_INT) return v.as.i != 0;
+    if (v.type == VAL_BOOL) return v.as.b;
+    if (v.type == VAL_STRING) return v.as.s[0] != 0;
+    if (v.type == VAL_ARRAY) return v.as.a->count > 0;
+    return 0;
+}
+
 // Free a value and all its children
 void val_free(Value v) {
     if (v.type == VAL_STRING) { free(v.as.s); return; }
@@ -144,6 +153,7 @@ void val_free(Value v) {
 #define OP_CHAR_AT    0x30
 #define OP_TO_UPPER   0x31
 #define OP_TO_LOWER   0x32
+#define OP_WRITE_BYTES 0x47
 #define OP_STR_EQ     0x33
 #define OP_ARRAY_SET  0x34
 #define OP_PUSH_NULL  0x35
@@ -180,6 +190,14 @@ typedef enum {
 } TT;
 
 typedef struct { TT type; char txt[128]; int64_t ival; int line; } Tk;
+    T_WHILE, T_FOR, T_TO, T_STEP, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
+    T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
+    T_TRY, T_CATCH, T_THROW, T_FINALLY,
+    T_TRUE, T_FALSE, T_NULL,
+    T_EOF
+} TT;
+
+typedef struct { TT type; char txt[256]; int64_t ival; int line; } Tk;
 typedef struct { const char*s; int p,l,line; } Lx;
 
 static Tk tks[8192]; static int tn=0,tp=0;
@@ -205,6 +223,7 @@ static Tk lx(Lx*l) {
     if(c=='"'){
         l->p++;int i=0;
         while(l->p<l->l&&l->s[l->p]!='"'&&i<127){
+        while(l->p<l->l&&l->s[l->p]!='"'&&i<254){
             if(l->s[l->p]=='\\'){
                 if(l->p+1<l->l){
                     l->p++;char e=l->s[l->p++];
@@ -219,6 +238,7 @@ static Tk lx(Lx*l) {
     if((c>='a'&&c<='z')||(c>='A'&&c<='Z')||c=='_'){
         int i=0;
         while(l->p<l->l&&i<126&&((l->s[l->p]>='a'&&l->s[l->p]<='z')||(l->s[l->p]>='A'&&l->s[l->p]<='Z')||(l->s[l->p]>='0'&&l->s[l->p]<='9')||l->s[l->p]=='_'||l->s[l->p]=='!'||l->s[l->p]=='?'))t.txt[i++]=l->s[l->p++];
+        while(l->p<l->l&&i<254&&((l->s[l->p]>='a'&&l->s[l->p]<='z')||(l->s[l->p]>='A'&&l->s[l->p]<='Z')||(l->s[l->p]>='0'&&l->s[l->p]<='9')||l->s[l->p]=='_'||l->s[l->p]=='!'||l->s[l->p]=='?'))t.txt[i++]=l->s[l->p++];
         t.txt[i]=0;
         if(!strcmp(t.txt,"PRINT"))t.type=T_PRINT;
         else if(!strcmp(t.txt,"IF?")||!strcmp(t.txt,"IF"))t.type=T_IF;
@@ -228,6 +248,7 @@ static Tk lx(Lx*l) {
         else if(!strcmp(t.txt,"WHILE?")||!strcmp(t.txt,"WHILE"))t.type=T_WHILE;
         else if(!strcmp(t.txt,"FOR!"))t.type=T_FOR;
         else if(!strcmp(t.txt,"TO"))t.type=T_TO;
+        else if(!strcmp(t.txt,"STEP"))t.type=T_STEP;
         else if(!strcmp(t.txt,"FUNC!"))t.type=T_FUNC;
         else if(!strcmp(t.txt,"END!"))t.type=T_END;
         else if(!strcmp(t.txt,"RETURN"))t.type=T_RETURN;
@@ -239,6 +260,9 @@ static Tk lx(Lx*l) {
         else if(!strcmp(t.txt,"CONTINUE"))t.type=T_CONTINUE;
         else if(!strcmp(t.txt,"TRUE")){t.type=T_INT;t.ival=1;}
         else if(!strcmp(t.txt,"FALSE")){t.type=T_INT;t.ival=0;}
+        else if(!strcmp(t.txt,"TRUE")){t.type=T_TRUE;}
+        else if(!strcmp(t.txt,"FALSE")){t.type=T_FALSE;}
+        else if(!strcmp(t.txt,"NULL")){t.type=T_NULL;}
         else if(!strcmp(t.txt,"TRY!"))t.type=T_TRY;
         else if(!strcmp(t.txt,"CATCH!"))t.type=T_CATCH;
         else if(!strcmp(t.txt,"THROW"))t.type=T_THROW;
@@ -275,6 +299,7 @@ static int strcount=0;
 
 // Loop break/continue patch stack
 typedef struct { int break_patches[64]; int break_count; int continue_ip; } LoopInfo;
+typedef struct { int break_patches[64]; int break_count; int continue_patches[64]; int continue_count; int continue_ip; } LoopInfo;
 static LoopInfo loop_stack[64];
 static int loop_sp=0;
 
@@ -307,6 +332,7 @@ static int str_idx(const char* s){
 
 // Function table
 typedef struct { char name[64]; int addr; char params[8][64]; int param_count; } FuncEntry;
+typedef struct { char name[64]; int addr; char params[8][64]; int param_count; int entry_varcount; int local_count; } FuncEntry;
 static FuncEntry func_table[256];
 static int func_count=0;
 
@@ -316,6 +342,8 @@ static int ft_add(const char* name, int addr) {
     strncpy(func_table[idx].name, name, 63);func_table[idx].name[63]=0;
     func_table[idx].addr = addr;
     func_table[idx].param_count = 0;
+    func_table[idx].entry_varcount = 0;
+    func_table[idx].local_count = 0;
     return idx;
 }
 static void ft_add_param(int idx, const char* pname) {
@@ -343,17 +371,27 @@ static void compile_primary(void) {
         if(tp+1<tn && tks[tp+1].type==T_LPAREN) {
             if(!strcmp(t->txt,"TO_STRING")||!strcmp(t->txt,"TYPEOF")||!strcmp(t->txt,"LEN")||
                !strcmp(t->txt,"TO_NUMBER")||!strcmp(t->txt,"RANDOM")||!strcmp(t->txt,"TIME")||
+    if(t->type==T_TRUE){tp++;bc(OP_PUSH_BOOL);bc(1);return;}
+    if(t->type==T_FALSE){tp++;bc(OP_PUSH_BOOL);bc(0);return;}
+    if(t->type==T_NULL){tp++;bc(OP_PUSH_NULL);return;}
+    if(t->type==T_IDENT){
+        if(tp+1<tn && tks[tp+1].type==T_LPAREN) {
+            if(!strcmp(t->txt,"TO_STRING")||!strcmp(t->txt,"TYPEOF")||!strcmp(t->txt,"LEN")||
+               !strcmp(t->txt,"TO_NUMBER")||
                !strcmp(t->txt,"ABS")||!strcmp(t->txt,"MIN")||!strcmp(t->txt,"MAX")||
                !strcmp(t->txt,"SQRT")||!strcmp(t->txt,"POW")||!strcmp(t->txt,"FLOOR")||
                !strcmp(t->txt,"CEIL")||!strcmp(t->txt,"ROUND")||!strcmp(t->txt,"READ_FILE")||
                !strcmp(t->txt,"WRITE_FILE")||!strcmp(t->txt,"SUBSTR")||!strcmp(t->txt,"CHAR_AT")||
                !strcmp(t->txt,"TO_UPPER")||!strcmp(t->txt,"TO_LOWER")||
+               !strcmp(t->txt,"WRITE_BYTES")||
                !strcmp(t->txt,"CHAR")||!strcmp(t->txt,"ORD")) {
                 char fname[64]; strncpy(fname,t->txt,63); fname[63]=0; tp+=2;
                 int nargs=0;
                 if(tp<tn&&tks[tp].type!=T_RPAREN) {
                     compile_primary(); nargs++;
                     while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_primary(); nargs++; }
+                    compile_expr(); nargs++;
+                    while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_expr(); nargs++; }
                 }
                 if(tp<tn&&tks[tp].type==T_RPAREN)tp++;
                 if(!strcmp(fname,"TO_STRING"))bc(OP_TOSTR);
@@ -376,6 +414,7 @@ static void compile_primary(void) {
                 else if(!strcmp(fname,"CHAR_AT"))bc(OP_CHAR_AT);
                 else if(!strcmp(fname,"TO_UPPER"))bc(OP_TO_UPPER);
                 else if(!strcmp(fname,"TO_LOWER"))bc(OP_TO_LOWER);
+                else if(!strcmp(fname,"WRITE_BYTES"))bc(OP_WRITE_BYTES);
                 else if(!strcmp(fname,"CHAR"))bc(OP_CHAR);
                 else if(!strcmp(fname,"ORD"))bc(OP_ORD);
                 return;
@@ -407,11 +446,13 @@ static void compile_primary(void) {
         return;
     }
     if(t->type==T_LPAREN){tp++;compile_primary();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
+    if(t->type==T_LPAREN){tp++;compile_expr();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
     if(t->type==T_MINUS){tp++;compile_primary();bc(OP_NEG);return;}
     if(t->type==T_NOT){tp++;compile_primary();bc(OP_NOT);return;}
     if(t->type==T_LBRACKET){
         tp++;int count=0;
         while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_primary();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
+        while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_expr();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
         if(tp<tn)tp++;
         bc(OP_ARRAY_NEW);bc32(count);return;
     }
@@ -435,8 +476,44 @@ static void compile_comparison(void) {
             case T_NEQ:bc(OP_NEQ);break;case T_LT:bc(OP_LT);break;
             case T_GT:bc(OP_GT);break;case T_LTE:bc(OP_LTE);break;
             case T_GTE:bc(OP_GTE);break;
+// Precedence: 1=multiplicative (* / %), 2=additive (+ - << >> & |), 3=comparison (== != < > <= >=)
+static void compile_mul(void) {
+    compile_primary();
+    while(tp<tn&&(tks[tp].type==T_STAR||tks[tp].type==T_SLASH||tks[tp].type==T_MOD)){
+        TT op=tks[tp].type;tp++;
+        compile_primary();
+        switch(op){
+            case T_STAR:bc(OP_MUL);break;case T_SLASH:bc(OP_DIV);break;
+            case T_MOD:bc(OP_MOD);break;default:break;
+        }
+    }
+}
+static void compile_add(void) {
+    compile_mul();
+    while(tp<tn&&(tks[tp].type==T_PLUS||tks[tp].type==T_MINUS||
+                   tks[tp].type==T_BITAND||tks[tp].type==T_BITOR||
+                   tks[tp].type==T_LSHIFT||tks[tp].type==T_RSHIFT)){
+        TT op=tks[tp].type;tp++;
+        compile_mul();
+        switch(op){
+            case T_PLUS:bc(OP_ADD);break;case T_MINUS:bc(OP_SUB);break;
             case T_BITAND:bc(OP_BITAND);break;case T_BITOR:bc(OP_BITOR);break;
             case T_LSHIFT:bc(OP_LSHIFT);break;case T_RSHIFT:bc(OP_RSHIFT);break;
+            default:break;
+        }
+    }
+}
+static void compile_comparison(void) {
+    compile_add();
+    while(tp<tn&&(tks[tp].type==T_EQ||tks[tp].type==T_NEQ||
+                  tks[tp].type==T_LT||tks[tp].type==T_GT||
+                  tks[tp].type==T_LTE||tks[tp].type==T_GTE)){
+        TT op=tks[tp].type;tp++;
+        compile_add();
+        switch(op){
+            case T_EQ:bc(OP_EQ);break;case T_NEQ:bc(OP_NEQ);break;
+            case T_LT:bc(OP_LT);break;case T_GT:bc(OP_GT);break;
+            case T_LTE:bc(OP_LTE);break;case T_GTE:bc(OP_GTE);break;
             default:break;
         }
     }
@@ -469,6 +546,10 @@ static void compile_stmt(void) {
         if(loop_sp>0){
             int target=loop_stack[loop_sp-1].continue_ip;
             bc(OP_JUMP);bc32(target-bclen-4);
+            LoopInfo* li=&loop_stack[loop_sp-1];
+            bc(OP_JUMP);
+            if(li->continue_count<64) li->continue_patches[li->continue_count++]=bclen;
+            bc32(0); // patched later
         }
         return;
     }
@@ -539,6 +620,7 @@ static void compile_stmt(void) {
         if(tp<tn&&tks[tp].type==T_ASSIGN)tp++;
         compile_expr();
         bc(OP_ARRAY_SET);
+        bc(OP_STORE);bc32(idx);
         return;
     }
     if(t->type==T_IF){
@@ -586,6 +668,7 @@ static void compile_stmt(void) {
         // Push loop info for BREAK/CONTINUE
         loop_stack[loop_sp].break_count=0;
         loop_stack[loop_sp].continue_ip=loop;
+        loop_stack[loop_sp].continue_count=0;
         loop_sp++;
         compile_expr();
         if(tp<tn&&tks[tp].type==T_THEN)tp++;
@@ -599,6 +682,11 @@ static void compile_stmt(void) {
         for(int bi=0;bi<loop_stack[loop_sp].break_count;bi++){
             int patch=loop_stack[loop_sp].break_patches[bi];
             int32_t o=bclen-patch-4;memcpy(bytecode+patch,&o,4);
+        }
+        // Patch all CONTINUE jumps to loop start
+        for(int ci=0;ci<loop_stack[loop_sp].continue_count;ci++){
+            int patch=loop_stack[loop_sp].continue_patches[ci];
+            int32_t o=loop-patch-4;memcpy(bytecode+patch,&o,4);
         }
         if(tp<tn&&tks[tp].type==T_END)tp++;
         return;
@@ -618,6 +706,18 @@ static void compile_stmt(void) {
             int loop=bclen;
             loop_stack[loop_sp].break_count=0;
             loop_stack[loop_sp].continue_ip=loop;
+            // Optional STEP
+            int step_idx=-1;
+            if(tp<tn&&tks[tp].type==T_STEP){
+                tp++;
+                compile_expr(); // step value
+                step_idx=var_idx("__for_step");
+                bc(OP_STORE);bc32(step_idx);
+            }
+
+            int loop=bclen;
+            loop_stack[loop_sp].break_count=0;
+            loop_stack[loop_sp].continue_count=0;
             loop_sp++;
             bc(OP_LOAD);bc32(idx);
             bc(OP_LOAD);bc32(end_idx);
@@ -629,6 +729,15 @@ static void compile_stmt(void) {
             // increment
             bc(OP_LOAD);bc32(idx);
             bc(OP_PUSH_INT);bc64(1);
+            // Record increment position for CONTINUE patching
+            int increment_pos=bclen;
+            // increment
+            bc(OP_LOAD);bc32(idx);
+            if(step_idx>=0){
+                bc(OP_LOAD);bc32(step_idx);
+            }else{
+                bc(OP_PUSH_INT);bc64(1);
+            }
             bc(OP_ADD);
             bc(OP_STORE);bc32(idx);
             bc(OP_JUMP);bc32(loop-bclen-4);
@@ -638,6 +747,11 @@ static void compile_stmt(void) {
             for(int bi=0;bi<loop_stack[loop_sp].break_count;bi++){
                 int patch=loop_stack[loop_sp].break_patches[bi];
                 int32_t o=bclen-patch-4;memcpy(bytecode+patch,&o,4);
+            }
+            // Patch all CONTINUE jumps to increment step
+            for(int ci=0;ci<loop_stack[loop_sp].continue_count;ci++){
+                int patch=loop_stack[loop_sp].continue_patches[ci];
+                int32_t o=increment_pos-patch-4;memcpy(bytecode+patch,&o,4);
             }
         }
         if(tp<tn&&tks[tp].type==T_END)tp++;
@@ -649,6 +763,8 @@ static void compile_stmt(void) {
         if(tp<tn && tks[tp].type==T_IDENT) {
             char fname[64]; strncpy(fname, tks[tp].txt, 63); fname[63]=0;
             int fi = ft_add(fname, bclen); // will patch address after body
+            int fi = ft_add(fname, bclen);
+            func_table[fi].entry_varcount = varcount;
             tp++;
             // Parse parameters
             while(tp<tn && tks[tp].type!=T_COLON && tks[tp].type!=T_END && tks[tp].type!=T_EOF) {
@@ -664,6 +780,8 @@ static void compile_stmt(void) {
             func_table[fi].addr = bclen;
             // Compile body
             compile_block();
+            // Record local variable count for this function
+            func_table[fi].local_count = varcount - func_table[fi].entry_varcount;
             // Implicit return 0
             bc(OP_PUSH_INT); bc64(0); bc(OP_RET);
             // Patch JUMP to skip over body
@@ -694,6 +812,7 @@ static void compile_block(void) {
 #define VM_VAR_SIZE 4096
 #define VM_CALL_STACK_SIZE 256
 #define VM_MAX_INSTRUCTIONS 100000000LL
+#define VM_MAX_INSTRUCTIONS 2000000000LL
 
 static Value vm_stack[VM_STACK_SIZE];
 static int vm_sp=0;
@@ -714,6 +833,7 @@ static VMTryFrame vm_try_stack[32];
 static int vm_try_sp=0;
 
 typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[8]; Value saved_vars[8]; int saved_count; } VMCallFrame;
+typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[256]; Value saved_vars[256]; int saved_count; } VMCallFrame;
 static VMCallFrame vm_call_stack[VM_CALL_STACK_SIZE];
 static int vm_call_sp=0;
 
@@ -791,6 +911,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
                 val_free(a);val_free(b);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_ARRAY){
                 ValueArray*aa=a.as.a;
                 int nc=aa->count+1;
@@ -800,6 +921,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->items[result->count++]=val_copy(b);
                 val_free(a);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(b.type==VAL_ARRAY){
                 ValueArray*ba=b.as.a;
                 int nc=1+ba->count;
@@ -809,6 +931,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
                 val_free(b);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
+                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_INT&&b.type==VAL_INT)vm_push(val_int_v(a.as.i+b.as.i));
             else{Value sa=val_to_string(a),sb=val_to_string(b);
                 int len2=(int)strlen(sa.as.s)+(int)strlen(sb.as.s)+1;
@@ -868,6 +991,9 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
         case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)&&(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
         case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)||(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
         case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(a.type==VAL_NULL||a.as.i==0));val_free(a);}break;
+        case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)&&val_truthy(b)));val_free(a);val_free(b);}break;
+        case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)||val_truthy(b)));val_free(a);val_free(b);}break;
+        case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(!val_truthy(a)));val_free(a);}break;
         case OP_BITAND:{Value b=vm_pop(),a=vm_pop();vm_push(val_int_v(a.as.i&b.as.i));val_free(a);val_free(b);}break;
         case OP_BITOR:{Value b=vm_pop(),a=vm_pop();vm_push(val_int_v(a.as.i|b.as.i));val_free(a);val_free(b);}break;
         case OP_LSHIFT:{Value b=vm_pop(),a=vm_pop();vm_push(val_int_v(a.as.i<<(int)b.as.i));val_free(a);val_free(b);}break;
@@ -888,11 +1014,24 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
         case OP_PRINT:{Value v=vm_pop();Value s=val_to_string(v);
             DWORD written;WriteFile(GetStdHandle((DWORD)-11),s.as.s,(DWORD)strlen(s.as.s),&written,NULL);
             WriteFile(GetStdHandle((DWORD)-11),"\n",1,&written,NULL);
+            else if(v.type==VAL_ARRAY){
+                ValueArray* src=v.as.a;
+                ValueArray* dst=calloc(1,sizeof(ValueArray));
+                dst->cap=src->count>0?src->count:8;
+                dst->items=calloc(dst->cap,sizeof(Value));
+                dst->count=src->count;
+                for(int i=0;i<src->count;i++)dst->items[i]=val_copy(src->items[i]);
+                Value rv={VAL_ARRAY};rv.as.a=dst;vm_push(rv);
+            } else vm_push(v);
+        }break;
+        case OP_PRINT:{Value v=vm_pop();Value s=val_to_string(v);
+            printf("%s\n",s.as.s);
             val_free(s);val_free(v);
         }break;
         case OP_JUMP:{int32_t off;memcpy(&off,code+ip,4);ip+=4;ip+=off;}break;
         case OP_JUMP_IFNOT:{int32_t off;memcpy(&off,code+ip,4);ip+=4;Value v=vm_pop();
             if(v.type==VAL_NULL||(v.type==VAL_INT&&v.as.i==0)||(v.type==VAL_BOOL&&!v.as.b))ip+=off;
+            if(!val_truthy(v))ip+=off;
             val_free(v);}break;
         case OP_ARRAY_NEW:{int32_t count;memcpy(&count,code+ip,4);ip+=4;
             Value arr={VAL_ARRAY};arr.as.a=calloc(1,sizeof(ValueArray));
@@ -966,6 +1105,18 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 else{vm_set_error("Cannot write file");}
             }
             val_free(v1);val_free(v2);vm_push(val_int_v(0));}break;
+        case OP_WRITE_BYTES:{Value arr=vm_pop(),fn=vm_pop();
+            if(fn.type==VAL_STRING&&arr.type==VAL_ARRAY){
+                FILE*f=fopen(fn.as.s,"wb");
+                if(f){
+                    for(int i=0;i<arr.as.a->count;i++){
+                        uint8_t b=(uint8_t)(arr.as.a->items[i].as.i&0xFF);
+                        fwrite(&b,1,1,f);
+                    }
+                    fclose(f);
+                } else { vm_set_error("Cannot write file"); }
+            }
+            val_free(fn);val_free(arr);vm_push(val_int_v(0));}break;
         case OP_ARRAY_PUSH:{Value val=vm_pop(),arr=vm_pop();
             if(arr.type==VAL_ARRAY){
                 if(arr.as.a->count>=arr.as.a->cap){
@@ -1108,7 +1259,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 vm_call_stack[vm_call_sp].ret_ip=ip;
                 vm_call_stack[vm_call_sp].var_base=vm_var_base;
                 vm_call_stack[vm_call_sp].var_sp=vm_var_sp;
-                vm_call_stack[vm_call_sp].saved_count=0;
+                vm_call_stack[vm_call_sp].saved_count=0;\
                 // Save global variable slots that params will overwrite, then store params
                 for(int i=0;i<arity && i<func_table[fi].param_count;i++){
                     const char* pname=func_table[fi].params[i];

@@ -1,25 +1,15 @@
 # Nebulara Standard Library - Time
-# Timestamp utilities and status tracking
+# Time and date utilities
 
-DATA! TimeTypes
-  status_idle = 0
-  status_working = 1
-  status_error = 2
-  priority_low = 0
-  priority_normal = 1
-  priority_high = 2
-  priority_critical = 3
+FUNC! now():
+  RETURN TIME()
 END!
 
-FUNC! timestamp
-RUN!
-  RETURN NOW_EPOCH_MS
-END!
+FUNC! elapsed(start_time):
+  RETURN TIME() - start_time
 END!
 
-FUNC! elapsed_ms
-RUN!
-  start = ARGS[0]
-  RETURN (timestamp()) - start
-END!
+# sleep is not yet implemented - requires FFI to C library
+FUNC! sleep(ms):
+  PRINT "TIME.sleep: not yet implemented - requires FFI to C library"
 END!
