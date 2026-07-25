@@ -13,19 +13,22 @@
 #include <errno.h>
 #include <signal.h>
 
+// FFI platform headers
 #ifdef _WIN32
+#ifndef __TINYC__
 #include <windows.h>
+typedef HMODULE NbsFFIHandle;
 static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
     fprintf(stderr, "CRASH: Exception code 0x%08X at address %p\n",
             ep->ExceptionRecord->ExceptionCode,
             ep->ExceptionRecord->ExceptionAddress);
     return EXCEPTION_EXECUTE_HANDLER;
 }
+#else
+typedef void* NbsFFIHandle;
+__declspec(dllimport) void* __stdcall LoadLibraryA(const char*);
+__declspec(dllimport) void* __stdcall GetProcAddress(void*, const char*);
 #endif
-
-// FFI platform headers
-#ifdef _WIN32
-typedef HMODULE NbsFFIHandle;
 #else
 #include <dlfcn.h>
 typedef void* NbsFFIHandle;
@@ -64,7 +67,7 @@ struct ValueArray {
 
 Value val_null(void) { return (Value){VAL_NULL, {0}}; }
 Value val_int(int64_t v) { return (Value){VAL_INT, {.i = v}}; }
-Value val_bool(int v) { return (Value){VAL_BOOL, {.b = v}}; }
+Value val_bool(int b) { return (Value){VAL_BOOL, {.b = b}}; }
 Value val_string(const char* s) {
     Value v; v.type = VAL_STRING;
     v.as.s = (char*)malloc(strlen(s) + 1);
@@ -193,9 +196,9 @@ static int ffi_register_func(const char* lib_name, const char* func_name, NbsFFI
 static void* ffi_resolve_func(NbsFFILib* lib, NbsFFIFunc* func) {
     if (func->fn_ptr) return func->fn_ptr;
 #ifdef _WIN32
-    HMODULE h = LoadLibraryA(lib->path);
+    void* h = LoadLibraryA(lib->path);
     if (!h) { fprintf(stderr, "FFI ERROR: Cannot load '%s'\n", lib->path); return NULL; }
-    func->fn_ptr = (void*)GetProcAddress(h, func->name);
+    func->fn_ptr = (void*)GetProcAddress((void*)h, func->name);
 #else
     void* handle = dlopen(lib->path, RTLD_LAZY);
     if (!handle) { fprintf(stderr, "FFI ERROR: Cannot load '%s': %s\n", lib->path, dlerror()); return NULL; }
@@ -2964,24 +2967,25 @@ int main(int argc, char** argv) {
 
     // Lex
     Lexer lexer = lexer_new(src);
-    Parser parser = {0};
-    parser.pos = 0;
+    Parser* parser = (Parser*)calloc(1, sizeof(Parser));
     while (1) {
         NbsToken tok = lexer_next(&lexer);
-        parser.tokens[parser.count++] = tok;
+        parser->tokens[parser->count++] = tok;
         if (tok.type == TOK_EOF) break;
-        if (parser.count >= 4096) {
+        if (parser->count >= 4096) {
             fprintf(stderr, "Error: too many tokens\n");
             free(src);
+            free(parser);
             return 1;
         }
     }
     free(src);
 
     // Parse
-    ASTNode* ast = parse_program(&parser);
-    if (parser.has_error) {
-        fprintf(stderr, "Parse error: %s\n", parser.error_msg);
+    ASTNode* ast = parse_program(parser);
+    if (parser->has_error) {
+        fprintf(stderr, "Parse error: %s\n", parser->error_msg);
+        free(parser);
         return 1;
     }
 
@@ -3004,12 +3008,13 @@ int main(int argc, char** argv) {
         if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0) vm->debug = 1;
     }
     int result = 0;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__TINYC__)
     SetUnhandledExceptionFilter(crash_handler);
 #endif
     result = vm_run(vm, bc.code, bc.pos);
 
     // Cleanup
+    free(parser);
     for (int i = 0; i < vm->imported_bc_count; i++) free(vm->imported_bcs[i]);
     free(vm);
     free(bc.code);
