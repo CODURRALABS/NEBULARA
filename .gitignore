@@ -23,3 +23,21 @@ Thumbs.db
 *.o
 *.asm
 !*.nbs
+build/
+
+# Python
+dist/
+*.egg-info/
+__pycache__/
+
+# Go
+*.exe
+
+# Debug artifacts
+crash*.txt
+out*.txt
+trace*.txt
+debug-output.txt
+*.bak
+run_tcc.bat
+tcc_test.c
