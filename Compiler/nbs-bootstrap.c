@@ -738,7 +738,7 @@ ASTNode* parse_primary(Parser* p) {
 
     if (tok.type == TOK_IDENT) {
         parser_advance(p);
-        // Check for array index: ident[expr]
+        // Check for array index: ident[expr] — loop for multiple [idx]
         if (parser_peek(p).type == TOK_LBRACKET) {
             parser_advance(p);
             ASTNode* idx = parse_expression(p);
@@ -749,9 +749,19 @@ ASTNode* parse_primary(Parser* p) {
             n->left = id;
             n->right = idx;
             n->line = tok.line;
+            while (parser_peek(p).type == TOK_LBRACKET) {
+                parser_advance(p);
+                idx = parse_expression(p);
+                parser_expect(p, TOK_RBRACKET);
+                ASTNode* ai = ast_new(NODE_ARRAY_INDEX);
+                ai->left = n;
+                ai->right = idx;
+                ai->line = tok.line;
+                n = ai;
+            }
             return n;
         }
-        // Check for function call: ident(args)
+        // Check for function call: ident(args), then optionally [idx]
         if (parser_peek(p).type == TOK_LPAREN) {
             parser_advance(p);
             ASTNode* n = ast_new(NODE_FUNC_CALL);
@@ -771,6 +781,16 @@ ASTNode* parse_primary(Parser* p) {
             }
             parser_expect(p, TOK_RPAREN);
             n->line = tok.line;
+            while (parser_peek(p).type == TOK_LBRACKET) {
+                parser_advance(p);
+                ASTNode* idx = parse_expression(p);
+                parser_expect(p, TOK_RBRACKET);
+                ASTNode* ai = ast_new(NODE_ARRAY_INDEX);
+                ai->left = n;
+                ai->right = idx;
+                ai->line = tok.line;
+                n = ai;
+            }
             return n;
         }
         // Built-in functions
@@ -1579,7 +1599,10 @@ void compile_node(Compiler* c, ASTNode* node) {
             if (strcmp(node->str_val, "PUSH") == 0 && node->child_count == 2 &&
                 node->children[0]->type == NODE_IDENT) {
                 // PUSH(arr, val): load arr, load val, BC_ARRAY_PUSH, DUP, STORE arr
-                compile_node(c, node->children[0]);  // LOAD arr
+                // DUP ensures standalone PUSH(arr,val) updates the variable.
+                // The same-pointer check in BC_STORE prevents double-free when
+                // there is also an outer NODE_ASSIGN (arr = PUSH(arr,val)).
+                compile_node(c, node->children[0]);  // LOAD arr (deep copy)
                 compile_node(c, node->children[1]);  // LOAD val
                 bc_emit(c->bc, BC_ARRAY_PUSH);
                 bc_emit(c->bc, BC_DUP);
@@ -2340,8 +2363,12 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                 int32_t idx;
                 memcpy(&idx, vm->code + vm->ip, 4);
                 vm->ip += 4;
-                val_free(vm->vars[idx]);
-                vm->vars[idx] = vm->stack[--vm->sp];
+                Value val = vm->stack[--vm->sp];
+                // Skip val_free when storing the same array pointer (in-place mutation)
+                if (!(val.type == VAL_ARRAY && vm->vars[idx].type == VAL_ARRAY &&
+                      val.as.a == vm->vars[idx].as.a))
+                    val_free(vm->vars[idx]);
+                vm->vars[idx] = val;
             } break;
 
             case BC_LOAD: {
@@ -2731,9 +2758,9 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                         sc++;
                     }
                     vm->call_stack[vm->call_sp].saved_count = sc;
-                    // Assign arguments: reverse order (stack pops last-pushed first)
+                    // Assign arguments (stack pops last-pushed first, so forward loop maps correctly)
                     int pcount = param_count < arity ? param_count : arity;
-                    for (int i = pcount - 1; i >= 0; i--) {
+                    for (int i = 0; i < pcount; i++) {
                         int param_idx = st_intern(vm->strings, vm->funcs->entries[fi].params[i]);
                         val_free(vm->vars[param_idx]);
                         vm->vars[param_idx] = vm->stack[--vm->sp];
@@ -2999,6 +3026,11 @@ int main(int argc, char** argv) {
 
     Compiler compiler = {&bc, &strings, &funcs};
     compile_node(&compiler, ast);
+
+    // Fix stale code pointers: bc_emit may have reallocated bc.code
+    // after ft_add stored the old pointer.
+    for (int i = 0; i < funcs.count; i++)
+        funcs.entries[i].code = bc.code;
 
     // Execute
     VM* vm = (VM*)calloc(1, sizeof(VM));
