@@ -8,7 +8,7 @@ import urllib.request
 import zipfile
 import tempfile
 
-__version__ = "2.0.1"
+__version__ = "1.2.0"
 
 REPO = "https://github.com/CODURRALABS/NEBULARA"
 

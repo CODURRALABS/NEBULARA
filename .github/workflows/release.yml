@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v2.0.1)'
+        description: 'Version tag (e.g. v1.2.0)'
         required: true
 
 permissions:
@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build (MinGW GCC)
+      - name: Build
         run: gcc -static -O2 Compiler/nbs-bootstrap.c -o nebulara.exe -lm
       - name: Build CLI
         run: gcc -static -O2 Compiler/nbs_cli.c -o neb-cli.exe -lm
@@ -130,3 +130,13 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+  cargo-publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}

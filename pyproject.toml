@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "nebulara"
-version = "2.0.1"
+version = "1.2.0"
 description = "Nebulara - AI-native universal programming language"
 readme = "README.md"
 license = {text = "UNLICENSED"}
