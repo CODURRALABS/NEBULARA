@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "nebulara"
@@ -20,8 +20,8 @@ classifiers = [
 urls = {Repository = "https://github.com/CODURRALABS/NEBULARA"}
 
 [project.scripts]
-neb = "nebulara:cli"
-nebulara = "nebulara:cli"
+neb = "nebulara_cli:cli"
+nebulara = "nebulara_cli:cli"
 
-[project.files]
-"nebulara" = "nebulara_cli.py"
+[tool.setuptools]
+py-modules = ["nebulara_cli"]

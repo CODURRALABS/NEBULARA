@@ -1,0 +1,6 @@
+.vscodeignore
+.git/**
+.gitattributes
+.gitignore
+vsc-extension-quickstart.md
+*.vsix

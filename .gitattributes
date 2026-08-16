@@ -1,0 +1,12 @@
+# GitHub Linguist overrides
+*.nbs linguist-language=Nebulara
+*.neb linguist-language=Nebulara
+*.nbs linguist-detectable=true
+*.neb linguist-detectable=true
+
+# Binary files that should not be treated as text
+*.exe binary
+*.vsix binary
+*.zip binary
+*.tar.gz binary
+*.png binary
