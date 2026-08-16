@@ -33,6 +33,9 @@ __pycache__/
 # Go
 *.exe
 
+# Local mingw toolchain
+mingw32/
+
 # Debug artifacts
 crash*.txt
 out*.txt
