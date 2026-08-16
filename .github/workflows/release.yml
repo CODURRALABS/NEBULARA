@@ -20,12 +20,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: gcc -static -O2 Compiler/nbs-bootstrap.c -o nebulara.exe -lm
-      - name: Build CLI
-        run: gcc -static -O2 Compiler/nbs_cli.c -o neb-cli.exe -lm
       - name: Smoke test
         run: .\nebulara.exe --version
       - name: Package
-        run: Compress-Archive -Path nebulara.exe,neb-cli.exe -DestinationPath nebulara-${{ github.ref_name }}-win-x64.zip
+        run: Compress-Archive -Path nebulara.exe -DestinationPath nebulara-${{ github.ref_name }}-win-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: win-x64
