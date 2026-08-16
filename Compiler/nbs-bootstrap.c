@@ -2705,7 +2705,7 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                                     else
                                         vals[k] = 0;
                                 }
-                                typedef intptr_t (*ffi_fn)();
+                                typedef intptr_t (*ffi_fn)(intptr_t, intptr_t, intptr_t, intptr_t, intptr_t, intptr_t);
                                 ffi_fn fcall = (ffi_fn)fn;
                                 intptr_t ret = fcall(
                                     ffi_argc > 0 ? vals[0] : 0,
@@ -2975,6 +2975,11 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
 
 int main(int argc, char** argv) {
     srand((unsigned)time(NULL));
+
+    if (argc >= 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "version") == 0)) {
+        printf("nebulara 1.2.0\n");
+        return 0;
+    }
 
     if (argc < 2) {
         fprintf(stderr, "Nebulara Interpreter v2.0\n");

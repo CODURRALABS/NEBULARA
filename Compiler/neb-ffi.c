@@ -169,7 +169,7 @@ int ffi_fcall(const char *lib_name, const char *func_name,
                         }
                     }
 
-                    typedef intptr_t (*ffi_fn)();
+                    typedef intptr_t (*ffi_fn)(intptr_t, intptr_t, intptr_t, intptr_t, intptr_t);
                     ffi_fn fcall = (ffi_fn)fn;
 
                     switch (func->return_type) {
