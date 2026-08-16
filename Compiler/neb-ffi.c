@@ -131,7 +131,7 @@ static void *ffi_resolve_func(FFILibrary *lib, FFIFunction *func) {
 }
 
 /* Call a foreign function */
-int ffi_call(const char *lib_name, const char *func_name,
+int ffi_fcall(const char *lib_name, const char *func_name,
              void **args, int arg_count, void *result) {
     for (int i = 0; i < library_count; i++) {
         if (strcmp(libraries[i].name, lib_name) == 0) {
@@ -170,12 +170,12 @@ int ffi_call(const char *lib_name, const char *func_name,
                     }
 
                     typedef intptr_t (*ffi_fn)();
-                    ffi_fn call = (ffi_fn)fn;
+                    ffi_fn fcall = (ffi_fn)fn;
 
                     switch (func->return_type) {
                         case FFI_TYPE_INT:
                         case FFI_TYPE_BOOL:
-                            *(int*)result = (int)call(
+                            *(int*)result = (int)fcall(
                                 arg_count > 0 ? vals[0] : 0,
                                 arg_count > 1 ? vals[1] : 0,
                                 arg_count > 2 ? vals[2] : 0,
@@ -185,7 +185,7 @@ int ffi_call(const char *lib_name, const char *func_name,
                             break;
                         case FFI_TYPE_STRING:
                         case FFI_TYPE_POINTER:
-                            *(void**)result = (void*)call(
+                            *(void**)result = (void*)fcall(
                                 arg_count > 0 ? vals[0] : 0,
                                 arg_count > 1 ? vals[1] : 0,
                                 arg_count > 2 ? vals[2] : 0,
@@ -194,7 +194,7 @@ int ffi_call(const char *lib_name, const char *func_name,
                             );
                             break;
                         case FFI_TYPE_DOUBLE:
-                            *(double*)result = (double)call(
+                            *(double*)result = (double)fcall(
                                 arg_count > 0 ? vals[0] : 0,
                                 arg_count > 1 ? vals[1] : 0,
                                 arg_count > 2 ? vals[2] : 0,
@@ -203,7 +203,7 @@ int ffi_call(const char *lib_name, const char *func_name,
                             );
                             break;
                         default:
-                            call(
+                            fcall(
                                 arg_count > 0 ? vals[0] : 0,
                                 arg_count > 1 ? vals[1] : 0,
                                 arg_count > 2 ? vals[2] : 0,
@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
     int arg = -42;
     void *args[] = { &arg };
     int result = 0;
-    int rc = ffi_call("msvcrt", "abs", args, 1, &result);
+    int rc = ffi_fcall("msvcrt", "abs", args, 1, &result);
     if (rc == 0) {
         printf("\nFFI TEST: msvcrt.abs(-42) = %d\n", result);
     } else {
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
     const char *msg = "Hello from FFI!";
     void *args[] = { (void*)msg };
     int result = 0;
-    int rc = ffi_call("libc", "puts", args, 1, &result);
+    int rc = ffi_fcall("libc", "puts", args, 1, &result);
     if (rc == 0) {
         printf("FFI TEST: libc.puts() returned %d\n", result);
     } else {

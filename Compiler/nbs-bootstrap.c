@@ -2706,8 +2706,8 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                                         vals[k] = 0;
                                 }
                                 typedef intptr_t (*ffi_fn)();
-                                ffi_fn call = (ffi_fn)fn;
-                                intptr_t ret = call(
+                                ffi_fn fcall = (ffi_fn)fn;
+                                intptr_t ret = fcall(
                                     ffi_argc > 0 ? vals[0] : 0,
                                     ffi_argc > 1 ? vals[1] : 0,
                                     ffi_argc > 2 ? vals[2] : 0,
