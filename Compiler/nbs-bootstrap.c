@@ -31,6 +31,7 @@ __declspec(dllimport) void* __stdcall GetProcAddress(void*, const char*);
 #endif
 #else
 #include <dlfcn.h>
+#include <unistd.h>
 typedef void* NbsFFIHandle;
 #endif
 
@@ -1888,6 +1889,7 @@ typedef struct {
     int mutex_count;
 
     int sleep_ms;
+    long long max_iter;
 } VM;
 
 void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
@@ -1896,6 +1898,7 @@ void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
     vm->strings = strings;
     vm->funcs = funcs;
     vm->running = 1;
+    vm->max_iter = 100000000;
     for (int i = 0; i < 1024; i++) vm->vars[i] = val_null();
 }
 
@@ -1976,7 +1979,7 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
     vm->code_len = code_len;
     long long iter = 0;
     while (vm->running && vm->ip < vm->code_len) {
-        if (++iter > 100000) { fprintf(stderr, "INFINITE LOOP (iter=%lld sp=%d call_sp=%d)\n", iter, vm->sp, vm->call_sp); return 1; }
+        if (++iter > vm->max_iter) { fprintf(stderr, "Execution limit reached (iter=%lld sp=%d call_sp=%d)\n", iter, vm->sp, vm->call_sp); return 1; }
         uint8_t op = vm->code[vm->ip];
         if (vm->debug) fprintf(stderr, "IP=%d OP=0x%02X SP=%d\n", vm->ip, op, vm->sp);
         vm->ip++;
@@ -2478,6 +2481,16 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                 } else if (strcmp(name, "TIME") == 0) {
                     for (int i = 0; i < arity; i++) val_free(vm->stack[--vm->sp]);
                     vm->stack[vm->sp++] = val_int((int64_t)time(NULL));
+                } else if (strcmp(name, "SLEEP") == 0) {
+                    Value ms_val = vm->stack[--vm->sp];
+                    long ms = (ms_val.type == VAL_INT) ? ms_val.as.i : 0;
+                    val_free(ms_val);
+#ifdef _WIN32
+                    Sleep((DWORD)ms);
+#else
+                    usleep((useconds_t)(ms * 1000));
+#endif
+                    vm->stack[vm->sp++] = val_int(0);
                 } else if (strcmp(name, "TO_UPPER") == 0) {
                     Value v = vm->stack[--vm->sp];
                     if (v.type == VAL_STRING) {
@@ -2970,6 +2983,182 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
 }
 
 // ============================================================================
+// NATIVE CODEGEN — x86-64 ELF executable output
+// Generates native Linux x86-64 code from compiled bytecode
+// ============================================================================
+
+typedef struct {
+    unsigned char *code;
+    int size;
+    int cap;
+} NativeBuf;
+
+static void nb_init(NativeBuf *nb) {
+    nb->cap = 65536;
+    nb->code = (unsigned char*)malloc(nb->cap);
+    nb->size = 0;
+}
+
+static void nb_emit(NativeBuf *nb, unsigned char b) {
+    if (nb->size >= nb->cap) { nb->cap *= 2; nb->code = (unsigned char*)realloc(nb->code, nb->cap); }
+    nb->code[nb->size++] = b;
+}
+
+static void nb_emit32(NativeBuf *nb, unsigned int v) {
+    nb_emit(nb, v & 0xFF); nb_emit(nb, (v>>8)&0xFF); nb_emit(nb, (v>>16)&0xFF); nb_emit(nb, (v>>24)&0xFF);
+}
+
+static void nb_emit64(NativeBuf *nb, unsigned long long v) {
+    nb_emit32(nb, (unsigned int)(v & 0xFFFFFFFF)); nb_emit32(nb, (unsigned int)(v >> 32));
+}
+
+/* mov reg, imm64 */
+static void nb_mov_r64_imm(NativeBuf *nb, int reg, unsigned long long imm) {
+    nb_emit(nb, (reg >= 8) ? 0x49 : 0x48);
+    nb_emit(nb, 0xB8 + (reg & 7));
+    nb_emit64(nb, imm);
+}
+
+/* add rax, rbx */
+static void nb_add_rax_rbx(NativeBuf *nb) {
+    nb_emit(nb, 0x48); nb_emit(nb, 0x01); nb_emit(nb, 0xD8);
+}
+
+/* sub rax, rbx */
+static void nb_sub_rax_rbx(NativeBuf *nb) {
+    nb_emit(nb, 0x48); nb_emit(nb, 0x29); nb_emit(nb, 0xD8);
+}
+
+/* syscall (0F 05) */
+static void nb_syscall(NativeBuf *nb) {
+    nb_emit(nb, 0x0F); nb_emit(nb, 0x05);
+}
+
+/* Generate simple _start for integer-only programs */
+static int codegen_native(uint8_t *bytecode, int bc_len, const char *outpath) {
+    NativeBuf nb;
+    nb_init(&nb);
+
+    /* _start entry: */
+    /* We interpret a very simple subset: int literal + print + halt */
+    /* Strategy: execute the bytecode ourselves to get the result, */
+    /* then emit native code that prints that integer. */
+    /* This handles the common case: PRINT(expr) */
+
+    /* Run a mini-interpreter to extract the print value */
+    int64_t stack[256];
+    int sp = 0;
+    int ip = 0;
+    int64_t result = 0;
+
+    while (ip < bc_len) {
+        uint8_t op = bytecode[ip++];
+        switch (op) {
+            case 0x01: { /* BC_PUSH_INT */
+                int64_t val;
+                memcpy(&val, bytecode + ip, 8); ip += 8;
+                stack[sp++] = val;
+            } break;
+            case 0x02: { /* BC_PUSH_STR - skip */
+                ip += 8; /* skip string index */
+                stack[sp++] = 0;
+            } break;
+            case 0x04: /* BC_ADD */ {
+                int64_t b = stack[--sp]; int64_t a = stack[--sp];
+                stack[sp++] = a + b;
+            } break;
+            case 0x05: /* BC_SUB */ {
+                int64_t b = stack[--sp]; int64_t a = stack[--sp];
+                stack[sp++] = a - b;
+            } break;
+            case 0x06: /* BC_MUL */ {
+                int64_t b = stack[--sp]; int64_t a = stack[--sp];
+                stack[sp++] = a * b;
+            } break;
+            case 0x1F: /* BC_PRINT */ {
+                result = stack[--sp];
+            } break;
+            case 0x00: /* BC_HALT */
+                goto done;
+            default:
+                fprintf(stderr, "native: unsupported opcode 0x%02X (only simple integer programs)\n", op);
+                free(nb.code);
+                return -1;
+        }
+    }
+done:
+
+    /* Generate native code that prints result and exits */
+    /* Format integer to string first */
+    char buf[32];
+    int buflen = snprintf(buf, sizeof(buf), "%lld\n", result);
+
+    /* _start: write(1, msg, len); exit(0) */
+    /* mov rax, 1 (sys_write); mov rdi, 1 (stdout); lea rsi, [rip+msg]; mov rdx, len; syscall */
+    nb_mov_r64_imm(&nb, 0, 1);   /* rax = 1 = sys_write */
+    nb_mov_r64_imm(&nb, 1, 1);   /* rdi = 1 = stdout */
+    /* lea rsi, [rip+offset] — offset will be patched after we know the offset */
+    int msg_offset = nb.size + 7; /* RIP-relative offset to message data */
+    nb_emit(&nb, 0x48); nb_emit(&nb, 0x8D); nb_emit(&nb, 0x35);
+    nb_emit32(&nb, msg_offset); /* will be overwritten if needed */
+    nb_mov_r64_imm(&nb, 2, (unsigned long long)buflen); /* rdx = len */
+    nb_syscall(&nb);
+
+    /* exit(0) */
+    nb_mov_r64_imm(&nb, 0, 60);  /* rax = 60 = sys_exit */
+    nb_mov_r64_imm(&nb, 1, 0);   /* rdi = 0 */
+    nb_syscall(&nb);
+
+    /* Patch the lea offset to point here */
+    int msg_pos = nb.size;
+    int lea_offset = msg_pos - (msg_offset - 7) - 7;
+    nb.code[msg_offset - 7 + 3] = lea_offset & 0xFF;
+    nb.code[msg_offset - 7 + 4] = (lea_offset >> 8) & 0xFF;
+    nb.code[msg_offset - 7 + 5] = (lea_offset >> 16) & 0xFF;
+    nb.code[msg_offset - 7 + 6] = (lea_offset >> 24) & 0xFF;
+
+    /* Append message string */
+    for (int i = 0; i < buflen; i++) nb_emit(&nb, (unsigned char)buf[i]);
+
+    /* Write ELF64 executable */
+    FILE *f = fopen(outpath, "wb");
+    if (!f) { free(nb.code); return -1; }
+
+    unsigned long long load_addr = 0x400000;
+    unsigned int entry = (unsigned int)(load_addr + 64 + 56);
+    unsigned int filesz = 56 + nb.size;
+    unsigned int memsz = filesz;
+
+    /* ELF64 header */
+    unsigned char elf[64] = {
+        0x7F, 'E', 'L', 'F', 2, 1, 1, 0, 0,0,0,0,0,0,0,0,
+        2, 0, 0x3E, 0, 1, 0, 0, 0,
+    };
+    memcpy(elf + 24, &entry, 4);
+    unsigned int phoff = 64;
+    memcpy(elf + 28, &phoff, 4);
+    unsigned short ehsize = 64, phentsize = 56, phnum = 1;
+    memcpy(elf + 52, &ehsize, 2); memcpy(elf + 54, &phentsize, 2); memcpy(elf + 56, &phnum, 2);
+    fwrite(elf, 1, 64, f);
+
+    /* Program header: PT_LOAD, PF_R|PF_X */
+    unsigned char phdr[56] = {0};
+    phdr[0] = 1; phdr[4] = 5;
+    memcpy(phdr + 8, &entry, 4);
+    unsigned int vaddr = (unsigned int)load_addr;
+    memcpy(phdr + 12, &vaddr, 4); memcpy(phdr + 20, &vaddr, 4);
+    memcpy(phdr + 24, &filesz, 4); memcpy(phdr + 28, &memsz, 4);
+    unsigned int align = 0x1000;
+    memcpy(phdr + 32, &align, 4);
+    fwrite(phdr, 1, 56, f);
+
+    fwrite(nb.code, 1, nb.size, f);
+    fclose(f);
+    free(nb.code);
+    return 0;
+}
+
+// ============================================================================
 // MAIN
 // ============================================================================
 
@@ -2982,9 +3171,17 @@ int main(int argc, char** argv) {
     }
 
     if (argc < 2) {
-        fprintf(stderr, "Nebulara Interpreter v2.0\n");
-        fprintf(stderr, "Usage: %s <file.nbs>\n", argv[0]);
+        fprintf(stderr, "Nebulara Interpreter v1.2.0\n");
+        fprintf(stderr, "Usage: %s <file.nbs> [--debug] [--limit N] [--native -o output]\n", argv[0]);
         return 1;
+    }
+
+    /* Check for --native flag */
+    int do_native = 0;
+    const char *native_out = "a.out";
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--native") == 0) do_native = 1;
+        if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) native_out = argv[++i];
     }
 
     FILE* f = fopen(argv[1], "rb");
@@ -3032,17 +3229,33 @@ int main(int argc, char** argv) {
     Compiler compiler = {&bc, &strings, &funcs};
     compile_node(&compiler, ast);
 
-    // Fix stale code pointers: bc_emit may have reallocated bc.code
-    // after ft_add stored the old pointer.
+    // Fix stale code pointers
     for (int i = 0; i < funcs.count; i++)
         funcs.entries[i].code = bc.code;
 
-    // Execute
+    // Native code generation
+    if (do_native) {
+        int rc = codegen_native(bc.code, bc.pos, native_out);
+        if (rc == 0) {
+            printf("Compiled %s -> %s (Linux x86-64 ELF)\n", argv[1], native_out);
+        } else {
+            fprintf(stderr, "Native compilation failed (unsupported bytecode)\n");
+        }
+        free(bc.code);
+        for (int i = 0; i < strings.count; i++) free(strings.strings[i]);
+        free(strings.strings);
+        free(funcs.entries);
+        free(parser);
+        return rc;
+    }
+
+    // Execute via VM
     VM* vm = (VM*)calloc(1, sizeof(VM));
     vm_init(vm, bc.code, &strings, &funcs);
     vm->debug = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0) vm->debug = 1;
+        if ((strcmp(argv[i], "--limit") == 0) && i + 1 < argc) vm->max_iter = atoll(argv[++i]);
     }
     int result = 0;
 #if defined(_WIN32) && !defined(__TINYC__)

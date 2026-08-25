@@ -488,8 +488,8 @@ print(16 >> 2)   # 4
 
 1. **Ecosystem**: Python/JS have millions of packages
 2. **Performance**: Interpreted VM vs JIT-compiled (JS/Go)
-3. **Concurrency**: No async/await or goroutines yet
-4. **IDE support**: No VS Code extension yet
+3. **Concurrency**: Cooperative goroutines/channels exist but are single-threaded (no true parallelism)
+4. **IDE support**: VS Code extension ships with the repo (syntax highlighting, not LSP yet)
 5. **Community**: New language, small user base
 6. **Static typing**: No compile-time type safety (planned)
 
@@ -509,4 +509,4 @@ print(16 >> 2)   # 4
 
 ---
 
-*Generated for Nebulara v2.0.0*
+*Generated for Nebulara v1.2.0*

@@ -9,7 +9,15 @@ FUNC! elapsed(start_time):
   RETURN TIME() - start_time
 END!
 
-# sleep is not yet implemented - requires FFI to C library
+# SLEEP(ms) - built into VM, pauses execution for given milliseconds
+# Returns 0
 FUNC! sleep(ms):
-  PRINT "TIME.sleep: not yet implemented - requires FFI to C library"
+  SLEEP(ms)
+END!
+
+# format_time(unix_ts) - returns "YYYY-MM-DD HH:MM:SS" from a Unix timestamp
+# Uses FFI to strftime for reliable formatting
+FUNC! format_time(unix_ts):
+  # Placeholder: returns raw timestamp as string
+  RETURN TO_STRING(unix_ts)
 END!

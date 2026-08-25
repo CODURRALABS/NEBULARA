@@ -201,6 +201,7 @@ NebType check_builtin(const char *name, int arg_count, NebType *arg_types, int l
     if (strcmp(name, "TO_NUMBER") == 0) return TYPE_INT;
     if (strcmp(name, "RANDOM") == 0) return TYPE_INT;
     if (strcmp(name, "TIME") == 0) return TYPE_INT;
+    if (strcmp(name, "SLEEP") == 0) return TYPE_INT;
     if (strcmp(name, "CONCAT") == 0) return TYPE_STRING;
     
     return TYPE_UNKNOWN;
