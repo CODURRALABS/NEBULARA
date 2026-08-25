@@ -1438,7 +1438,7 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
 // ============================================================================
 
 static void print_version(void) {
-    fprintf(stderr, "Nebulara v2.0 - AI-Native Programming Language\n");
+    fprintf(stderr, "Nebulara v1.2.0 - AI-Native Programming Language\n");
     fprintf(stderr, "Usage:\n");
     fprintf(stderr, "  nebulara run <file.nbs>     Execute a .nbs file\n");
     fprintf(stderr, "  nebulara build <file.nbs>   Compile to bytecode\n");
@@ -1626,7 +1626,7 @@ static int highlight_file(const char* path) {
 }
 
 static void repl(void) {
-    printf("Nebulara v2.0 > Type 'exit' to quit\n");
+    printf("Nebulara v1.2.0 > Type 'exit' to quit\n");
     char line[1024];
     // Initialize VM state for REPL
     memset(vm_vars, 0, sizeof(vm_vars));
@@ -1686,7 +1686,7 @@ int main(int argc, char** argv) {
         repl();
         return 0;
     } else if (strcmp(argv[1], "version") == 0) {
-        fprintf(stderr, "Nebulara v2.0\n");
+        fprintf(stderr, "Nebulara v1.2.0\n");
         return 0;
     } else if (strcmp(argv[1], "help") == 0) {
         print_version();

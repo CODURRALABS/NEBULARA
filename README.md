@@ -9,8 +9,8 @@
 
 A complete C-based toolchain: interpreter, CLI, transpiler (JS/Python), semantic analyzer, FFI bridge, native codegen, and knowledge graph. Install via npm with zero dependencies.
 
-[![npm](https://img.shields.io/badge/npm-nebulara@2.0.0-blue.svg)](https://www.npmjs.com/package/nebulara)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)]()
+[![npm](https://img.shields.io/badge/npm-nebulara@1.2.0-blue.svg)](https://www.npmjs.com/package/nebulara)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
 
 ## Install

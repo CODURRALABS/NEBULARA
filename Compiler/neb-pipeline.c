@@ -1289,7 +1289,7 @@ void ir_to_native(IRProgram *ir, const char *outname) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        fprintf(stderr, "Nebulara Pipeline v2.0\n");
+        fprintf(stderr, "Nebulara Pipeline v1.2.0\n");
         fprintf(stderr, "Usage: %s <file.nbs> [--target js|py|ir|check] [--check] [--ir]\n", argv[0]);
         return 1;
     }
