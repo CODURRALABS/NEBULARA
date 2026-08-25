@@ -272,15 +272,29 @@ int main(int argc, char *argv[]) {
     current_target = TARGET_X64;
     code_init();
     
-    /* Generate: mov rax, 42; ret */
+    /* _start entry point for ELF: mov rax, 60; mov rdi, 0; syscall */
     int rax = reg_alloc_alloc();
-    emit_mov_reg_imm(rax, 42);
+    int rdi = reg_alloc_alloc();
+    emit_mov_reg_imm(rax, 60);    /* sys_exit */
+    emit_mov_reg_imm(rdi, 0);     /* exit code 0 */
     reg_free(rax);
+    reg_free(rdi);
     
-    /* ret instruction */
-    code_emit(0xC3);
+    /* syscall: 0F 05 */
+    code_emit(0x0F);
+    code_emit(0x05);
     
     codegen_dump_hex();
+    
+    if (argc >= 2) {
+        codegen_save(argv[1]);
+        printf("Wrote ELF executable to: %s\n", argv[1]);
+        printf("Run with: chmod +x %s && ./%s\n", argv[1], argv[1]);
+    } else {
+        printf("Usage: %s <output>\n", argv[0]);
+        printf("To compile a .nbs file to native, use: neb native <file.nbs> -o <output>\n");
+    }
+    
     codegen_free();
     
     printf("\nNative codegen module: OK\n");

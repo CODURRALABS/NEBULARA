@@ -1,0 +1,13 @@
+.git
+mingw32/
+target/
+node_modules/
+build/
+dist/
+test/
+calculator/
+*.vsix
+*.zip
+*.tar.gz
+*.exe
+*.log

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nebulara"
+version = "1.2.0"
+description = "Nebulara - AI-native universal programming language"
+readme = "README.md"
+license = {text = "UNLICENSED"}
+requires-python = ">=3.8"
+authors = [{name = "CodurraLabs"}]
+keywords = ["compiler", "programming-language", "ai-native"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Compilers",
+]
+urls = {Repository = "https://github.com/CODURRALABS/NEBULARA"}
+
+[project.scripts]
+neb = "nebulara_cli:cli"
+nebulara = "nebulara_cli:cli"
+
+[tool.setuptools]
+py-modules = ["nebulara_cli"]

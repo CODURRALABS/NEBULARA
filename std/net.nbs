@@ -1,22 +1,63 @@
 # Nebulara Standard Library - Net
-# Network and HTTP utilities (stubs for FFI)
+# Network and HTTP utilities
+# Uses FFI to call system curl via popen() for HTTP requests
 
-# HTTP functions require FFI to libcurl or platform HTTP library - not yet implemented
-
-# Planned API: GET request, returns response body as string
+# http_get(url) - fetches URL content using system curl
+# Returns response body as string, or NULL on failure
 FUNC! http_get(url):
-  PRINT "net.http_get: not yet implemented - requires FFI to libcurl or platform HTTP library"
-  RETURN NULL
+  # Load C library for popen/pclose
+  LET lib = FFI_LOAD("libc", "libc.so.6")
+  IF? lib == -1:
+    # Try Windows MSVCRT
+    lib = FFI_LOAD("msvcrt", "msvcrt.dll")
+  END!
+  IF? lib == -1:
+    PRINT("net.http_get: cannot load C library for popen")
+    RETURN NULL
+  END!
+
+  # Register popen: FILE* popen(const char* cmd, const char* mode)
+  FFI_REGISTER("libc", "popen", 4, 2)
+  # Register pclose: int pclose(FILE* fp)
+  FFI_REGISTER("libc", "pclose", 1, 1)
+  # Register fgets: char* fgets(char* buf, int size, FILE* fp)
+  FFI_REGISTER("libc", "fgets", 4, 3)
+  # Register feof: int feof(FILE* fp)
+  FFI_REGISTER("libc", "feof", 1, 1)
+
+  # Build curl command
+  LET cmd = "curl -s -L \"" + url + "\""
+
+  # popen(cmd, "r")
+  LET fp = FFI_CALL("libc", "popen", cmd, "r")
+  IF? fp == 0:
+    PRINT("net.http_get: popen failed")
+    RETURN NULL
+  END!
+
+  # Read output in chunks
+  LET result = ""
+  LET buf = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+  WHILE? TRUE:
+    FFI_CALL("libc", "fgets", buf, 16, fp)
+    IF? FFI_CALL("libc", "feof", fp) != 0:
+      BREAK
+    END!
+    result = result + buf
+  END!
+
+  FFI_CALL("libc", "pclose", fp)
+  RETURN result
 END!
 
-# Planned API: POST request with body, returns response body as string
+# http_post(url, body) - POST request (stub, needs custom implementation)
 FUNC! http_post(url, body):
-  PRINT "net.http_post: not yet implemented - requires FFI to libcurl or platform HTTP library"
+  PRINT("net.http_post: POST via curl not yet implemented")
   RETURN NULL
 END!
 
-# Planned API: Start HTTP server on given port
+# serve(port) - start HTTP server (stub)
 FUNC! serve(port):
-  PRINT "net.serve: not yet implemented - requires FFI to libcurl or platform HTTP library"
+  PRINT("net.serve: HTTP server not yet implemented")
   RETURN NULL
 END!

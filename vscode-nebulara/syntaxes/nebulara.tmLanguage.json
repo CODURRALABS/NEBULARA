@@ -1,0 +1,134 @@
+{
+  "scopeName": "source.nebulara",
+  "name": "Nebulara",
+  "fileTypes": [".nbs", ".neb"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#builtins" },
+    { "include": "#operators" },
+    { "include": "#function-calls" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [{
+        "match": "#.*$",
+        "name": "comment.line.number-sign.nebulara"
+      }]
+    },
+    "strings": {
+      "patterns": [{
+        "begin": "\"",
+        "end": "\"",
+        "name": "string.quoted.double.nebulara",
+        "patterns": [{
+          "match": "\\\\.",
+          "name": "constant.character.escape.nebulara"
+        }]
+      }]
+    },
+    "numbers": {
+      "patterns": [{
+        "match": "\\b-?[0-9]+\\b",
+        "name": "constant.numeric.integer.nebulara"
+      }]
+    },
+    "keywords": {
+      "patterns": [
+        { "match": "\\bFUNC!\\b", "name": "keyword.control.func.nebulara" },
+        { "match": "\\bDATA!\\b", "name": "keyword.control.data.nebulara" },
+        { "match": "\\bIF\\?\\b", "name": "keyword.control.if.nebulara" },
+        { "match": "\\bELSE\\b", "name": "keyword.control.else.nebulara" },
+        { "match": "\\bELSEIF\\?\\b", "name": "keyword.control.elseif.nebulara" },
+        { "match": "\\bWHILE\\?\\b", "name": "keyword.control.while.nebulara" },
+        { "match": "\\bFOR!\\b", "name": "keyword.control.for.nebulara" },
+        { "match": "\\bEND!\\b", "name": "keyword.control.end.nebulara" },
+        { "match": "\\bRETURN\\b", "name": "keyword.control.return.nebulara" },
+        { "match": "\\bBREAK\\b", "name": "keyword.control.break.nebulara" },
+        { "match": "\\bCONTINUE\\b", "name": "keyword.control.continue.nebulara" },
+        { "match": "\\bPRINT\\b", "name": "keyword.other.print.nebulara" },
+        { "match": "\\bLET\\b", "name": "keyword.other.let.nebulara" },
+        { "match": "\\bCONST\\b", "name": "keyword.other.const.nebulara" },
+        { "match": "\\bTRY!\\b", "name": "keyword.control.try.nebulara" },
+        { "match": "\\bCATCH\\b", "name": "keyword.control.catch.nebulara" },
+        { "match": "\\bTHROW\\b", "name": "keyword.control.throw.nebulara" },
+        { "match": "\\bFINALLY\\b", "name": "keyword.control.finally.nebulara" },
+        { "match": "\\bIMPORT\\b", "name": "keyword.control.import.nebulara" },
+        { "match": "\\bAND\\b", "name": "keyword.operator.logical.nebulara" },
+        { "match": "\\bOR\\b", "name": "keyword.operator.logical.nebulara" },
+        { "match": "\\bNOT\\b", "name": "keyword.operator.logical.nebulara" },
+        { "match": "\\bNULL\\b", "name": "constant.language.null.nebulara" },
+        { "match": "\\bTRUE\\b", "name": "constant.language.boolean.nebulara" },
+        { "match": "\\bFALSE\\b", "name": "constant.language.boolean.nebulara" },
+        { "match": "\\bTO\\b", "name": "keyword.other.nebulara" },
+        { "match": "\\bSTEP\\b", "name": "keyword.other.nebulara" },
+        { "match": "\\bTHEN\\b", "name": "keyword.other.nebulara" },
+        { "match": "\\bGO!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bCHAN!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bSEND!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bRECV!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bSELECT!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bMUTEX!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bLOCK!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bUNLOCK!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bYIELD!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bSLEEP!\\b", "name": "keyword.control.concurrency.nebulara" },
+        { "match": "\\bRUN!\\b", "name": "keyword.other.nebulara" }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        { "match": "\\bLEN\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bTYPEOF\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bTO_STRING\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bTO_NUMBER\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bPUSH\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bPOP\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\babs\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bmin\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bmax\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bclamp\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bsum_array\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\baverage\\s*\\(", "name": "support.function.builtin.nebulara" }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        { "match": "\\+", "name": "keyword.operator.arithmetic.nebulara" },
+        { "match": "-", "name": "keyword.operator.arithmetic.nebulara" },
+        { "match": "\\*", "name": "keyword.operator.arithmetic.nebulara" },
+        { "match": "/", "name": "keyword.operator.arithmetic.nebulara" },
+        { "match": "%", "name": "keyword.operator.arithmetic.nebulara" },
+        { "match": "==", "name": "keyword.operator.comparison.nebulara" },
+        { "match": "!=", "name": "keyword.operator.comparison.nebulara" },
+        { "match": "<=", "name": "keyword.operator.comparison.nebulara" },
+        { "match": ">=", "name": "keyword.operator.comparison.nebulara" },
+        { "match": "<", "name": "keyword.operator.comparison.nebulara" },
+        { "match": ">", "name": "keyword.operator.comparison.nebulara" },
+        { "match": "=", "name": "keyword.operator.assignment.nebulara" },
+        { "match": "&", "name": "keyword.operator.bitwise.nebulara" },
+        { "match": "\\|", "name": "keyword.operator.bitwise.nebulara" },
+        { "match": "<<", "name": "keyword.operator.bitwise.nebulara" },
+        { "match": ">>", "name": "keyword.operator.bitwise.nebulara" }
+      ]
+    },
+    "function-calls": {
+      "patterns": [{
+        "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+        "captures": {
+          "1": { "name": "entity.name.function.nebulara" }
+        }
+      }]
+    },
+    "identifiers": {
+      "patterns": [{
+        "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+        "name": "variable.other.nebulara"
+      }]
+    }
+  },
+  "uuid": "c8d7c8e0-7b3a-4c5a-9f6e-1a2b3c4d5e6f"
+}

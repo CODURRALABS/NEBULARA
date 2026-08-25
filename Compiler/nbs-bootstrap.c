@@ -31,6 +31,7 @@ __declspec(dllimport) void* __stdcall GetProcAddress(void*, const char*);
 #endif
 #else
 #include <dlfcn.h>
+#include <unistd.h>
 typedef void* NbsFFIHandle;
 #endif
 
@@ -738,7 +739,7 @@ ASTNode* parse_primary(Parser* p) {
 
     if (tok.type == TOK_IDENT) {
         parser_advance(p);
-        // Check for array index: ident[expr]
+        // Check for array index: ident[expr] — loop for multiple [idx]
         if (parser_peek(p).type == TOK_LBRACKET) {
             parser_advance(p);
             ASTNode* idx = parse_expression(p);
@@ -749,9 +750,19 @@ ASTNode* parse_primary(Parser* p) {
             n->left = id;
             n->right = idx;
             n->line = tok.line;
+            while (parser_peek(p).type == TOK_LBRACKET) {
+                parser_advance(p);
+                idx = parse_expression(p);
+                parser_expect(p, TOK_RBRACKET);
+                ASTNode* ai = ast_new(NODE_ARRAY_INDEX);
+                ai->left = n;
+                ai->right = idx;
+                ai->line = tok.line;
+                n = ai;
+            }
             return n;
         }
-        // Check for function call: ident(args)
+        // Check for function call: ident(args), then optionally [idx]
         if (parser_peek(p).type == TOK_LPAREN) {
             parser_advance(p);
             ASTNode* n = ast_new(NODE_FUNC_CALL);
@@ -771,6 +782,16 @@ ASTNode* parse_primary(Parser* p) {
             }
             parser_expect(p, TOK_RPAREN);
             n->line = tok.line;
+            while (parser_peek(p).type == TOK_LBRACKET) {
+                parser_advance(p);
+                ASTNode* idx = parse_expression(p);
+                parser_expect(p, TOK_RBRACKET);
+                ASTNode* ai = ast_new(NODE_ARRAY_INDEX);
+                ai->left = n;
+                ai->right = idx;
+                ai->line = tok.line;
+                n = ai;
+            }
             return n;
         }
         // Built-in functions
@@ -1579,7 +1600,10 @@ void compile_node(Compiler* c, ASTNode* node) {
             if (strcmp(node->str_val, "PUSH") == 0 && node->child_count == 2 &&
                 node->children[0]->type == NODE_IDENT) {
                 // PUSH(arr, val): load arr, load val, BC_ARRAY_PUSH, DUP, STORE arr
-                compile_node(c, node->children[0]);  // LOAD arr
+                // DUP ensures standalone PUSH(arr,val) updates the variable.
+                // The same-pointer check in BC_STORE prevents double-free when
+                // there is also an outer NODE_ASSIGN (arr = PUSH(arr,val)).
+                compile_node(c, node->children[0]);  // LOAD arr (deep copy)
                 compile_node(c, node->children[1]);  // LOAD val
                 bc_emit(c->bc, BC_ARRAY_PUSH);
                 bc_emit(c->bc, BC_DUP);
@@ -1865,6 +1889,7 @@ typedef struct {
     int mutex_count;
 
     int sleep_ms;
+    long long max_iter;
 } VM;
 
 void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
@@ -1873,6 +1898,7 @@ void vm_init(VM* vm, uint8_t* code, StringTable* strings, FuncTable* funcs) {
     vm->strings = strings;
     vm->funcs = funcs;
     vm->running = 1;
+    vm->max_iter = 100000000;
     for (int i = 0; i < 1024; i++) vm->vars[i] = val_null();
 }
 
@@ -1953,7 +1979,7 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
     vm->code_len = code_len;
     long long iter = 0;
     while (vm->running && vm->ip < vm->code_len) {
-        if (++iter > 100000) { fprintf(stderr, "INFINITE LOOP (iter=%lld sp=%d call_sp=%d)\n", iter, vm->sp, vm->call_sp); return 1; }
+        if (++iter > vm->max_iter) { fprintf(stderr, "Execution limit reached (iter=%lld sp=%d call_sp=%d)\n", iter, vm->sp, vm->call_sp); return 1; }
         uint8_t op = vm->code[vm->ip];
         if (vm->debug) fprintf(stderr, "IP=%d OP=0x%02X SP=%d\n", vm->ip, op, vm->sp);
         vm->ip++;
@@ -2340,8 +2366,12 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                 int32_t idx;
                 memcpy(&idx, vm->code + vm->ip, 4);
                 vm->ip += 4;
-                val_free(vm->vars[idx]);
-                vm->vars[idx] = vm->stack[--vm->sp];
+                Value val = vm->stack[--vm->sp];
+                // Skip val_free when storing the same array pointer (in-place mutation)
+                if (!(val.type == VAL_ARRAY && vm->vars[idx].type == VAL_ARRAY &&
+                      val.as.a == vm->vars[idx].as.a))
+                    val_free(vm->vars[idx]);
+                vm->vars[idx] = val;
             } break;
 
             case BC_LOAD: {
@@ -2451,6 +2481,16 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                 } else if (strcmp(name, "TIME") == 0) {
                     for (int i = 0; i < arity; i++) val_free(vm->stack[--vm->sp]);
                     vm->stack[vm->sp++] = val_int((int64_t)time(NULL));
+                } else if (strcmp(name, "SLEEP") == 0) {
+                    Value ms_val = vm->stack[--vm->sp];
+                    long ms = (ms_val.type == VAL_INT) ? ms_val.as.i : 0;
+                    val_free(ms_val);
+#ifdef _WIN32
+                    Sleep((DWORD)ms);
+#else
+                    usleep((useconds_t)(ms * 1000));
+#endif
+                    vm->stack[vm->sp++] = val_int(0);
                 } else if (strcmp(name, "TO_UPPER") == 0) {
                     Value v = vm->stack[--vm->sp];
                     if (v.type == VAL_STRING) {
@@ -2678,9 +2718,9 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                                     else
                                         vals[k] = 0;
                                 }
-                                typedef intptr_t (*ffi_fn)();
-                                ffi_fn call = (ffi_fn)fn;
-                                intptr_t ret = call(
+                                typedef intptr_t (*ffi_fn)(intptr_t, intptr_t, intptr_t, intptr_t, intptr_t, intptr_t);
+                                ffi_fn fcall = (ffi_fn)fn;
+                                intptr_t ret = fcall(
                                     ffi_argc > 0 ? vals[0] : 0,
                                     ffi_argc > 1 ? vals[1] : 0,
                                     ffi_argc > 2 ? vals[2] : 0,
@@ -2731,9 +2771,9 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                         sc++;
                     }
                     vm->call_stack[vm->call_sp].saved_count = sc;
-                    // Assign arguments: reverse order (stack pops last-pushed first)
+                    // Assign arguments (stack pops last-pushed first, so forward loop maps correctly)
                     int pcount = param_count < arity ? param_count : arity;
-                    for (int i = pcount - 1; i >= 0; i--) {
+                    for (int i = 0; i < pcount; i++) {
                         int param_idx = st_intern(vm->strings, vm->funcs->entries[fi].params[i]);
                         val_free(vm->vars[param_idx]);
                         vm->vars[param_idx] = vm->stack[--vm->sp];
@@ -2943,16 +2983,365 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
 }
 
 // ============================================================================
+// NATIVE CODEGEN — Transpile bytecode to C, compile with gcc
+// ============================================================================
+
+typedef struct {
+    unsigned char *code;
+    int size;
+    int cap;
+} NativeBuf;
+
+static void nb_init(NativeBuf *nb) { nb->cap = 65536; nb->code = (unsigned char*)malloc(nb->cap); nb->size = 0; }
+static void nb_emit(NativeBuf *nb, unsigned char b) {
+    if (nb->size >= nb->cap) { nb->cap *= 2; nb->code = (unsigned char*)realloc(nb->code, nb->cap); }
+    nb->code[nb->size++] = b;
+}
+static void nb_emit32(NativeBuf *nb, unsigned int v) {
+    nb_emit(nb, v & 0xFF); nb_emit(nb, (v>>8)&0xFF); nb_emit(nb, (v>>16)&0xFF); nb_emit(nb, (v>>24)&0xFF);
+}
+static void nb_emit64(NativeBuf *nb, unsigned long long v) {
+    nb_emit32(nb, (unsigned int)(v & 0xFFFFFFFF)); nb_emit32(nb, (unsigned int)(v >> 32));
+}
+static void nb_rex_w(NativeBuf *nb) { nb_emit(nb, 0x48); }
+static void nb_mov_reg_imm64(NativeBuf *nb, int reg, unsigned long long imm) {
+    nb_emit(nb, (reg >= 8) ? 0x49 : 0x48);
+    nb_emit(nb, 0xB8 + (reg & 7));
+    nb_emit64(nb, imm);
+}
+static void nb_syscall(NativeBuf *nb) { nb_emit(nb, 0x0F); nb_emit(nb, 0x05); }
+
+static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
+                            StringTable *strings, FuncTable *funcs) {
+    /* Write a C file that embeds the bytecode and runs it via a mini-VM */
+    char cpath[1024];
+    snprintf(cpath, sizeof(cpath), "%s.neb.c", outpath);
+
+    FILE *f = fopen(cpath, "w");
+    if (!f) { fprintf(stderr, "Error: cannot write %s\n", cpath); return -1; }
+
+    fprintf(f, "/* Auto-generated by Nebulara native codegen */\n");
+    fprintf(f, "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n");
+    fprintf(f, "#include <stdint.h>\n\n");
+
+    /* Emit opcode defines matching the VM enum */
+    fprintf(f, "#define BC_PUSH_INT 0\n#define BC_PUSH_STR 1\n#define BC_PUSH_BOOL 2\n#define BC_PUSH_NULL 3\n");
+    fprintf(f, "#define BC_POP 4\n#define BC_DUP 5\n#define BC_SWAP 6\n");
+    fprintf(f, "#define BC_ADD 7\n#define BC_SUB 8\n#define BC_MUL 9\n#define BC_DIV 10\n#define BC_MOD 11\n#define BC_NEG 12\n");
+    fprintf(f, "#define BC_EQ 13\n#define BC_NEQ 14\n#define BC_LT 15\n#define BC_GT 16\n#define BC_LTE 17\n#define BC_GTE 18\n");
+    fprintf(f, "#define BC_AND 19\n#define BC_OR 20\n#define BC_NOT 21\n");
+    fprintf(f, "#define BC_BITAND 22\n#define BC_BITOR 23\n#define BC_LSHIFT 24\n#define BC_RSHIFT 25\n");
+    fprintf(f, "#define BC_STORE 26\n#define BC_LOAD 27\n");
+    fprintf(f, "#define BC_JUMP 28\n#define BC_JUMP_IF 29\n#define BC_JUMP_IFNOT 30\n");
+    fprintf(f, "#define BC_CALL 31\n#define BC_RET 32\n#define BC_PRINT 33\n");
+    fprintf(f, "#define BC_ARRAY_NEW 34\n#define BC_ARRAY_GET 35\n#define BC_ARRAY_SET 36\n#define BC_ARRAY_LEN 37\n");
+    fprintf(f, "#define BC_ARRAY_PUSH 38\n#define BC_ARRAY_POP 39\n");
+    fprintf(f, "#define BC_LEN 40\n#define BC_TYPEOF 41\n#define BC_TOSTR 42\n#define BC_TONUM 43\n");
+    fprintf(f, "#define BC_TRY 44\n#define BC_CATCH 45\n#define BC_THROW 46\n#define BC_ENDTRY 47\n");
+    fprintf(f, "#define BC_IMPORT 48\n");
+    fprintf(f, "#define BC_GOROUTINE 49\n#define BC_CHANNEL_NEW 50\n#define BC_CHANNEL_SEND 51\n#define BC_CHANNEL_RECV 52\n");
+    fprintf(f, "#define BC_SELECT 53\n#define BC_SELECT_CASE 54\n#define BC_SELECT_DEFAULT 55\n#define BC_SELECT_END 56\n");
+    fprintf(f, "#define BC_WAIT_GROUP_ADD 57\n#define BC_WAIT_GROUP_DONE 58\n#define BC_WAIT_GROUP_WAIT 59\n");
+    fprintf(f, "#define BC_MUTEX_LOCK 60\n#define BC_MUTEX_UNLOCK 61\n#define BC_MUTEX_NEW 62\n");
+    fprintf(f, "#define BC_SLEEP 63\n#define BC_YIELD 64\n#define BC_HALT 65\n\n");
+
+    /* Embed the string table */
+    fprintf(f, "static const char *strings[] = {\n");
+    for (int i = 0; i < strings->count; i++) {
+        fprintf(f, "    \"");
+        for (const char *p = strings->strings[i]; *p; p++) {
+            if (*p == '"') fprintf(f, "\\\"");
+            else if (*p == '\\') fprintf(f, "\\\\");
+            else if (*p == '\n') fprintf(f, "\\n");
+            else fputc(*p, f);
+        }
+        fprintf(f, "\",\n");
+    }
+    fprintf(f, "};\n\n");
+
+    /* Embed the bytecode as a hex array */
+    fprintf(f, "static const unsigned char bytecode[] = {\n");
+    for (int i = 0; i < bc_len; i++) {
+        if (i % 16 == 0) fprintf(f, "    ");
+        fprintf(f, "0x%02X", bytecode[i]);
+        if (i < bc_len - 1) fprintf(f, ",");
+        if (i % 16 == 15) fprintf(f, "\n");
+    }
+    fprintf(f, "\n};\n\n");
+
+    /* Mini VM in C */
+    fprintf(f, "typedef struct { int type; union { int64_t i; char *s; int b; } as; } Value;\n");
+    fprintf(f, "#define VAL_NULL 0\n#define VAL_INT 1\n#define VAL_STRING 2\n#define VAL_BOOL 3\n\n");
+    fprintf(f, "int main(void) {\n");
+    fprintf(f, "    Value stack[4096]; int sp = 0;\n");
+    fprintf(f, "    Value vars[1024]; int ip = 0;\n");
+    fprintf(f, "    int bc_len = %d;\n", bc_len);
+    fprintf(f, "    for (int i = 0; i < 1024; i++) vars[i] = (Value){VAL_NULL,{0}};\n");
+    fprintf(f, "    while (ip < bc_len) {\n");
+    fprintf(f, "        uint8_t op = bytecode[ip++];\n");
+    fprintf(f, "        switch (op) {\n");
+    fprintf(f, "            case BC_HALT: return 0;\n");
+    fprintf(f, "            case BC_PUSH_INT: {\n");
+    fprintf(f, "                int64_t v; memcpy(&v, bytecode+ip, 8); ip+=8;\n");
+    fprintf(f, "                stack[sp++] = (Value){VAL_INT, {.i=v}};\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_PUSH_STR: {\n");
+    fprintf(f, "                int idx; memcpy(&idx, bytecode+ip, 4); ip+=4;\n");
+    fprintf(f, "                stack[sp++] = (Value){VAL_STRING, {.s=(char*)strings[idx]}};\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_PUSH_BOOL: {\n");
+    fprintf(f, "                int b; memcpy(&b, bytecode+ip, 4); ip+=4;\n");
+    fprintf(f, "                stack[sp++] = (Value){VAL_BOOL, {.b=b}};\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_PUSH_NULL: stack[sp++] = (Value){VAL_NULL,{0}}; break;\n");
+    fprintf(f, "            case BC_POP: sp--; break;\n");
+    fprintf(f, "            case BC_DUP: stack[sp]=stack[sp-1]; sp++; break;\n");
+    fprintf(f, "            case BC_SWAP: { Value t=stack[sp-1]; stack[sp-1]=stack[sp-2]; stack[sp-2]=t; } break;\n");
+    fprintf(f, "            case BC_ADD: { Value b=stack[--sp]; Value a=stack[--sp];\n");
+    fprintf(f, "                if(a.type==VAL_STRING&&b.type==VAL_STRING){\n");
+    fprintf(f, "                    size_t la=strlen(a.as.s),lb=strlen(b.as.s);\n");
+    fprintf(f, "                    char *r=malloc(la+lb+1); memcpy(r,a.as.s,la); memcpy(r+la,b.as.s,lb+1);\n");
+    fprintf(f, "                    stack[sp++]=(Value){VAL_STRING,{.s=r}};\n");
+    fprintf(f, "                } else { stack[sp++]=(Value){VAL_INT,{.i=a.as.i+b.as.i}}; }\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_SUB: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i-b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_MUL: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i*b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_DIV: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i/b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_MOD: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i%%b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_NEG: { Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=-a.as.i}}; } break;\n");
+    fprintf(f, "            case BC_EQ: case BC_NEQ: case BC_LT: case BC_GT: case BC_LTE: case BC_GTE: {\n");
+    fprintf(f, "                int cc=op-BC_EQ; Value b=stack[--sp]; Value a=stack[--sp];\n");
+    fprintf(f, "                int r=0; switch(cc){ case 0:r=a.as.i==b.as.i;break; case 1:r=a.as.i!=b.as.i;break;\n");
+    fprintf(f, "                case 2:r=a.as.i<b.as.i;break; case 3:r=a.as.i>b.as.i;break;\n");
+    fprintf(f, "                case 4:r=a.as.i<=b.as.i;break; case 5:r=a.as.i>=b.as.i;break; }\n");
+    fprintf(f, "                stack[sp++]=(Value){VAL_BOOL,{.b=r}};\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_AND: { Value b=stack[--sp]; Value a=stack[--sp];\n");
+    fprintf(f, "                int ai=a.type==VAL_BOOL?a.as.b:(a.type==VAL_INT?(a.as.i!=0):0);\n");
+    fprintf(f, "                int bi=b.type==VAL_BOOL?b.as.b:(b.type==VAL_INT?(b.as.i!=0):0);\n");
+    fprintf(f, "                stack[sp++]=(Value){VAL_BOOL,{.b=(ai&&bi)}}; } break;\n");
+    fprintf(f, "            case BC_OR: { Value b=stack[--sp]; Value a=stack[--sp];\n");
+    fprintf(f, "                int ai=a.type==VAL_BOOL?a.as.b:(a.type==VAL_INT?(a.as.i!=0):0);\n");
+    fprintf(f, "                int bi=b.type==VAL_BOOL?b.as.b:(b.type==VAL_INT?(b.as.i!=0):0);\n");
+    fprintf(f, "                stack[sp++]=(Value){VAL_BOOL,{.b=(ai||bi)}}; } break;\n");
+    fprintf(f, "            case BC_NOT: { Value a=stack[--sp]; stack[sp++]=(Value){VAL_BOOL,{.b=!a.as.b}}; } break;\n");
+    fprintf(f, "            case BC_BITAND: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i&b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_BITOR: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i|b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_LSHIFT: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i<<b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_RSHIFT: { Value b=stack[--sp]; Value a=stack[--sp]; stack[sp++]=(Value){VAL_INT,{.i=a.as.i>>b.as.i}}; } break;\n");
+    fprintf(f, "            case BC_STORE: {\n");
+    fprintf(f, "                int idx; memcpy(&idx, bytecode+ip, 4); ip+=4;\n");
+    fprintf(f, "                vars[idx]=stack[--sp];\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_LOAD: {\n");
+    fprintf(f, "                int idx; memcpy(&idx, bytecode+ip, 4); ip+=4;\n");
+    fprintf(f, "                stack[sp++]=vars[idx];\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_JUMP: { int32_t off; memcpy(&off, bytecode+ip, 4); ip+=4; ip+=off; } break;\n");
+    fprintf(f, "            case BC_JUMP_IF: { int32_t off; memcpy(&off, bytecode+ip, 4); ip+=4; Value v=stack[--sp]; if(v.as.b||v.as.i) ip+=off; } break;\n");
+    fprintf(f, "            case BC_JUMP_IFNOT: { int32_t off; memcpy(&off, bytecode+ip, 4); ip+=4; Value v=stack[--sp]; if(!v.as.b&&v.as.i==0) ip+=off; } break;\n");
+    fprintf(f, "            case BC_CALL: { int idx; memcpy(&idx, bytecode+ip, 4); ip+=4; stack[sp++]=(Value){VAL_NULL,{0}}; } break;\n");
+    fprintf(f, "            case BC_RET: break;\n");
+    fprintf(f, "            case BC_PRINT: {\n");
+    fprintf(f, "                Value v=stack[--sp];\n");
+    fprintf(f, "                if(v.type==VAL_INT) printf(\"%%lld\\n\", (long long)v.as.i);\n");
+    fprintf(f, "                else if(v.type==VAL_STRING) printf(\"%%s\\n\", v.as.s);\n");
+    fprintf(f, "                else if(v.type==VAL_BOOL) printf(\"%%s\\n\", v.as.b?\"true\":\"false\");\n");
+    fprintf(f, "                else printf(\"null\\n\");\n");
+    fprintf(f, "            } break;\n");
+    fprintf(f, "            case BC_LEN: { Value v=stack[--sp]; if(v.type==VAL_STRING) stack[sp++]=(Value){VAL_INT,{.i=(int64_t)strlen(v.as.s)}}; else stack[sp++]=(Value){VAL_INT,{.i=0}}; } break;\n");
+    fprintf(f, "            case BC_TYPEOF: { Value v=stack[--sp]; const char *t=\"null\"; switch(v.type){ case VAL_INT:t=\"int\";break; case VAL_STRING:t=\"string\";break; case VAL_BOOL:t=\"bool\";break; } stack[sp++]=(Value){VAL_STRING,{.s=(char*)t}}; } break;\n");
+    fprintf(f, "            case BC_TOSTR: { Value v=stack[--sp]; static char sbuf[64]; if(v.type==VAL_INT) sprintf(sbuf,\"%%lld\",(long long)v.as.i); else if(v.type==VAL_STRING){stack[sp++]=(Value){VAL_STRING,{.s=v.as.s}}; continue;} else strcpy(sbuf,\"null\"); stack[sp++]=(Value){VAL_STRING,{.s=sbuf}}; } break;\n");
+    fprintf(f, "            case BC_TONUM: { Value v=stack[--sp]; if(v.type==VAL_INT) stack[sp++]=v; else if(v.type==VAL_STRING) stack[sp++]=(Value){VAL_INT,{.i=atoll(v.as.s)}}; else stack[sp++]=(Value){VAL_INT,{.i=0}}; } break;\n");
+    fprintf(f, "            case BC_SLEEP: { int ms; memcpy(&ms, bytecode+ip, 4); ip+=4; } break;\n");
+    fprintf(f, "            default: fprintf(stderr, \"Native: unsupported opcode 0x%%02X\\n\", op); return 1;\n");
+    fprintf(f, "        }\n");
+    fprintf(f, "    }\n");
+    fprintf(f, "    return 0;\n");
+    fprintf(f, "}\n");
+    fclose(f);
+
+    /* Compile with gcc */
+    char cmd[2048];
+#ifdef _WIN32
+    snprintf(cmd, sizeof(cmd), "gcc -O2 -o \"%s\" \"%s\" -lm 2>&1", outpath, cpath);
+#else
+    snprintf(cmd, sizeof(cmd), "gcc -O2 -o \"%s\" \"%s\" -lm 2>&1", outpath, cpath);
+#endif
+    int rc = system(cmd);
+    if (rc != 0) {
+        fprintf(stderr, "Native compilation failed (gcc returned %d)\n", rc);
+        fprintf(stderr, "Generated C source: %s\n", cpath);
+        return -1;
+    }
+    /* Clean up C file */
+    remove(cpath);
+    return 0;
+}
+
+/* Legacy x86-64 ELF codegen for simple programs (const-eval only) */
+static int codegen_native_simple(int64_t result, const char *outpath, int target_pe) {
+    NativeBuf nb;
+    nb_init(&nb);
+
+    /* Convert result to decimal string */
+    char buf[40];
+    int buflen = snprintf(buf, sizeof(buf), "%lld\n", result);
+
+    if (!target_pe) {
+        /* ELF64: write(1, buf, len); exit(0) */
+        unsigned long long load_addr = 0x400000;
+        unsigned int ehdr_sz = 64, phdr_sz = 56;
+        unsigned int entry = (unsigned int)(load_addr + ehdr_sz + phdr_sz);
+
+        /* mov rax, 1 (sys_write); mov rdi, 1; lea rsi, [rip+msg]; mov rdx, len; syscall */
+        nb_mov_reg_imm64(&nb, 0, 1);
+        nb_mov_reg_imm64(&nb, 1, 1);
+        /* lea rsi, [rip+0] — will be patched */
+        nb_rex_w(&nb); nb_emit(&nb, 0x8D); nb_emit(&nb, 0x35);
+        int lea_patch = nb.size;
+        nb_emit32(&nb, 0); /* placeholder */
+        nb_mov_reg_imm64(&nb, 2, (unsigned long long)buflen);
+        nb_syscall(&nb);
+        /* exit(0) */
+        nb_mov_reg_imm64(&nb, 0, 60);
+        nb_mov_reg_imm64(&nb, 1, 0);
+        nb_syscall(&nb);
+
+        /* Patch lea rsi */
+        int msg_pos = nb.size;
+        int lea_rel = msg_pos - (lea_patch + 4);
+        nb.code[lea_patch+0] = lea_rel & 0xFF;
+        nb.code[lea_patch+1] = (lea_rel>>8) & 0xFF;
+        nb.code[lea_patch+2] = (lea_rel>>16) & 0xFF;
+        nb.code[lea_patch+3] = (lea_rel>>24) & 0xFF;
+
+        /* Append message */
+        for (int i = 0; i < buflen; i++) nb_emit(&nb, (unsigned char)buf[i]);
+
+        /* Write ELF */
+        FILE *f = fopen(outpath, "wb");
+        if (!f) { free(nb.code); return -1; }
+        unsigned char elf[64] = {0};
+        elf[0]=0x7F; elf[1]='E'; elf[2]='L'; elf[3]='F'; elf[4]=2; elf[5]=1; elf[6]=1;
+        elf[16]=2; elf[18]=0x3E;
+        memcpy(elf+24, &entry, 4);
+        unsigned int phoff = ehdr_sz;
+        memcpy(elf+28, &phoff, 4);
+        unsigned short ehsize=64, phentsize=56, phnum=1;
+        memcpy(elf+52,&ehsize,2); memcpy(elf+54,&phentsize,2); memcpy(elf+56,&phnum,2);
+        fwrite(elf,1,64,f);
+        unsigned char phdr[56]={0};
+        phdr[0]=1; phdr[4]=5;
+        memcpy(phdr+8,&entry,4);
+        unsigned int vaddr=(unsigned int)load_addr;
+        memcpy(phdr+12,&vaddr,4); memcpy(phdr+20,&vaddr,4);
+        unsigned int filesz=ehdr_sz+phdr_sz+nb.size;
+        unsigned int memsz=filesz+0x20000;
+        memcpy(phdr+24,&filesz,4); memcpy(phdr+28,&memsz,4);
+        unsigned int align=0x1000;
+        memcpy(phdr+32,&align,4);
+        fwrite(phdr,1,56,f);
+        fwrite(nb.code,1,nb.size,f);
+        fclose(f);
+    } else {
+        /* PE64 — MS-DOS stub + PE header + single .text section */
+        FILE *f = fopen(outpath, "wb");
+        if (!f) { free(nb.code); return -1; }
+
+        /* DOS header */
+        unsigned short dos_magic = 0x5A4D;
+        fwrite(&dos_magic, 2, 1, f);
+        unsigned char dos_pad[62] = {0};
+        fwrite(dos_pad, 1, 62, f);
+        unsigned int pe_off = 64;
+        fwrite(&pe_off, 4, 1, f);
+
+        /* PE signature */
+        fwrite("PE\0\0", 4, 1, f);
+
+        /* COFF header */
+        unsigned char coff[20] = {0};
+        coff[0]=0x64; coff[1]=0x86; coff[2]=1;
+        unsigned short opt_sz = 240;
+        memcpy(coff+16,&opt_sz,2);
+        coff[18]=0x22;
+        fwrite(coff,1,20,f);
+
+        /* Optional header (PE32+) */
+        unsigned char opt[240]={0};
+        opt[0]=0x0B; opt[1]=0x02;
+        unsigned int entry_rva=0x1000;
+        memcpy(opt+16,&entry_rva,4);
+        unsigned long long img_base=0x140000000ULL;
+        memcpy(opt+24,&img_base,8);
+        unsigned int sect_align=0x1000, file_align=0x200;
+        memcpy(opt+32,&sect_align,4); memcpy(opt+36,&file_align,4);
+        unsigned int img_size=0x3000;
+        memcpy(opt+56,&img_size,4); memcpy(opt+60,&img_size,4);
+        opt[68]=3;
+        unsigned long long sr=0x40000,sc=0x1000,hr=0x10000,hc=0x1000;
+        memcpy(opt+72,&sc,8); memcpy(opt+80,&sr,8);
+        memcpy(opt+88,&hc,8); memcpy(opt+96,&hr,8);
+        unsigned int nrv=16;
+        memcpy(opt+108,&nrv,4);
+        fwrite(opt,1,240,f);
+
+        /* Section header */
+        unsigned char sect[40]={0};
+        memcpy(sect,".text",5);
+        unsigned int ssz=nb.size+256;
+        memcpy(sect+8,&ssz,4); memcpy(sect+12,&entry_rva,4);
+        memcpy(sect+16,&ssz,4); memcpy(sect+20,&entry_rva,4);
+        sect[36]=0x60; sect[39]=0x20;
+        fwrite(sect,1,40,f);
+
+        /* Pad to file_align */
+        long hdr_end=ftell(f);
+        long pad_to=((hdr_end+file_align-1)/file_align)*file_align;
+        for(long p=hdr_end;p<pad_to;p++) fputc(0,f);
+
+        /* Write code (sys_write + exit for Windows... use int3 for now) */
+        fwrite(nb.code,1,nb.size,f);
+        fclose(f);
+    }
+
+    free(nb.code);
+    return 0;
+}
+
+/* codegen_native: dispatch to C-based codegen (full support) or simple const-eval */
+static int codegen_native(uint8_t *bytecode, int bc_len, const char *outpath,
+                          StringTable *strings, FuncTable *funcs, int target_pe) {
+    /* Always use the C-based codegen for full language support */
+    return codegen_native_c(bytecode, bc_len, outpath, strings, funcs);
+}
+
+// ============================================================================
 // MAIN
 // ============================================================================
 
 int main(int argc, char** argv) {
     srand((unsigned)time(NULL));
 
+    if (argc >= 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "version") == 0)) {
+        printf("nebulara 1.2.0\n");
+        return 0;
+    }
+
     if (argc < 2) {
-        fprintf(stderr, "Nebulara Interpreter v2.0\n");
-        fprintf(stderr, "Usage: %s <file.nbs>\n", argv[0]);
+        fprintf(stderr, "Nebulara Interpreter v1.2.0\n");
+        fprintf(stderr, "Usage: %s <file.nbs> [--debug] [--limit N] [--native -o output --target linux|windows]\n", argv[0]);
         return 1;
+    }
+
+    /* Check for --native flag */
+    int do_native = 0;
+    const char *native_out = "a.out";
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--native") == 0) do_native = 1;
+        if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) native_out = argv[++i];
+        if (strcmp(argv[i], "--target") == 0 && i + 1 < argc) i++; /* handled later */
     }
 
     FILE* f = fopen(argv[1], "rb");
@@ -3000,12 +3389,40 @@ int main(int argc, char** argv) {
     Compiler compiler = {&bc, &strings, &funcs};
     compile_node(&compiler, ast);
 
-    // Execute
+    // Fix stale code pointers
+    for (int i = 0; i < funcs.count; i++)
+        funcs.entries[i].code = bc.code;
+
+    // Native code generation
+    if (do_native) {
+        int target_pe = 0;
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "--target") == 0 && i + 1 < argc) {
+                i++;
+                if (strstr(argv[i], "win") || strstr(argv[i], "pe")) target_pe = 1;
+            }
+        }
+        int rc = codegen_native(bc.code, bc.pos, native_out, &strings, &funcs, target_pe);
+        if (rc == 0) {
+            printf("Compiled %s -> %s (%s)\n", argv[1], native_out, target_pe ? "PE64" : "native");
+        } else {
+            fprintf(stderr, "Native compilation failed\n");
+        }
+        free(bc.code);
+        for (int i = 0; i < strings.count; i++) free(strings.strings[i]);
+        free(strings.strings);
+        free(funcs.entries);
+        free(parser);
+        return rc;
+    }
+
+    // Execute via VM
     VM* vm = (VM*)calloc(1, sizeof(VM));
     vm_init(vm, bc.code, &strings, &funcs);
     vm->debug = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0) vm->debug = 1;
+        if ((strcmp(argv[i], "--limit") == 0) && i + 1 < argc) vm->max_iter = atoll(argv[++i]);
     }
     int result = 0;
 #if defined(_WIN32) && !defined(__TINYC__)

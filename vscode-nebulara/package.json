@@ -1,0 +1,36 @@
+{
+  "name": "nebulara-lang",
+  "displayName": "Nebulara Language",
+  "description": "Nebulara language support - AI-native universal programming language",
+  "version": "1.2.0",
+  "publisher": "codurralabs",
+  "license": "UNLICENSED",
+  "icon": "logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CODURRALABS/NEBULARA.git"
+  },
+  "engines": { "vscode": "^1.70.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{
+      "id": "nebulara",
+      "aliases": ["Nebulara", "nebulara"],
+      "extensions": [".nbs", ".neb"],
+      "configuration": "./language-configuration/language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "nebulara",
+      "scopeName": "source.nebulara",
+      "path": "./syntaxes/nebulara.tmLanguage.json"
+    }],
+    "commands": [
+      { "command": "nebulara.run", "title": "Nebulara: Run File" },
+      { "command": "nebulara.check", "title": "Nebulara: Semantic Check" },
+      { "command": "nebulara.transpileJS", "title": "Nebulara: Transpile to JavaScript" },
+      { "command": "nebulara.transpilePY", "title": "Nebulara: Transpile to Python" }
+    ]
+  },
+  "activationEvents": ["onLanguage:nebulara"],
+  "main": "./extension.js"
+}
