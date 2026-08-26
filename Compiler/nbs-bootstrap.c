@@ -3234,7 +3234,14 @@ static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
     fprintf(f, "            } break;\n");
     fprintf(f, "            case BC_RET: {\n");
     fprintf(f, "                Value v=stack[--sp];\n");
-    fprintf(f, "                if(call_sp>0) { call_sp--; ip=call_stack[call_sp]; }\n");
+    fprintf(f, "                if(call_sp>0) {\n");
+    fprintf(f, "                    call_sp--;\n");
+    fprintf(f, "                    /* Restore saved param var values */\n");
+    fprintf(f, "                    for(int ri=0; ri<cs_saved_count[call_sp]; ri++) {\n");
+    fprintf(f, "                        vars[cs_saved_var_idx[call_sp][ri]] = cs_saved_var_val[call_sp][ri];\n");
+    fprintf(f, "                    }\n");
+    fprintf(f, "                    ip=call_stack[call_sp];\n");
+    fprintf(f, "                }\n");
     fprintf(f, "                stack[sp++]=v;\n");
     fprintf(f, "            } break;\n");
     fprintf(f, "            case BC_PRINT: {\n");
