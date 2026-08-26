@@ -1,0 +1,67 @@
+# args.nbs - Command line argument parsing for Nebulara
+
+FUNC! args():
+    LET count = ARGUMENT_COUNT()
+    LET result = []
+    LET i = 0
+    WHILE? i < count:
+        PUSH(result, ARGUMENT(i))
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! program_name():
+    IF? ARGUMENT_COUNT() > 0:
+        RETURN ARGUMENT(0)
+    END!
+    RETURN "neb"
+END!
+
+FUNC! has_flag(flag):
+    LET count = ARGUMENT_COUNT()
+    LET i = 0
+    WHILE? i < count:
+        IF? ARGUMENT(i) == flag:
+            RETURN 1
+        END!
+        i = i + 1
+    END!
+    RETURN 0
+END!
+
+FUNC! find_arg(prefix):
+    LET count = ARGUMENT_COUNT()
+    LET i = 0
+    WHILE? i < count:
+        LET arg = ARGUMENT(i)
+        IF? LEN(arg) >= LEN(prefix):
+            LET match = 1
+            LET j = 0
+            WHILE? j < LEN(prefix):
+                IF? CHAR_AT(arg, j) != CHAR_AT(prefix, j):
+                    match = 0
+                    BREAK
+                END!
+                j = j + 1
+            END!
+            IF? match == 1:
+                LET val = ""
+                LET k = LEN(prefix)
+                WHILE? k < LEN(arg):
+                    val = val + CHAR(CHAR_AT(arg, k))
+                    k = k + 1
+                END!
+                IF? val == "":
+                    IF? i + 1 < count:
+                        RETURN ARGUMENT(i + 1)
+                    END!
+                    RETURN ""
+                END!
+                RETURN val
+            END!
+        END!
+        i = i + 1
+    END!
+    RETURN ""
+END!

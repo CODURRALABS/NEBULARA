@@ -1,0 +1,72 @@
+# test.nbs - Unit testing framework for Nebulara
+
+LET _test_count = 0
+LET _test_pass = 0
+LET _test_fail = 0
+
+FUNC! ASSERT_EQUALS(actual, expected, desc):
+    _test_count = _test_count + 1
+    IF? actual == expected:
+        _test_pass = _test_pass + 1
+        PRINT "  PASS: " + desc
+    ELSE:
+        _test_fail = _test_fail + 1
+        PRINT "  FAIL: " + desc
+        PRINT "    Expected: " + TO_STRING(expected)
+        PRINT "    Actual:   " + TO_STRING(actual)
+    END!
+END!
+
+FUNC! ASSERT_NOT_EQUALS(actual, expected, desc):
+    _test_count = _test_count + 1
+    IF? actual != expected:
+        _test_pass = _test_pass + 1
+        PRINT "  PASS: " + desc
+    ELSE:
+        _test_fail = _test_fail + 1
+        PRINT "  FAIL: " + desc
+        PRINT "    Expected NOT: " + TO_STRING(expected)
+    END!
+END!
+
+FUNC! ASSERT_TRUE(condition, desc):
+    _test_count = _test_count + 1
+    IF? condition == 1:
+        _test_pass = _test_pass + 1
+        PRINT "  PASS: " + desc
+    ELSE:
+        _test_fail = _test_fail + 1
+        PRINT "  FAIL: " + desc
+        PRINT "    Expected: TRUE"
+        PRINT "    Actual:   " + TO_STRING(condition)
+    END!
+END!
+
+FUNC! ASSERT_FALSE(condition, desc):
+    _test_count = _test_count + 1
+    IF? condition == 0:
+        _test_pass = _test_pass + 1
+        PRINT "  PASS: " + desc
+    ELSE:
+        _test_fail = _test_fail + 1
+        PRINT "  FAIL: " + desc
+        PRINT "    Expected: FALSE"
+    END!
+END!
+
+FUNC! TEST_SUMMARY():
+    PRINT ""
+    PRINT "=============================="
+    PRINT "  TEST RESULTS"
+    PRINT "=============================="
+    PRINT "  Total:  " + TO_STRING(_test_count)
+    PRINT "  Passed: " + TO_STRING(_test_pass)
+    PRINT "  Failed: " + TO_STRING(_test_fail)
+    PRINT "=============================="
+    IF? _test_fail == 0:
+        PRINT "  ALL TESTS PASSED"
+    ELSE:
+        PRINT "  SOME TESTS FAILED"
+    END!
+    PRINT "=============================="
+END!

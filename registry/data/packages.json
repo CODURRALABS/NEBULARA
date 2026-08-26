@@ -1,0 +1,327 @@
+{
+  "packages": {
+    "primitives": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Primitives\r\n# Type checking and basic operations\r\n\r\nFUNC! is_string(v):\r\n  RETURN TYPEOF(v) == \"string\"\r\nEND!\r\n\r\nFUNC! is_number(v):\r\n  RETURN TYPEOF(v) == \"int\"\r\nEND!\r\n\r\nFUNC! is_bool(v):\r\n  RETURN TYPEOF(v) == \"bool\"\r\nEND!\r\n\r\nFUNC! is_array(v):\r\n  RETURN TYPEOF(v) == \"array\"\r\nEND!\r\n\r\nFUNC! is_null(v):\r\n  RETURN TYPEOF(v) == \"null\"\r\nEND!\r\n\r\nFUNC! to_int(v):\r\n  RETURN TO_NUMBER(v)\r\nEND!\r\n\r\nFUNC! to_str(v):\r\n  RETURN TO_STRING(v)\r\nEND!\r\n",
+          "hash": "3ef27df32bad46de27e9b4937a7f214bc5a10dff81f01871af5e2423486bdf0b",
+          "description": "Type checking and casting utilities",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.573Z",
+          "size": 470
+        }
+      },
+      "created": "2026-08-26T03:31:23.568Z",
+      "description": "Type checking and casting utilities",
+      "author": "CODURRALABS"
+    },
+    "string": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - String\r\n# String manipulation utilities (using built-in functions)\r\n\r\nFUNC! concat(a, b):\r\n  RETURN a + b\r\nEND!\r\n\r\nFUNC! repeat(s, n):\r\n  LET result = \"\"\r\n  LET i = 0\r\n  WHILE? i < n:\r\n    result = result + s\r\n    i = i + 1\r\n  END!\r\n  RETURN result\r\nEND!\r\n\r\nFUNC! reverse(s):\r\n  LET len = LEN(s)\r\n  LET result = \"\"\r\n  LET i = len - 1\r\n  WHILE? i >= 0:\r\n    result = result + CHAR_AT(s, i)\r\n    i = i - 1\r\n  END!\r\n  RETURN result\r\nEND!\r\n\r\nFUNC! contains(s, sub):\r\n  LET slen = LEN(s)\r\n  LET sublen = LEN(sub)\r\n  IF? sublen == 0:\r\n    RETURN TRUE\r\n  END!\r\n  IF? sublen > slen:\r\n    RETURN FALSE\r\n  END!\r\n  LET i = 0\r\n  WHILE? i <= slen - sublen:\r\n    LET match = TRUE\r\n    LET j = 0\r\n    WHILE? j < sublen:\r\n      IF? CHAR_AT(s, i + j) != CHAR_AT(sub, j):\r\n        match = FALSE\r\n        BREAK\r\n      END!\r\n      j = j + 1\r\n    END!\r\n    IF? match == TRUE:\r\n      RETURN TRUE\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN FALSE\r\nEND!\r\n\r\nFUNC! to_upper(s):\r\n  RETURN TO_UPPER(s)\r\nEND!\r\n\r\nFUNC! to_lower(s):\r\n  RETURN TO_LOWER(s)\r\nEND!\r\n\r\nFUNC! trim(s):\r\n  RETURN TRIM(s)\r\nEND!\r\n\r\nFUNC! substring(s, start, len):\r\n  RETURN SUBSTR(s, start, len)\r\nEND!\r\n",
+          "hash": "9bba50a8937aed15bb2a77261ddc6ac6080db16c161b9c9c55cb1fc859a22cff",
+          "description": "String manipulation functions",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.578Z",
+          "size": 1175
+        }
+      },
+      "created": "2026-08-26T03:31:23.578Z",
+      "description": "String manipulation functions",
+      "author": "CODURRALABS"
+    },
+    "math": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Math\r\n# Basic math operations (built-in as VM opcodes)\r\n\r\nFUNC! abs(x):\r\n  IF? x < 0:\r\n    RETURN -x\r\n  END!\r\n  RETURN x\r\nEND!\r\n\r\nFUNC! min(a, b):\r\n  IF? a < b:\r\n    RETURN a\r\n  END!\r\n  RETURN b\r\nEND!\r\n\r\nFUNC! max(a, b):\r\n  IF? a > b:\r\n    RETURN a\r\n  END!\r\n  RETURN b\r\nEND!\r\n\r\nFUNC! clamp(value, lo, hi):\r\n  IF? value < lo:\r\n    RETURN lo\r\n  END!\r\n  IF? value > hi:\r\n    RETURN hi\r\n  END!\r\n  RETURN value\r\nEND!\r\n\r\nFUNC! sum_array(arr):\r\n  LET total = 0\r\n  LET i = 0\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    total = total + arr[i]\r\n    i = i + 1\r\n  END!\r\n  RETURN total\r\nEND!\r\n\r\nFUNC! average(arr):\r\n  LET len = LEN(arr)\r\n  IF? len == 0:\r\n    RETURN 0\r\n  END!\r\n  RETURN sum_array(arr) / len\r\nEND!\r\n",
+          "hash": "c650ff9c250df10048780f2841dd990d11b2ea3e70f43458542230f47172dc9a",
+          "description": "Basic math operations",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.583Z",
+          "size": 733
+        }
+      },
+      "created": "2026-08-26T03:31:23.582Z",
+      "description": "Basic math operations",
+      "author": "CODURRALABS"
+    },
+    "math-ext": {
+      "versions": {
+        "1.0.0": {
+          "source": "# math_ext.nbs - Extended Math Library (Nebulara's numpy-lite)\n\nLET PI_SCALED = 31416\n\nFUNC! sin_approx(x):\n    LET two_pi = 62832\n    LET result = x\n    WHILE? result > two_pi:\n        result = result - two_pi\n    END!\n    WHILE? result < 0:\n        result = result + two_pi\n    END!\n    LET x2 = result * result / 10000\n    LET term = result\n    LET sum_val = term\n    LET i = 1\n    WHILE? i < 6:\n        term = -term * x2 / ((2 * i) * (2 * i + 1) * 10000)\n        sum_val = sum_val + term\n        i = i + 1\n    END!\n    RETURN sum_val\nEND!\n\nFUNC! cos_approx(x):\n    RETURN sin_approx(x + PI_SCALED / 2)\nEND!\n\nFUNC! ln_approx(x):\n    IF? x <= 0:\n        RETURN 0\n    END!\n    LET result = 0\n    LET val = x\n    WHILE? val >= 2000:\n        val = val * 1000 / 2718\n        result = result + 1000\n    END!\n    WHILE? val >= 200:\n        val = val * 1000 / 1105\n        result = result + 100\n    END!\n    WHILE? val >= 110:\n        val = val * 1000 / 1050\n        result = result + 50\n    END!\n    RETURN result\nEND!\n\nFUNC! mean(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET total = 0\n    LET i = 0\n    WHILE? i < LEN(arr):\n        total = total + arr[i]\n        i = i + 1\n    END!\n    RETURN total / LEN(arr)\nEND!\n\nFUNC! median(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET sorted = sort(arr)\n    LET n = LEN(sorted)\n    IF? n % 2 == 1:\n        RETURN sorted[n / 2]\n    ELSE:\n        RETURN (sorted[n / 2 - 1] + sorted[n / 2]) / 2\n    END!\nEND!\n\nFUNC! stddev(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET m = mean(arr)\n    LET sum_sq = 0\n    LET i = 0\n    WHILE? i < LEN(arr):\n        LET diff = arr[i] - m\n        sum_sq = sum_sq + diff * diff\n        i = i + 1\n    END!\n    RETURN SQRT(sum_sq / LEN(arr))\nEND!\n\nFUNC! variance(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET m = mean(arr)\n    LET sum_sq = 0\n    LET i = 0\n    WHILE? i < LEN(arr):\n        LET diff = arr[i] - m\n        sum_sq = sum_sq + diff * diff\n        i = i + 1\n    END!\n    RETURN sum_sq / LEN(arr)\nEND!\n\nFUNC! dot(a, b):\n    IF? LEN(a) != LEN(b):\n        RETURN 0\n    END!\n    LET result = 0\n    LET i = 0\n    WHILE? i < LEN(a):\n        result = result + a[i] * b[i]\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! vec_add(a, b):\n    IF? LEN(a) != LEN(b):\n        RETURN a\n    END!\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(a):\n        PUSH(result, a[i] + b[i])\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! vec_scale(arr, scalar):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(arr):\n        PUSH(result, arr[i] * scalar / 1000)\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! lerp(a, b, t):\n    RETURN a + (b - a) * t / 10000\nEND!\n\nFUNC! clamp_val(val, lo, hi):\n    IF? val < lo:\n        RETURN lo\n    END!\n    IF? val > hi:\n        RETURN hi\n    END!\n    RETURN val\nEND!\n\nFUNC! map_range(value, in_min, in_max, out_min, out_max):\n    LET t = (value - in_min) * 10000 / (in_max - in_min)\n    RETURN out_min + (out_max - out_min) * t / 10000\nEND!\n",
+          "hash": "c4326a7aed000f92c017c3103b75ce4d234a46d60af45a5739473eca7279f58e",
+          "description": "Extended math library (trig, stats, linear algebra)",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.590Z",
+          "size": 3033
+        }
+      },
+      "created": "2026-08-26T03:31:23.588Z",
+      "description": "Extended math library (trig, stats, linear algebra)",
+      "author": "CODURRALABS"
+    },
+    "collections": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Collections\r\n# Array and collection utilities\r\n\r\nFUNC! find(arr, value):\r\n  LET i = 0\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    IF? arr[i] == value:\r\n      RETURN i\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN -1\r\nEND!\r\n\r\nFUNC! contains(arr, value):\r\n  RETURN find(arr, value) != -1\r\nEND!\r\n\r\nFUNC! reverse_array(arr):\r\n  LET len = LEN(arr)\r\n  LET result = []\r\n  LET i = len - 1\r\n  WHILE? i >= 0:\r\n    result = result + [arr[i]]\r\n    i = i - 1\r\n  END!\r\n  RETURN result\r\nEND!\r\n\r\nFUNC! sum_array(arr):\r\n  LET total = 0\r\n  LET i = 0\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    total = total + arr[i]\r\n    i = i + 1\r\n  END!\r\n  RETURN total\r\nEND!\r\n\r\nFUNC! max_array(arr):\r\n  IF? LEN(arr) == 0:\r\n    RETURN 0\r\n  END!\r\n  LET m = arr[0]\r\n  LET i = 1\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    IF? arr[i] > m:\r\n      m = arr[i]\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN m\r\nEND!\r\n\r\nFUNC! min_array(arr):\r\n  IF? LEN(arr) == 0:\r\n    RETURN 0\r\n  END!\r\n  LET m = arr[0]\r\n  LET i = 1\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    IF? arr[i] < m:\r\n      m = arr[i]\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN m\r\nEND!\r\n",
+          "hash": "785ce3dc10f50753e99827b5cc25af36f7733abe10138e0e6c8e5e1ec0124527",
+          "description": "Array/collection utilities",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.595Z",
+          "size": 1138
+        }
+      },
+      "created": "2026-08-26T03:31:23.595Z",
+      "description": "Array/collection utilities",
+      "author": "CODURRALABS"
+    },
+    "sort": {
+      "versions": {
+        "1.0.0": {
+          "source": "# sort.nbs - Sorting algorithms for Nebulara\n\nFUNC! sort(arr):\n    LET n = LEN(arr)\n    IF? n <= 1:\n        RETURN arr\n    END!\n    LET i = 0\n    WHILE? i < n:\n        LET j = 0\n        WHILE? j < n - i - 1:\n            IF? arr[j] > arr[j + 1]:\n                LET tmp = arr[j]\n                arr[j] = arr[j + 1]\n                arr[j + 1] = tmp\n            END!\n            j = j + 1\n        END!\n        i = i + 1\n    END!\n    RETURN arr\nEND!\n\nFUNC! sort_strings(arr):\n    LET n = LEN(arr)\n    IF? n <= 1:\n        RETURN arr\n    END!\n    LET i = 0\n    WHILE? i < n:\n        LET j = 0\n        WHILE? j < n - i - 1:\n            IF? arr[j] > arr[j + 1]:\n                LET tmp = arr[j]\n                arr[j] = arr[j + 1]\n                arr[j + 1] = tmp\n            END!\n            j = j + 1\n        END!\n        i = i + 1\n    END!\n    RETURN arr\nEND!\n\nFUNC! binary_search(arr, target):\n    LET low = 0\n    LET high = LEN(arr) - 1\n    WHILE? low <= high:\n        LET mid = (low + high) / 2\n        IF? arr[mid] == target:\n            RETURN mid\n        END!\n        IF? arr[mid] < target:\n            low = mid + 1\n        ELSE:\n            high = mid - 1\n        END!\n    END!\n    RETURN -1\nEND!\n\nFUNC! find_min(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET min_val = arr[0]\n    LET i = 1\n    WHILE? i < LEN(arr):\n        IF? arr[i] < min_val:\n            min_val = arr[i]\n        END!\n        i = i + 1\n    END!\n    RETURN min_val\nEND!\n\nFUNC! find_max(arr):\n    IF? LEN(arr) == 0:\n        RETURN 0\n    END!\n    LET max_val = arr[0]\n    LET i = 1\n    WHILE? i < LEN(arr):\n        IF? arr[i] > max_val:\n            max_val = arr[i]\n        END!\n        i = i + 1\n    END!\n    RETURN max_val\nEND!\n",
+          "hash": "78e563c9e36a0f472d309ec1794c6bd44d6adb87402c28f22e446852900dd0cd",
+          "description": "Sorting algorithms and binary search",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.601Z",
+          "size": 1716
+        }
+      },
+      "created": "2026-08-26T03:31:23.600Z",
+      "description": "Sorting algorithms and binary search",
+      "author": "CODURRALABS"
+    },
+    "map": {
+      "versions": {
+        "1.0.0": {
+          "source": "# map.nbs - Key-Value Dictionary for Nebulara\n# Flat alternating key-value array: [key1, val1, key2, val2, ...]\n# NOTE: All functions return modified arrays; reassign: m = MAP_SET(m, k, v)\n\nFUNC! MAP():\n    RETURN []\nEND!\n\nFUNC! MAP_SIZE(m):\n    RETURN LEN(m) / 2\nEND!\n\nFUNC! MAP_HAS(m, key):\n    LET i = 0\n    WHILE? i < LEN(m):\n        IF? m[i] == key:\n            RETURN 1\n        END!\n        i = i + 2\n    END!\n    RETURN 0\nEND!\n\nFUNC! MAP_GET(m, key):\n    LET i = 0\n    WHILE? i < LEN(m):\n        IF? m[i] == key:\n            RETURN m[i + 1]\n        END!\n        i = i + 2\n    END!\n    RETURN \"\"\nEND!\n\n# Returns new array - caller MUST reassign: m = MAP_SET(m, k, v)\nFUNC! MAP_SET(m, key, value):\n    LET result = []\n    LET i = 0\n    LET found = 0\n    WHILE? i < LEN(m):\n        IF? m[i] == key:\n            PUSH(result, key)\n            PUSH(result, value)\n            found = 1\n        ELSE:\n            PUSH(result, m[i])\n            PUSH(result, m[i + 1])\n        END!\n        i = i + 2\n    END!\n    IF? found == 0:\n        PUSH(result, key)\n        PUSH(result, value)\n    END!\n    RETURN result\nEND!\n\n# Returns new array - caller MUST reassign: m = MAP_REMOVE(m, k)\nFUNC! MAP_REMOVE(m, key):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(m):\n        IF? m[i] != key:\n            PUSH(result, m[i])\n            PUSH(result, m[i + 1])\n        END!\n        i = i + 2\n    END!\n    RETURN result\nEND!\n\nFUNC! MAP_KEYS(m):\n    LET keys = []\n    LET i = 0\n    WHILE? i < LEN(m):\n        PUSH(keys, m[i])\n        i = i + 2\n    END!\n    RETURN keys\nEND!\n\nFUNC! MAP_VALUES(m):\n    LET vals = []\n    LET i = 1\n    WHILE? i < LEN(m):\n        PUSH(vals, m[i])\n        i = i + 2\n    END!\n    RETURN vals\nEND!\n\nFUNC! MAP_MERGE(a, b):\n    LET result = MAP()\n    LET i = 0\n    WHILE? i < LEN(a):\n        result = MAP_SET(result, a[i], a[i + 1])\n        i = i + 2\n    END!\n    LET i = 0\n    WHILE? i < LEN(b):\n        result = MAP_SET(result, b[i], b[i + 1])\n        i = i + 2\n    END!\n    RETURN result\nEND!\n",
+          "hash": "5e5eb50d16464d498aaa011b48d4b31bbb3ace2a00c7df6ce019bda9ac200dfc",
+          "description": "Key-value dictionary data structure",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.606Z",
+          "size": 2010
+        }
+      },
+      "created": "2026-08-26T03:31:23.606Z",
+      "description": "Key-value dictionary data structure",
+      "author": "CODURRALABS"
+    },
+    "set": {
+      "versions": {
+        "1.0.0": {
+          "source": "# set.nbs - Set data structure for Nebulara\n# NOTE: All functions return new arrays; caller MUST reassign\n\nFUNC! SET():\n    RETURN []\nEND!\n\nFUNC! SET_HAS(s, elem):\n    LET i = 0\n    WHILE? i < LEN(s):\n        IF? s[i] == elem:\n            RETURN 1\n        END!\n        i = i + 1\n    END!\n    RETURN 0\nEND!\n\n# Returns new array - caller MUST reassign: s = SET_ADD(s, elem)\nFUNC! SET_ADD(s, elem):\n    IF? SET_HAS(s, elem) == 1:\n        RETURN s\n    END!\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(s):\n        PUSH(result, s[i])\n        i = i + 1\n    END!\n    PUSH(result, elem)\n    RETURN result\nEND!\n\n# Returns new array - caller MUST reassign: s = SET_REMOVE(s, elem)\nFUNC! SET_REMOVE(s, elem):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(s):\n        IF? s[i] != elem:\n            PUSH(result, s[i])\n        END!\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! SET_UNION(a, b):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(a):\n        result = SET_ADD(result, a[i])\n        i = i + 1\n    END!\n    LET i = 0\n    WHILE? i < LEN(b):\n        result = SET_ADD(result, b[i])\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! SET_INTERSECT(a, b):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(a):\n        IF? SET_HAS(b, a[i]) == 1:\n            result = SET_ADD(result, a[i])\n        END!\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! SET_DIFF(a, b):\n    LET result = []\n    LET i = 0\n    WHILE? i < LEN(a):\n        IF? SET_HAS(b, a[i]) == 0:\n            result = SET_ADD(result, a[i])\n        END!\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! SET_SIZE(s):\n    RETURN LEN(s)\nEND!\n",
+          "hash": "c1023772f276e5d632fe1becd90be8edcb941fa36a8cc5cf2879b88c512aa9bb",
+          "description": "Set data structure (union, intersection, diff)",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.611Z",
+          "size": 1646
+        }
+      },
+      "created": "2026-08-26T03:31:23.611Z",
+      "description": "Set data structure (union, intersection, diff)",
+      "author": "CODURRALABS"
+    },
+    "json": {
+      "versions": {
+        "1.0.0": {
+          "source": "# JSON parser and stringifier\r\n# Pure Nebulara implementation\r\n# Each parse function returns [value, new_position]\r\n\r\nFUNC! json_parse(xstr):\r\n    IF? LEN(xstr) == 0: RETURN NULL\r\n    END!\r\n    LET xr = parse_val(xstr, 0)\r\n    LET xinner = xr[0]\r\n    LET xpos = xr[1]\r\n    RETURN xinner\r\nEND!\r\n\r\nFUNC! parse_val(ps, pp):\r\n    LET pnp = skip_ws(ps, pp)\r\n    LET pc = CHAR_AT(ps, pnp)\r\n    IF? pc == \"\\\"\":\r\n        RETURN parse_str(ps, pnp + 1)\r\n    ELSEIF? pc == \"t\" OR pc == \"T\":\r\n        RETURN [TRUE, pnp + 4]\r\n    ELSEIF? pc == \"f\" OR pc == \"F\":\r\n        RETURN [FALSE, pnp + 5]\r\n    ELSEIF? pc == \"n\" OR pc == \"N\":\r\n        RETURN [NULL, pnp + 4]\r\n    ELSEIF? pc == \"{\":\r\n        RETURN parse_obj(ps, pnp + 1)\r\n    ELSEIF? pc == \"[\":\r\n        RETURN parse_arr(ps, pnp + 1)\r\n    ELSEIF? (ORD(pc) >= 48 AND ORD(pc) <= 57) OR pc == \"-\":\r\n        RETURN parse_num(ps, pnp)\r\n    END!\r\n    RETURN [NULL, pnp]\r\nEND!\r\n\r\nFUNC! skip_ws(ss, sp):\r\n    LET sn = LEN(ss)\r\n    WHILE? sp < sn:\r\n        LET sc = CHAR_AT(ss, sp)\r\n        IF? sc == \" \" OR sc == \"\\n\" OR sc == \"\\r\" OR sc == \"\\t\":\r\n            sp = sp + 1\r\n        ELSE:\r\n            BREAK\r\n        END!\r\n    END!\r\n    RETURN sp\r\nEND!\r\n\r\nFUNC! parse_str(ps2, pp2):\r\n    LET pn = LEN(ps2)\r\n    LET presult = \"\"\r\n    WHILE? pp2 < pn:\r\n        LET pc2 = CHAR_AT(ps2, pp2)\r\n        IF? pc2 == \"\\\"\":\r\n            RETURN [presult, pp2 + 1]\r\n        ELSEIF? pc2 == \"\\\\\":\r\n            pp2 = pp2 + 1\r\n            IF? pp2 < pn:\r\n                LET pesc = CHAR_AT(ps2, pp2)\r\n                IF? pesc == \"n\": presult = presult + \"\\n\"\r\n                ELSEIF? pesc == \"t\": presult = presult + \"\\t\"\r\n                ELSEIF? pesc == \"\\\\\": presult = presult + \"\\\\\"\r\n                ELSEIF? pesc == \"\\\"\": presult = presult + \"\\\"\"\r\n                ELSEIF? pesc == \"/\": presult = presult + \"/\"\r\n                ELSE: presult = presult + pesc\r\n                END!\r\n            END!\r\n            pp2 = pp2 + 1\r\n        ELSE:\r\n            presult = presult + pc2\r\n            pp2 = pp2 + 1\r\n        END!\r\n    END!\r\n    RETURN [presult, pp2]\r\nEND!\r\n\r\nFUNC! parse_num(pns, pnp2):\r\n    LET pstart = pnp2\r\n    LET pnn = LEN(pns)\r\n    IF? CHAR_AT(pns, pnp2) == \"-\":\r\n        pnp2 = pnp2 + 1\r\n    END!\r\n    WHILE? pnp2 < pnn:\r\n        LET pnc = CHAR_AT(pns, pnp2)\r\n        IF? ORD(pnc) >= 48 AND ORD(pnc) <= 57:\r\n            pnp2 = pnp2 + 1\r\n        ELSE:\r\n            BREAK\r\n        END!\r\n    END!\r\n    LET pnum_str = SUBSTR(pns, pstart, pnp2 - pstart)\r\n    RETURN [TO_NUMBER(pnum_str), pnp2]\r\nEND!\r\n\r\nFUNC! parse_arr(xs, xp):\r\n    LET xarr = []\r\n    LET xnp = skip_ws(xs, xp)\r\n    IF? CHAR_AT(xs, xnp) == \"]\":\r\n        RETURN [xarr, xnp + 1]\r\n    END!\r\n    LET xiter = 0\r\n    WHILE? TRUE:\r\n        xiter = xiter + 1\r\n        IF? xiter > 1000:\r\n            PRINT(\"INFINITE LOOP in parse_arr\")\r\n            RETURN [xarr, xnp]\r\n        END!\r\n        LET xr = parse_val(xs, xnp)\r\n        xarr = PUSH(xarr, xr[0])\r\n        xnp = skip_ws(xs, xr[1])\r\n        IF? CHAR_AT(xs, xnp) == \",\":\r\n            xnp = xnp + 1\r\n        ELSEIF? CHAR_AT(xs, xnp) == \"]\":\r\n            RETURN [xarr, xnp + 1]\r\n        ELSE:\r\n            RETURN [xarr, xnp]\r\n        END!\r\n    END!\r\n    RETURN [xarr, xnp]\r\nEND!\r\n\r\nFUNC! parse_obj(os, op):\r\n    LET oobj = []\r\n    LET onp = skip_ws(os, op)\r\n    IF? CHAR_AT(os, onp) == \"}\":\r\n        RETURN [oobj, onp + 1]\r\n    END!\r\n    WHILE? TRUE:\r\n        LET okr = parse_str(os, onp)\r\n        onp = skip_ws(os, okr[1])\r\n        IF? CHAR_AT(os, onp) == \":\":\r\n            onp = onp + 1\r\n        END!\r\n        LET ovr = parse_val(os, onp)\r\n        oobj = PUSH(oobj, okr[0])\r\n        oobj = PUSH(oobj, ovr[0])\r\n        onp = skip_ws(os, ovr[1])\r\n        IF? CHAR_AT(os, onp) == \",\":\r\n            onp = onp + 1\r\n        ELSEIF? CHAR_AT(os, onp) == \"}\":\r\n            RETURN [oobj, onp + 1]\r\n        ELSE:\r\n            RETURN [oobj, onp]\r\n        END!\r\n    END!\r\n    RETURN [oobj, onp]\r\nEND!\r\n\r\nFUNC! json_stringify(val):\r\n    LET t = TYPEOF(val)\r\n    IF? t == \"null\": RETURN \"null\"\r\n    ELSEIF? t == \"bool\":\r\n        IF? val: RETURN \"true\"\r\n        ELSE: RETURN \"false\"\r\n        END!\r\n    ELSEIF? t == \"int\": RETURN TO_STRING(val)\r\n    ELSEIF? t == \"string\": RETURN \"\\\"\" + escape_str(val) + \"\\\"\"\r\n    ELSEIF? t == \"array\":\r\n        LET n = LEN(val)\r\n        IF? n == 0: RETURN \"[]\"\r\n        END!\r\n        IF? n % 2 == 0 AND n > 1:\r\n            LET all_keys = TRUE\r\n            FOR! i = 0 TO n - 1 STEP 2:\r\n                IF? TYPEOF(val[i]) != \"string\":\r\n                    all_keys = FALSE\r\n                    BREAK\r\n                END!\r\n            END!\r\n            IF? all_keys:\r\n                LET result = \"{\"\r\n                FOR! i = 0 TO n - 1 STEP 2:\r\n                    IF? i > 0: result = result + \",\"\r\n                    END!\r\n                    result = result + json_stringify(val[i]) + \":\" + json_stringify(val[i + 1])\r\n                END!\r\n                RETURN result + \"}\"\r\n            END!\r\n        END!\r\n        LET result = \"[\"\r\n        FOR! i = 0 TO n - 1:\r\n            IF? i > 0: result = result + \",\"\r\n            END!\r\n            result = result + json_stringify(val[i])\r\n        END!\r\n        RETURN result + \"]\"\r\n    END!\r\n    RETURN \"null\"\r\nEND!\r\n\r\nFUNC! escape_str(s):\r\n    LET n = LEN(s)\r\n    LET result = \"\"\r\n    FOR! i = 0 TO n - 1:\r\n        LET c = CHAR_AT(s, i)\r\n        IF? c == \"\\\"\": result = result + \"\\\\\\\"\"\r\n        ELSEIF? c == \"\\\\\": result = result + \"\\\\\\\\\"\r\n        ELSEIF? c == \"\\n\": result = result + \"\\\\n\"\r\n        ELSEIF? c == \"\\t\": result = result + \"\\\\t\"\r\n        ELSEIF? c == \"\\r\": result = result + \"\\\\r\"\r\n        ELSE: result = result + c\r\n        END!\r\n    END!\r\n    RETURN result\r\nEND!\r\n",
+          "hash": "54522184b4b313dd8ea3830795e212b605ff6f4a06eaa039b8a169325f703d74",
+          "description": "JSON parser and stringifier",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.617Z",
+          "size": 5684
+        }
+      },
+      "created": "2026-08-26T03:31:23.616Z",
+      "description": "JSON parser and stringifier",
+      "author": "CODURRALABS"
+    },
+    "net": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Net\n# Network and HTTP utilities\n# Uses FFI to call system curl via popen() for HTTP requests\n\n# http_get(url) - fetches URL content using system curl\n# Returns response body as string, or NULL on failure\nFUNC! http_get(url):\n  # Load C library for popen/pclose\n  LET lib = FFI_LOAD(\"libc\", \"libc.so.6\")\n  IF? lib == -1:\n    # Try Windows MSVCRT\n    lib = FFI_LOAD(\"msvcrt\", \"msvcrt.dll\")\n  END!\n  IF? lib == -1:\n    PRINT(\"net.http_get: cannot load C library for popen\")\n    RETURN NULL\n  END!\n\n  # Register popen: FILE* popen(const char* cmd, const char* mode)\n  FFI_REGISTER(\"libc\", \"popen\", 4, 2)\n  # Register pclose: int pclose(FILE* fp)\n  FFI_REGISTER(\"libc\", \"pclose\", 1, 1)\n  # Register fgets: char* fgets(char* buf, int size, FILE* fp)\n  FFI_REGISTER(\"libc\", \"fgets\", 4, 3)\n  # Register feof: int feof(FILE* fp)\n  FFI_REGISTER(\"libc\", \"feof\", 1, 1)\n\n  # Build curl command\n  LET cmd = \"curl -s -L \\\"\" + url + \"\\\"\"\n\n  # popen(cmd, \"r\")\n  LET fp = FFI_CALL(\"libc\", \"popen\", cmd, \"r\")\n  IF? fp == 0:\n    PRINT(\"net.http_get: popen failed\")\n    RETURN NULL\n  END!\n\n  # Read output in chunks\n  LET result = \"\"\n  LET buf = \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\"\n  WHILE? TRUE:\n    FFI_CALL(\"libc\", \"fgets\", buf, 16, fp)\n    IF? FFI_CALL(\"libc\", \"feof\", fp) != 0:\n      BREAK\n    END!\n    result = result + buf\n  END!\n\n  FFI_CALL(\"libc\", \"pclose\", fp)\n  RETURN result\nEND!\n\n# http_post(url, body) - POST request (stub, needs custom implementation)\nFUNC! http_post(url, body):\n  PRINT(\"net.http_post: POST via curl not yet implemented\")\n  RETURN NULL\nEND!\n\n# serve(port) - start HTTP server (stub)\nFUNC! serve(port):\n  PRINT(\"net.serve: HTTP server not yet implemented\")\n  RETURN NULL\nEND!\n",
+          "hash": "3a3d21b20dccf446068ae8bd317d07285563e4956a59e6b354b10158d43e96c9",
+          "description": "HTTP client via FFI/curl",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.624Z",
+          "size": 1717
+        }
+      },
+      "created": "2026-08-26T03:31:23.624Z",
+      "description": "HTTP client via FFI/curl",
+      "author": "CODURRALABS"
+    },
+    "time": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Time\n# Time and date utilities\n\nFUNC! now():\n  RETURN TIME()\nEND!\n\nFUNC! elapsed(start_time):\n  RETURN TIME() - start_time\nEND!\n\n# SLEEP(ms) - built into VM, pauses execution for given milliseconds\n# Returns 0\nFUNC! sleep(ms):\n  SLEEP(ms)\nEND!\n\n# format_time(unix_ts) - returns \"YYYY-MM-DD HH:MM:SS\" from a Unix timestamp\n# Uses FFI to strftime for reliable formatting\nFUNC! format_time(unix_ts):\n  # Placeholder: returns raw timestamp as string\n  RETURN TO_STRING(unix_ts)\nEND!\n",
+          "hash": "adb71621e8e0a7224b84cf1edc7edf81ac2956f062130ff1ce35f383298e5d89",
+          "description": "Time and sleep utilities",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.630Z",
+          "size": 509
+        }
+      },
+      "created": "2026-08-26T03:31:23.630Z",
+      "description": "Time and sleep utilities",
+      "author": "CODURRALABS"
+    },
+    "os": {
+      "versions": {
+        "1.0.0": {
+          "source": "# os.nbs - Operating System utilities for Nebulara\n\nFUNC! exec(command):\n    LET lib = FFI_LOAD(\"c\", \"libc.so.6\")\n    IF? lib == -1:\n        lib = FFI_LOAD(\"c\", \"msvcrt.dll\")\n    END!\n    IF? lib == -1:\n        RETURN \"\"\n    END!\n    LET fp = FFI_REGISTER(lib, \"popen\", 5, 2)\n    LET fgets_fn = FFI_REGISTER(lib, \"fgets\", 5, 3)\n    LET feof_fn = FFI_REGISTER(lib, \"feof\", 1, 1)\n    LET pclose_fn = FFI_REGISTER(lib, \"pclose\", 1, 1)\n    LET handle = FFI_CALL(lib, \"popen\", command, \"r\")\n    IF? handle == 0:\n        RETURN \"\"\n    END!\n    LET result = \"\"\n    WHILE? TRUE:\n        LET buf = FFI_CALL(lib, \"fgets\", \"\", 4096, handle)\n        IF? buf == \"\":\n            BREAK\n        END!\n        result = result + buf\n    END!\n    FFI_CALL(lib, \"pclose\", handle)\n    RETURN result\nEND!\n\nFUNC! cwd():\n    LET lib = FFI_LOAD(\"c\", \"libc.so.6\")\n    IF? lib == -1:\n        lib = FFI_LOAD(\"c\", \"msvcrt.dll\")\n    END!\n    IF? lib == -1:\n        RETURN \".\"\n    END!\n    LET malloc_fn = FFI_REGISTER(lib, \"malloc\", 5, 1)\n    LET getcwd_fn = FFI_REGISTER(lib, \"getcwd\", 5, 2)\n    LET free_fn = FFI_REGISTER(lib, \"free\", 0, 1)\n    LET buf = FFI_CALL(lib, \"malloc\", 4096)\n    LET result = FFI_CALL(lib, \"getcwd\", buf, 4096)\n    FFI_CALL(lib, \"free\", buf)\n    IF? result == 0:\n        RETURN \".\"\n    END!\n    RETURN result\nEND!\n\nFUNC! platform():\n    LET check = exec(\"uname 2>/dev/null\")\n    IF? check == \"Linux\":\n        RETURN \"linux\"\n    END!\n    IF? check == \"Darwin\":\n        RETURN \"macos\"\n    END!\n    LET win = exec(\"ver 2>nul\")\n    IF? win != \"\":\n        RETURN \"windows\"\n    END!\n    RETURN \"unknown\"\nEND!\n\nFUNC! list_dir(path):\n    IF? path == \"\":\n        path = \".\"\n    END!\n    LET output = exec(\"ls \" + path + \" 2>/dev/null || dir /b \" + path + \" 2>nul\")\n    LET files = []\n    LET current = \"\"\n    LET i = 0\n    WHILE? i < LEN(output):\n        LET ch = CHAR_AT(output, i)\n        IF? ch == 10 OR ch == 13:\n            IF? current != \"\":\n                PUSH(files, current)\n                current = \"\"\n            END!\n        ELSE:\n            current = current + CHAR(ch)\n        END!\n        i = i + 1\n    END!\n    IF? current != \"\":\n        PUSH(files, current)\n    END!\n    RETURN files\nEND!\n",
+          "hash": "e928ff02c86210b8a553a547aec75a4efa536e21db49f432caa16807d3befca7",
+          "description": "OS utilities (exec, env, platform detection)",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.636Z",
+          "size": 2197
+        }
+      },
+      "created": "2026-08-26T03:31:23.635Z",
+      "description": "OS utilities (exec, env, platform detection)",
+      "author": "CODURRALABS"
+    },
+    "rand": {
+      "versions": {
+        "1.0.0": {
+          "source": "# rand.nbs - Random number utilities for Nebulara\n\nFUNC! rand_range(min_val, max_val):\n    IF? min_val >= max_val:\n        RETURN min_val\n    END!\n    LET range = max_val - min_val + 1\n    LET r = RANDOM()\n    WHILE? r >= range:\n        r = RANDOM()\n    END!\n    RETURN min_val + r\nEND!\n\nFUNC! rand_bool():\n    IF? RANDOM() >= 50:\n        RETURN 1\n    END!\n    RETURN 0\nEND!\n\nFUNC! rand_choice(arr):\n    IF? LEN(arr) == 0:\n        RETURN \"\"\n    END!\n    LET idx = rand_range(0, LEN(arr) - 1)\n    RETURN arr[idx]\nEND!\n\nFUNC! shuffle(arr):\n    LET n = LEN(arr)\n    LET i = n - 1\n    WHILE? i > 0:\n        LET j = rand_range(0, i)\n        LET tmp = arr[i]\n        arr[i] = arr[j]\n        arr[j] = tmp\n        i = i - 1\n    END!\n    RETURN arr\nEND!\n\nFUNC! rand_string(n):\n    LET result = \"\"\n    LET i = 0\n    WHILE? i < n:\n        LET code = rand_range(65, 122)\n        IF? code > 90 AND code < 97:\n            code = code - 43\n        END!\n        result = result + CHAR(code)\n        i = i + 1\n    END!\n    RETURN result\nEND!\n",
+          "hash": "b3ff44aeaeb7bc335a43e5f8378984d50e248665b4fa0a28465621be56cf31a6",
+          "description": "Random number generation and shuffling",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.643Z",
+          "size": 1025
+        }
+      },
+      "created": "2026-08-26T03:31:23.642Z",
+      "description": "Random number generation and shuffling",
+      "author": "CODURRALABS"
+    },
+    "fmt": {
+      "versions": {
+        "1.0.0": {
+          "source": "# fmt.nbs - String formatting for Nebulara\n\nFUNC! pad_left(s, target_len, pad_code):\n    LET result = s\n    WHILE? LEN(result) < target_len:\n        result = CHAR(pad_code) + result\n    END!\n    RETURN result\nEND!\n\nFUNC! pad_right(s, target_len, pad_code):\n    LET result = s\n    WHILE? LEN(result) < target_len:\n        result = result + CHAR(pad_code)\n    END!\n    RETURN result\nEND!\n\nFUNC! repeat_char(code, n):\n    LET result = \"\"\n    LET i = 0\n    WHILE? i < n:\n        result = result + CHAR(code)\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! fmt(template, args):\n    LET result = template\n    LET i = 0\n    WHILE? i < LEN(args):\n        LET placeholder = \"{\" + TO_STRING(i) + \"}\"\n        LET new_result = \"\"\n        LET k = 0\n        WHILE? k < LEN(result):\n            LET match = 1\n            LET m = 0\n            WHILE? m < LEN(placeholder):\n                IF? k + m < LEN(result):\n                    IF? CHAR_AT(result, k + m) != CHAR_AT(placeholder, m):\n                        match = 0\n                        BREAK\n                    END!\n                ELSE:\n                    match = 0\n                    BREAK\n                END!\n                m = m + 1\n            END!\n            IF? match == 1:\n                new_result = new_result + TO_STRING(args[i])\n                k = k + LEN(placeholder)\n            ELSE:\n                new_result = new_result + CHAR(CHAR_AT(result, k))\n                k = k + 1\n            END!\n        END!\n        result = new_result\n        i = i + 1\n    END!\n    RETURN result\nEND!\n",
+          "hash": "8a8cc73511ff28ef8ae20fc252f41778972bd4f5a6e0528d2c40500070e839b0",
+          "description": "String formatting and padding",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.648Z",
+          "size": 1562
+        }
+      },
+      "created": "2026-08-26T03:31:23.647Z",
+      "description": "String formatting and padding",
+      "author": "CODURRALABS"
+    },
+    "args": {
+      "versions": {
+        "1.0.0": {
+          "source": "# args.nbs - Command line argument parsing for Nebulara\n\nFUNC! args():\n    LET count = ARGUMENT_COUNT()\n    LET result = []\n    LET i = 0\n    WHILE? i < count:\n        PUSH(result, ARGUMENT(i))\n        i = i + 1\n    END!\n    RETURN result\nEND!\n\nFUNC! program_name():\n    IF? ARGUMENT_COUNT() > 0:\n        RETURN ARGUMENT(0)\n    END!\n    RETURN \"neb\"\nEND!\n\nFUNC! has_flag(flag):\n    LET count = ARGUMENT_COUNT()\n    LET i = 0\n    WHILE? i < count:\n        IF? ARGUMENT(i) == flag:\n            RETURN 1\n        END!\n        i = i + 1\n    END!\n    RETURN 0\nEND!\n\nFUNC! find_arg(prefix):\n    LET count = ARGUMENT_COUNT()\n    LET i = 0\n    WHILE? i < count:\n        LET arg = ARGUMENT(i)\n        IF? LEN(arg) >= LEN(prefix):\n            LET match = 1\n            LET j = 0\n            WHILE? j < LEN(prefix):\n                IF? CHAR_AT(arg, j) != CHAR_AT(prefix, j):\n                    match = 0\n                    BREAK\n                END!\n                j = j + 1\n            END!\n            IF? match == 1:\n                LET val = \"\"\n                LET k = LEN(prefix)\n                WHILE? k < LEN(arg):\n                    val = val + CHAR(CHAR_AT(arg, k))\n                    k = k + 1\n                END!\n                IF? val == \"\":\n                    IF? i + 1 < count:\n                        RETURN ARGUMENT(i + 1)\n                    END!\n                    RETURN \"\"\n                END!\n                RETURN val\n            END!\n        END!\n        i = i + 1\n    END!\n    RETURN \"\"\nEND!\n",
+          "hash": "9415978aab64b3fb7a5d2f5fcbb0c01b5a942947d6fbfc56c97cd33d0456a6c7",
+          "description": "Command line argument parsing",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.653Z",
+          "size": 1514
+        }
+      },
+      "created": "2026-08-26T03:31:23.652Z",
+      "description": "Command line argument parsing",
+      "author": "CODURRALABS"
+    },
+    "test": {
+      "versions": {
+        "1.0.0": {
+          "source": "# test.nbs - Unit testing framework for Nebulara\n\nLET _test_count = 0\nLET _test_pass = 0\nLET _test_fail = 0\n\nFUNC! ASSERT_EQUALS(actual, expected, desc):\n    _test_count = _test_count + 1\n    IF? actual == expected:\n        _test_pass = _test_pass + 1\n        PRINT \"  PASS: \" + desc\n    ELSE:\n        _test_fail = _test_fail + 1\n        PRINT \"  FAIL: \" + desc\n        PRINT \"    Expected: \" + TO_STRING(expected)\n        PRINT \"    Actual:   \" + TO_STRING(actual)\n    END!\nEND!\n\nFUNC! ASSERT_NOT_EQUALS(actual, expected, desc):\n    _test_count = _test_count + 1\n    IF? actual != expected:\n        _test_pass = _test_pass + 1\n        PRINT \"  PASS: \" + desc\n    ELSE:\n        _test_fail = _test_fail + 1\n        PRINT \"  FAIL: \" + desc\n        PRINT \"    Expected NOT: \" + TO_STRING(expected)\n    END!\nEND!\n\nFUNC! ASSERT_TRUE(condition, desc):\n    _test_count = _test_count + 1\n    IF? condition == 1:\n        _test_pass = _test_pass + 1\n        PRINT \"  PASS: \" + desc\n    ELSE:\n        _test_fail = _test_fail + 1\n        PRINT \"  FAIL: \" + desc\n        PRINT \"    Expected: TRUE\"\n        PRINT \"    Actual:   \" + TO_STRING(condition)\n    END!\nEND!\n\nFUNC! ASSERT_FALSE(condition, desc):\n    _test_count = _test_count + 1\n    IF? condition == 0:\n        _test_pass = _test_pass + 1\n        PRINT \"  PASS: \" + desc\n    ELSE:\n        _test_fail = _test_fail + 1\n        PRINT \"  FAIL: \" + desc\n        PRINT \"    Expected: FALSE\"\n    END!\nEND!\n\nFUNC! TEST_SUMMARY():\n    PRINT \"\"\n    PRINT \"==============================\"\n    PRINT \"  TEST RESULTS\"\n    PRINT \"==============================\"\n    PRINT \"  Total:  \" + TO_STRING(_test_count)\n    PRINT \"  Passed: \" + TO_STRING(_test_pass)\n    PRINT \"  Failed: \" + TO_STRING(_test_fail)\n    PRINT \"==============================\"\n    IF? _test_fail == 0:\n        PRINT \"  ALL TESTS PASSED\"\n    ELSE:\n        PRINT \"  SOME TESTS FAILED\"\n    END!\n    PRINT \"==============================\"\nEND!\n",
+          "hash": "0eea42a82fe3c5f110f9167275649f5f13999704c876f47540ba5a2b7867dc34",
+          "description": "Unit testing framework",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.661Z",
+          "size": 1942
+        }
+      },
+      "created": "2026-08-26T03:31:23.660Z",
+      "description": "Unit testing framework",
+      "author": "CODURRALABS"
+    },
+    "kanban": {
+      "versions": {
+        "1.0.0": {
+          "source": "# Nebulara Standard Library - Kanban\r\n# Task board data structures and operations\r\n# Uses arrays for columns and a flat task list\r\n\r\n# Board state: four column arrays storing task IDs, and a tasks array\r\nLET _todo = []\r\nLET _in_progress = []\r\nLET _review = []\r\nLET _done = []\r\nLET _tasks = []\r\nLET _next_id = 1\r\n\r\n# Create a new task and add it to the todo column\r\nFUNC! create_task(title, description, priority):\r\n  LET task = [_next_id, title, description, priority, \"todo\"]\r\n  _tasks = _tasks + [task]\r\n  _todo = _todo + [_next_id]\r\n  _next_id = _next_id + 1\r\n  RETURN task[0]\r\nEND!\r\n\r\n# Move a task to a new column\r\n# status must be: \"todo\", \"in_progress\", \"review\", or \"done\"\r\nFUNC! move_task(task_id, new_status):\r\n  LET i = 0\r\n  LET len = LEN(_tasks)\r\n  WHILE? i < len:\r\n    IF? _tasks[i][0] == task_id:\r\n      LET old_status = _tasks[i][4]\r\n      IF? old_status == new_status:\r\n        RETURN TRUE\r\n      END!\r\n      _tasks[i][4] = new_status\r\n      # Remove task_id from old column\r\n      IF? old_status == \"todo\":\r\n        _todo = _remove_id(_todo, task_id)\r\n      END!\r\n      IF? old_status == \"in_progress\":\r\n        _in_progress = _remove_id(_in_progress, task_id)\r\n      END!\r\n      IF? old_status == \"review\":\r\n        _review = _remove_id(_review, task_id)\r\n      END!\r\n      IF? old_status == \"done\":\r\n        _done = _remove_id(_done, task_id)\r\n      END!\r\n      # Add task_id to new column\r\n      IF? new_status == \"todo\":\r\n        _todo = _todo + [task_id]\r\n      END!\r\n      IF? new_status == \"in_progress\":\r\n        _in_progress = _in_progress + [task_id]\r\n      END!\r\n      IF? new_status == \"review\":\r\n        _review = _review + [task_id]\r\n      END!\r\n      IF? new_status == \"done\":\r\n        _done = _done + [task_id]\r\n      END!\r\n      RETURN TRUE\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN FALSE\r\nEND!\r\n\r\n# Get a task by ID, returns the task array or NULL\r\nFUNC! get_task(task_id):\r\n  LET i = 0\r\n  LET len = LEN(_tasks)\r\n  WHILE? i < len:\r\n    IF? _tasks[i][0] == task_id:\r\n      RETURN _tasks[i]\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN NULL\r\nEND!\r\n\r\n# Print the full board state\r\nFUNC! print_board():\r\n  PRINT \"=== TODO ===\"\r\n  _print_column(_todo)\r\n  PRINT \"=== IN PROGRESS ===\"\r\n  _print_column(_in_progress)\r\n  PRINT \"=== REVIEW ===\"\r\n  _print_column(_review)\r\n  PRINT \"=== DONE ===\"\r\n  _print_column(_done)\r\nEND!\r\n\r\n# Print task summary for a list of task IDs\r\nFUNC! _print_column(column):\r\n  LET i = 0\r\n  LET len = LEN(column)\r\n  WHILE? i < len:\r\n    LET task = get_task(column[i])\r\n    IF? task != NULL:\r\n      PRINT task[0] + \": \" + task[1] + \" [\" + task[3] + \"]\"\r\n    END!\r\n    i = i + 1\r\n  END!\r\nEND!\r\n\r\n# Remove a task ID from an array of IDs, return new array\r\nFUNC! _remove_id(arr, task_id):\r\n  LET result = []\r\n  LET i = 0\r\n  LET len = LEN(arr)\r\n  WHILE? i < len:\r\n    IF? arr[i] != task_id:\r\n      result = result + [arr[i]]\r\n    END!\r\n    i = i + 1\r\n  END!\r\n  RETURN result\r\nEND!\r\n\r\n# Count tasks in a column\r\nFUNC! column_count(column):\r\n  RETURN LEN(column)\r\nEND!",
+          "hash": "6d6f5e628951036d984a444a230c2c8c4c204a2b211b10bd5e572f99816b8c48",
+          "description": "Kanban board data structure",
+          "author": "CODURRALABS",
+          "tags": [
+            "stdlib",
+            "official"
+          ],
+          "published": "2026-08-26T03:31:23.667Z",
+          "size": 3012
+        }
+      },
+      "created": "2026-08-26T03:31:23.666Z",
+      "description": "Kanban board data structure",
+      "author": "CODURRALABS"
+    }
+  }
+}

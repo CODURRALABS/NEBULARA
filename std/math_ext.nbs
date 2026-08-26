@@ -1,0 +1,160 @@
+# math_ext.nbs - Extended Math Library (Nebulara's numpy-lite)
+
+LET PI_SCALED = 31416
+
+FUNC! sin_approx(x):
+    LET two_pi = 62832
+    LET result = x
+    WHILE? result > two_pi:
+        result = result - two_pi
+    END!
+    WHILE? result < 0:
+        result = result + two_pi
+    END!
+    LET x2 = result * result / 10000
+    LET term = result
+    LET sum_val = term
+    LET i = 1
+    WHILE? i < 6:
+        term = -term * x2 / ((2 * i) * (2 * i + 1) * 10000)
+        sum_val = sum_val + term
+        i = i + 1
+    END!
+    RETURN sum_val
+END!
+
+FUNC! cos_approx(x):
+    RETURN sin_approx(x + PI_SCALED / 2)
+END!
+
+FUNC! ln_approx(x):
+    IF? x <= 0:
+        RETURN 0
+    END!
+    LET result = 0
+    LET val = x
+    WHILE? val >= 2000:
+        val = val * 1000 / 2718
+        result = result + 1000
+    END!
+    WHILE? val >= 200:
+        val = val * 1000 / 1105
+        result = result + 100
+    END!
+    WHILE? val >= 110:
+        val = val * 1000 / 1050
+        result = result + 50
+    END!
+    RETURN result
+END!
+
+FUNC! mean(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET total = 0
+    LET i = 0
+    WHILE? i < LEN(arr):
+        total = total + arr[i]
+        i = i + 1
+    END!
+    RETURN total / LEN(arr)
+END!
+
+FUNC! median(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET sorted = sort(arr)
+    LET n = LEN(sorted)
+    IF? n % 2 == 1:
+        RETURN sorted[n / 2]
+    ELSE:
+        RETURN (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+    END!
+END!
+
+FUNC! stddev(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET m = mean(arr)
+    LET sum_sq = 0
+    LET i = 0
+    WHILE? i < LEN(arr):
+        LET diff = arr[i] - m
+        sum_sq = sum_sq + diff * diff
+        i = i + 1
+    END!
+    RETURN SQRT(sum_sq / LEN(arr))
+END!
+
+FUNC! variance(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET m = mean(arr)
+    LET sum_sq = 0
+    LET i = 0
+    WHILE? i < LEN(arr):
+        LET diff = arr[i] - m
+        sum_sq = sum_sq + diff * diff
+        i = i + 1
+    END!
+    RETURN sum_sq / LEN(arr)
+END!
+
+FUNC! dot(a, b):
+    IF? LEN(a) != LEN(b):
+        RETURN 0
+    END!
+    LET result = 0
+    LET i = 0
+    WHILE? i < LEN(a):
+        result = result + a[i] * b[i]
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! vec_add(a, b):
+    IF? LEN(a) != LEN(b):
+        RETURN a
+    END!
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(a):
+        PUSH(result, a[i] + b[i])
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! vec_scale(arr, scalar):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(arr):
+        PUSH(result, arr[i] * scalar / 1000)
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! lerp(a, b, t):
+    RETURN a + (b - a) * t / 10000
+END!
+
+FUNC! clamp_val(val, lo, hi):
+    IF? val < lo:
+        RETURN lo
+    END!
+    IF? val > hi:
+        RETURN hi
+    END!
+    RETURN val
+END!
+
+FUNC! map_range(value, in_min, in_max, out_min, out_max):
+    LET t = (value - in_min) * 10000 / (in_max - in_min)
+    RETURN out_min + (out_max - out_min) * t / 10000
+END!
