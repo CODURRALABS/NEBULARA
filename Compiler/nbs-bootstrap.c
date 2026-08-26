@@ -333,11 +333,13 @@ int val_equals(Value a, Value b) {
 
 int val_less(Value a, Value b) {
     if (a.type == VAL_INT && b.type == VAL_INT) return a.as.i < b.as.i;
+    if (a.type == VAL_STRING && b.type == VAL_STRING) return strcmp(a.as.s, b.as.s) < 0;
     return 0;
 }
 
 int val_greater(Value a, Value b) {
     if (a.type == VAL_INT && b.type == VAL_INT) return a.as.i > b.as.i;
+    if (a.type == VAL_STRING && b.type == VAL_STRING) return strcmp(a.as.s, b.as.s) > 0;
     return 0;
 }
 
