@@ -1,0 +1,245 @@
+# lexer.nbs — Self-hosted lexer for Nebulara
+# Tokenizes Nebulara source code into token strings
+# Token format: TYPE:value:line
+
+FUNC! is_alpha(ch):
+    LET code = ORD(ch)
+    RETURN (code >= 97 AND code <= 122) OR (code >= 65 AND code <= 90) OR code == 95
+END!
+
+FUNC! is_digit(ch):
+    LET code = ORD(ch)
+    RETURN code >= 48 AND code <= 57
+END!
+
+FUNC! is_alnum(ch):
+    RETURN is_alpha(ch) OR is_digit(ch)
+END!
+
+FUNC! keyword_type(word):
+    IF? word == "FUNC!": RETURN "FUNC"
+    END!
+    IF? word == "END!": RETURN "END"
+    END!
+    IF? word == "IF?": RETURN "IF"
+    END!
+    IF? word == "ELSEIF?": RETURN "ELSEIF"
+    END!
+    IF? word == "WHILE?": RETURN "WHILE"
+    END!
+    IF? word == "FOR!": RETURN "FOR"
+    END!
+    IF? word == "LET": RETURN "LET"
+    END!
+    IF? word == "CONST": RETURN "CONST"
+    END!
+    IF? word == "RETURN": RETURN "RETURN"
+    END!
+    IF? word == "BREAK": RETURN "BREAK"
+    END!
+    IF? word == "CONTINUE": RETURN "CONTINUE"
+    END!
+    IF? word == "PRINT": RETURN "PRINT"
+    END!
+    IF? word == "AND": RETURN "AND"
+    END!
+    IF? word == "OR": RETURN "OR"
+    END!
+    IF? word == "NOT": RETURN "NOT"
+    END!
+    IF? word == "TRUE": RETURN "TRUE"
+    END!
+    IF? word == "FALSE": RETURN "FALSE"
+    END!
+    IF? word == "NULL": RETURN "NULL"
+    END!
+    IF? word == "DATA!": RETURN "DATA"
+    END!
+    IF? word == "RUN!": RETURN "RUN"
+    END!
+    IF? word == "TRY!": RETURN "TRY"
+    END!
+    IF? word == "CATCH!": RETURN "CATCH"
+    END!
+    IF? word == "THROW": RETURN "THROW"
+    END!
+    IF? word == "FINALLY!": RETURN "FINALLY"
+    END!
+    IF? word == "ENDTRY!": RETURN "ENDTRY"
+    END!
+    IF? word == "IMPORT": RETURN "IMPORT"
+    END!
+    IF? word == "TO": RETURN "TO"
+    END!
+    IF? word == "STEP": RETURN "STEP"
+    END!
+    IF? word == "ELSE": RETURN "ELSE"
+    END!
+    RETURN "IDENT"
+END!
+
+FUNC! tokenize(src):
+    LET tokens = []
+    LET len = LEN(src)
+    LET pos = 0
+    LET line = 1
+
+    WHILE? pos < len:
+        LET ch = CHAR_AT(src, pos)
+
+        # Skip whitespace
+        IF? ch == " " OR ch == "\t" OR ch == "\r":
+            pos = pos + 1
+        ELSEIF? ch == "\n":
+            pos = pos + 1
+            line = line + 1
+        ELSEIF? ch == "#":
+            WHILE? pos < len AND CHAR_AT(src, pos) != "\n":
+                pos = pos + 1
+            END!
+        ELSEIF? is_digit(ch):
+            LET num = ""
+            WHILE? pos < len AND is_digit(CHAR_AT(src, pos)):
+                num = num + CHAR_AT(src, pos)
+                pos = pos + 1
+            END!
+            tokens = PUSH(tokens, "INT:" + num + ":" + TO_STRING(line))
+        ELSEIF? ch == "\"":
+            pos = pos + 1
+            LET str = ""
+            WHILE? pos < len AND CHAR_AT(src, pos) != "\"":
+                IF? CHAR_AT(src, pos) == "\\":
+                    pos = pos + 1
+                    IF? pos < len:
+                        LET esc = CHAR_AT(src, pos)
+                        IF? esc == "n": str = str + "\n"
+                        ELSEIF? esc == "t": str = str + "\t"
+                        ELSEIF? esc == "\\": str = str + "\\"
+                        ELSE: str = str + esc
+                        END!
+                    END!
+                ELSE:
+                    str = str + CHAR_AT(src, pos)
+                END!
+                pos = pos + 1
+            END!
+            IF? pos < len:
+                pos = pos + 1
+            END!
+            tokens = PUSH(tokens, "STRING:" + str + ":" + TO_STRING(line))
+        ELSEIF? is_alpha(ch):
+            LET word = ""
+            WHILE? pos < len AND is_alnum(CHAR_AT(src, pos)):
+                word = word + CHAR_AT(src, pos)
+                pos = pos + 1
+            END!
+            IF? pos < len AND CHAR_AT(src, pos) == "!":
+                word = word + "!"
+                pos = pos + 1
+            END!
+            IF? pos < len AND CHAR_AT(src, pos) == "?":
+                word = word + "?"
+                pos = pos + 1
+            END!
+            LET ttype = keyword_type(word)
+            tokens = PUSH(tokens, ttype + ":" + word + ":" + TO_STRING(line))
+        ELSEIF? ch == "+" OR ch == "-" OR ch == "*" OR ch == "/" OR ch == "%":
+            tokens = PUSH(tokens, ch + ":" + ch + ":" + TO_STRING(line))
+            pos = pos + 1
+        ELSEIF? ch == "(" OR ch == ")" OR ch == "[" OR ch == "]":
+            tokens = PUSH(tokens, ch + ":" + ch + ":" + TO_STRING(line))
+            pos = pos + 1
+        ELSEIF? ch == "," OR ch == "." OR ch == ":" OR ch == ";":
+            tokens = PUSH(tokens, ch + ":" + ch + ":" + TO_STRING(line))
+            pos = pos + 1
+        ELSEIF? ch == "=":
+            IF? pos + 1 < len AND CHAR_AT(src, pos + 1) == "=":
+                tokens = PUSH(tokens, "==::==:" + TO_STRING(line))
+                pos = pos + 2
+            ELSE:
+                tokens = PUSH(tokens, "=:=" + ":" + TO_STRING(line))
+                pos = pos + 1
+            END!
+        ELSEIF? ch == "!":
+            IF? pos + 1 < len AND CHAR_AT(src, pos + 1) == "=":
+                tokens = PUSH(tokens, "!=:!=:" + TO_STRING(line))
+                pos = pos + 2
+            ELSE:
+                tokens = PUSH(tokens, "!:!:" + TO_STRING(line))
+                pos = pos + 1
+            END!
+        ELSEIF? ch == "<":
+            IF? pos + 1 < len AND CHAR_AT(src, pos + 1) == "=":
+                tokens = PUSH(tokens, "<=::<=:" + TO_STRING(line))
+                pos = pos + 2
+            ELSE:
+                tokens = PUSH(tokens, "<::<:" + TO_STRING(line))
+                pos = pos + 1
+            END!
+        ELSEIF? ch == ">":
+            IF? pos + 1 < len AND CHAR_AT(src, pos + 1) == "=":
+                tokens = PUSH(tokens, ">=::>=:" + TO_STRING(line))
+                pos = pos + 2
+            ELSE:
+                tokens = PUSH(tokens, ">::>:" + TO_STRING(line))
+                pos = pos + 1
+            END!
+        ELSEIF? ch == "&":
+            tokens = PUSH(tokens, "&:&:" + TO_STRING(line))
+            pos = pos + 1
+        ELSEIF? ch == "|":
+            tokens = PUSH(tokens, "|:|:" + TO_STRING(line))
+            pos = pos + 1
+        ELSE:
+            pos = pos + 1
+        END!
+    END!
+
+    tokens = PUSH(tokens, "EOF::0")
+    RETURN tokens
+END!
+
+LET test1 = "LET x = 42\nPRINT(x + 1)"
+PRINT("=== Test 1: Simple ===")
+LET tokens = tokenize(test1)
+LET i = 0
+WHILE? i < LEN(tokens):
+    PRINT(tokens[i])
+    i = i + 1
+END!
+
+LET test2 = "FUNC! fib(n):\n    IF? n <= 1:\n        RETURN n\n    END!\n    RETURN fib(n - 1) + fib(n - 2)\nEND!"
+PRINT("=== Test 2: Functions ===")
+LET tokens2 = tokenize(test2)
+LET i = 0
+WHILE? i < LEN(tokens2):
+    PRINT(tokens2[i])
+    i = i + 1
+END!
+
+LET test3 = "LET arr = [10, 20, 30]\nPUSH(arr, 40)\nPRINT(arr[0])\nPRINT(LEN(arr))"
+PRINT("=== Test 3: Arrays ===")
+LET tokens3 = tokenize(test3)
+LET i = 0
+WHILE? i < LEN(tokens3):
+    PRINT(tokens3[i])
+    i = i + 1
+END!
+
+LET test4 = "# This is a comment\nLET x = 10 # inline comment\nPRINT(x)"
+PRINT("=== Test 4: Comments ===")
+LET tokens4 = tokenize(test4)
+LET i = 0
+WHILE? i < LEN(tokens4):
+    PRINT(tokens4[i])
+    i = i + 1
+END!
+
+LET test5 = "PRINT(\"hello\\nworld\")\nPRINT(42 == 42)\nPRINT(5 != 3)\nPRINT(3 < 5)\nPRINT(5 >= 3)"
+PRINT("=== Test 5: Strings and Comparisons ===")
+LET tokens5 = tokenize(test5)
+LET i = 0
+WHILE? i < LEN(tokens5):
+    PRINT(tokens5[i])
+    i = i + 1
+END!
