@@ -1,0 +1,105 @@
+# map.nbs - Key-Value Dictionary for Nebulara
+# Flat alternating key-value array: [key1, val1, key2, val2, ...]
+# NOTE: All functions return modified arrays; reassign: m = MAP_SET(m, k, v)
+
+FUNC! MAP():
+    RETURN []
+END!
+
+FUNC! MAP_SIZE(m):
+    RETURN LEN(m) / 2
+END!
+
+FUNC! MAP_HAS(m, key):
+    LET i = 0
+    WHILE? i < LEN(m):
+        IF? m[i] == key:
+            RETURN 1
+        END!
+        i = i + 2
+    END!
+    RETURN 0
+END!
+
+FUNC! MAP_GET(m, key):
+    LET i = 0
+    WHILE? i < LEN(m):
+        IF? m[i] == key:
+            RETURN m[i + 1]
+        END!
+        i = i + 2
+    END!
+    RETURN ""
+END!
+
+# Returns new array - caller MUST reassign: m = MAP_SET(m, k, v)
+FUNC! MAP_SET(m, key, value):
+    LET result = []
+    LET i = 0
+    LET found = 0
+    WHILE? i < LEN(m):
+        IF? m[i] == key:
+            PUSH(result, key)
+            PUSH(result, value)
+            found = 1
+        ELSE:
+            PUSH(result, m[i])
+            PUSH(result, m[i + 1])
+        END!
+        i = i + 2
+    END!
+    IF? found == 0:
+        PUSH(result, key)
+        PUSH(result, value)
+    END!
+    RETURN result
+END!
+
+# Returns new array - caller MUST reassign: m = MAP_REMOVE(m, k)
+FUNC! MAP_REMOVE(m, key):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(m):
+        IF? m[i] != key:
+            PUSH(result, m[i])
+            PUSH(result, m[i + 1])
+        END!
+        i = i + 2
+    END!
+    RETURN result
+END!
+
+FUNC! MAP_KEYS(m):
+    LET keys = []
+    LET i = 0
+    WHILE? i < LEN(m):
+        PUSH(keys, m[i])
+        i = i + 2
+    END!
+    RETURN keys
+END!
+
+FUNC! MAP_VALUES(m):
+    LET vals = []
+    LET i = 1
+    WHILE? i < LEN(m):
+        PUSH(vals, m[i])
+        i = i + 2
+    END!
+    RETURN vals
+END!
+
+FUNC! MAP_MERGE(a, b):
+    LET result = MAP()
+    LET i = 0
+    WHILE? i < LEN(a):
+        result = MAP_SET(result, a[i], a[i + 1])
+        i = i + 2
+    END!
+    LET i = 0
+    WHILE? i < LEN(b):
+        result = MAP_SET(result, b[i], b[i + 1])
+        i = i + 2
+    END!
+    RETURN result
+END!

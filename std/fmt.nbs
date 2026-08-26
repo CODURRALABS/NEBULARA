@@ -1,0 +1,63 @@
+# fmt.nbs - String formatting for Nebulara
+
+FUNC! pad_left(s, target_len, pad_code):
+    LET result = s
+    WHILE? LEN(result) < target_len:
+        result = CHAR(pad_code) + result
+    END!
+    RETURN result
+END!
+
+FUNC! pad_right(s, target_len, pad_code):
+    LET result = s
+    WHILE? LEN(result) < target_len:
+        result = result + CHAR(pad_code)
+    END!
+    RETURN result
+END!
+
+FUNC! repeat_char(code, n):
+    LET result = ""
+    LET i = 0
+    WHILE? i < n:
+        result = result + CHAR(code)
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! fmt(template, args):
+    LET result = template
+    LET i = 0
+    WHILE? i < LEN(args):
+        LET placeholder = "{" + TO_STRING(i) + "}"
+        LET new_result = ""
+        LET k = 0
+        WHILE? k < LEN(result):
+            LET match = 1
+            LET m = 0
+            WHILE? m < LEN(placeholder):
+                IF? k + m < LEN(result):
+                    IF? CHAR_AT(result, k + m) != CHAR_AT(placeholder, m):
+                        match = 0
+                        BREAK
+                    END!
+                ELSE:
+                    match = 0
+                    BREAK
+                END!
+                m = m + 1
+            END!
+            IF? match == 1:
+                new_result = new_result + TO_STRING(args[i])
+                k = k + LEN(placeholder)
+            ELSE:
+                new_result = new_result + CHAR(CHAR_AT(result, k))
+                k = k + 1
+            END!
+        END!
+        result = new_result
+        i = i + 1
+    END!
+    RETURN result
+END!

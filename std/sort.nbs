@@ -1,0 +1,90 @@
+# sort.nbs - Sorting algorithms for Nebulara
+
+FUNC! sort(arr):
+    LET n = LEN(arr)
+    IF? n <= 1:
+        RETURN arr
+    END!
+    LET i = 0
+    WHILE? i < n:
+        LET j = 0
+        WHILE? j < n - i - 1:
+            IF? arr[j] > arr[j + 1]:
+                LET tmp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = tmp
+            END!
+            j = j + 1
+        END!
+        i = i + 1
+    END!
+    RETURN arr
+END!
+
+FUNC! sort_strings(arr):
+    LET n = LEN(arr)
+    IF? n <= 1:
+        RETURN arr
+    END!
+    LET i = 0
+    WHILE? i < n:
+        LET j = 0
+        WHILE? j < n - i - 1:
+            IF? arr[j] > arr[j + 1]:
+                LET tmp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = tmp
+            END!
+            j = j + 1
+        END!
+        i = i + 1
+    END!
+    RETURN arr
+END!
+
+FUNC! binary_search(arr, target):
+    LET low = 0
+    LET high = LEN(arr) - 1
+    WHILE? low <= high:
+        LET mid = (low + high) / 2
+        IF? arr[mid] == target:
+            RETURN mid
+        END!
+        IF? arr[mid] < target:
+            low = mid + 1
+        ELSE:
+            high = mid - 1
+        END!
+    END!
+    RETURN -1
+END!
+
+FUNC! find_min(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET min_val = arr[0]
+    LET i = 1
+    WHILE? i < LEN(arr):
+        IF? arr[i] < min_val:
+            min_val = arr[i]
+        END!
+        i = i + 1
+    END!
+    RETURN min_val
+END!
+
+FUNC! find_max(arr):
+    IF? LEN(arr) == 0:
+        RETURN 0
+    END!
+    LET max_val = arr[0]
+    LET i = 1
+    WHILE? i < LEN(arr):
+        IF? arr[i] > max_val:
+            max_val = arr[i]
+        END!
+        i = i + 1
+    END!
+    RETURN max_val
+END!

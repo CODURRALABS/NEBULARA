@@ -1,0 +1,90 @@
+# os.nbs - Operating System utilities for Nebulara
+
+FUNC! exec(command):
+    LET lib = FFI_LOAD("c", "libc.so.6")
+    IF? lib == -1:
+        lib = FFI_LOAD("c", "msvcrt.dll")
+    END!
+    IF? lib == -1:
+        RETURN ""
+    END!
+    LET fp = FFI_REGISTER(lib, "popen", 5, 2)
+    LET fgets_fn = FFI_REGISTER(lib, "fgets", 5, 3)
+    LET feof_fn = FFI_REGISTER(lib, "feof", 1, 1)
+    LET pclose_fn = FFI_REGISTER(lib, "pclose", 1, 1)
+    LET handle = FFI_CALL(lib, "popen", command, "r")
+    IF? handle == 0:
+        RETURN ""
+    END!
+    LET result = ""
+    WHILE? TRUE:
+        LET buf = FFI_CALL(lib, "fgets", "", 4096, handle)
+        IF? buf == "":
+            BREAK
+        END!
+        result = result + buf
+    END!
+    FFI_CALL(lib, "pclose", handle)
+    RETURN result
+END!
+
+FUNC! cwd():
+    LET lib = FFI_LOAD("c", "libc.so.6")
+    IF? lib == -1:
+        lib = FFI_LOAD("c", "msvcrt.dll")
+    END!
+    IF? lib == -1:
+        RETURN "."
+    END!
+    LET malloc_fn = FFI_REGISTER(lib, "malloc", 5, 1)
+    LET getcwd_fn = FFI_REGISTER(lib, "getcwd", 5, 2)
+    LET free_fn = FFI_REGISTER(lib, "free", 0, 1)
+    LET buf = FFI_CALL(lib, "malloc", 4096)
+    LET result = FFI_CALL(lib, "getcwd", buf, 4096)
+    FFI_CALL(lib, "free", buf)
+    IF? result == 0:
+        RETURN "."
+    END!
+    RETURN result
+END!
+
+FUNC! platform():
+    LET check = exec("uname 2>/dev/null")
+    IF? check == "Linux":
+        RETURN "linux"
+    END!
+    IF? check == "Darwin":
+        RETURN "macos"
+    END!
+    LET win = exec("ver 2>nul")
+    IF? win != "":
+        RETURN "windows"
+    END!
+    RETURN "unknown"
+END!
+
+FUNC! list_dir(path):
+    IF? path == "":
+        path = "."
+    END!
+    LET output = exec("ls " + path + " 2>/dev/null || dir /b " + path + " 2>nul")
+    LET files = []
+    LET current = ""
+    LET i = 0
+    WHILE? i < LEN(output):
+        LET ch = CHAR_AT(output, i)
+        IF? ch == 10 OR ch == 13:
+            IF? current != "":
+                PUSH(files, current)
+                current = ""
+            END!
+        ELSE:
+            current = current + CHAR(ch)
+        END!
+        i = i + 1
+    END!
+    IF? current != "":
+        PUSH(files, current)
+    END!
+    RETURN files
+END!

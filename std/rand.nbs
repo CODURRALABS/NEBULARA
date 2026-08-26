@@ -1,0 +1,55 @@
+# rand.nbs - Random number utilities for Nebulara
+
+FUNC! rand_range(min_val, max_val):
+    IF? min_val >= max_val:
+        RETURN min_val
+    END!
+    LET range = max_val - min_val + 1
+    LET r = RANDOM()
+    WHILE? r >= range:
+        r = RANDOM()
+    END!
+    RETURN min_val + r
+END!
+
+FUNC! rand_bool():
+    IF? RANDOM() >= 50:
+        RETURN 1
+    END!
+    RETURN 0
+END!
+
+FUNC! rand_choice(arr):
+    IF? LEN(arr) == 0:
+        RETURN ""
+    END!
+    LET idx = rand_range(0, LEN(arr) - 1)
+    RETURN arr[idx]
+END!
+
+FUNC! shuffle(arr):
+    LET n = LEN(arr)
+    LET i = n - 1
+    WHILE? i > 0:
+        LET j = rand_range(0, i)
+        LET tmp = arr[i]
+        arr[i] = arr[j]
+        arr[j] = tmp
+        i = i - 1
+    END!
+    RETURN arr
+END!
+
+FUNC! rand_string(n):
+    LET result = ""
+    LET i = 0
+    WHILE? i < n:
+        LET code = rand_range(65, 122)
+        IF? code > 90 AND code < 97:
+            code = code - 43
+        END!
+        result = result + CHAR(code)
+        i = i + 1
+    END!
+    RETURN result
+END!

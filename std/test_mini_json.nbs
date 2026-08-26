@@ -1,0 +1,12 @@
+FUNC! my_parse_num(pns, pnp2):
+    LET pnum_str = SUBSTR(pns, pnp2, 2)
+    RETURN [TO_NUMBER(pnum_str), pnp2 + 2]
+END!
+FUNC! my_parse_val(ps, pp):
+    RETURN my_parse_num(ps, pp)
+END!
+FUNC! my_json_parse(xstr):
+    LET xr = my_parse_val(xstr, 0)
+    LET xinner = xr[0]
+    RETURN xinner
+END!

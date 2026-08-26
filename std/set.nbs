@@ -1,0 +1,88 @@
+# set.nbs - Set data structure for Nebulara
+# NOTE: All functions return new arrays; caller MUST reassign
+
+FUNC! SET():
+    RETURN []
+END!
+
+FUNC! SET_HAS(s, elem):
+    LET i = 0
+    WHILE? i < LEN(s):
+        IF? s[i] == elem:
+            RETURN 1
+        END!
+        i = i + 1
+    END!
+    RETURN 0
+END!
+
+# Returns new array - caller MUST reassign: s = SET_ADD(s, elem)
+FUNC! SET_ADD(s, elem):
+    IF? SET_HAS(s, elem) == 1:
+        RETURN s
+    END!
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(s):
+        PUSH(result, s[i])
+        i = i + 1
+    END!
+    PUSH(result, elem)
+    RETURN result
+END!
+
+# Returns new array - caller MUST reassign: s = SET_REMOVE(s, elem)
+FUNC! SET_REMOVE(s, elem):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(s):
+        IF? s[i] != elem:
+            PUSH(result, s[i])
+        END!
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! SET_UNION(a, b):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(a):
+        result = SET_ADD(result, a[i])
+        i = i + 1
+    END!
+    LET i = 0
+    WHILE? i < LEN(b):
+        result = SET_ADD(result, b[i])
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! SET_INTERSECT(a, b):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(a):
+        IF? SET_HAS(b, a[i]) == 1:
+            result = SET_ADD(result, a[i])
+        END!
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! SET_DIFF(a, b):
+    LET result = []
+    LET i = 0
+    WHILE? i < LEN(a):
+        IF? SET_HAS(b, a[i]) == 0:
+            result = SET_ADD(result, a[i])
+        END!
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! SET_SIZE(s):
+    RETURN LEN(s)
+END!
