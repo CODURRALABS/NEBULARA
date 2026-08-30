@@ -36,6 +36,12 @@ typedef void* NbsFFIHandle;
 #endif
 
 // ============================================================================
+// GLOBAL ARGV for ARGUMENT_COUNT/ARGUMENT builtins
+// ============================================================================
+static int g_argc = 0;
+static char** g_argv = NULL;
+
+// ============================================================================
 // VALUE SYSTEM — Tagged union for dynamic typing
 // ============================================================================
 
@@ -621,7 +627,7 @@ ASTNode* ast_new(NodeType type) {
 // ============================================================================
 
 typedef struct {
-    NbsToken tokens[4096];
+    NbsToken tokens[8192];
     int pos, count;
     int has_error;
     char error_msg[512];
@@ -923,6 +929,7 @@ ASTNode* parse_block(Parser* p) {
            parser_peek(p).type != TOK_ELSE && parser_peek(p).type != TOK_ELSEIF &&
            parser_peek(p).type != TOK_CATCH && parser_peek(p).type != TOK_FINALLY &&
            parser_peek(p).type != TOK_ENDTRY) {
+        while (parser_peek(p).type == TOK_SEMICOLON) parser_advance(p);
         if (block->child_count >= cap) {
             cap *= 2;
             block->children = (ASTNode**)realloc(block->children, cap * sizeof(ASTNode*));
@@ -1107,20 +1114,9 @@ ASTNode* parse_statement(Parser* p) {
         // Collect parameter names until colon (skip type annotations)
         NbsToken peek = parser_peek(p);
         while (peek.type != TOK_COLON && peek.type != TOK_EOF) {
-            // Check for -> (return type annotation) — stop collecting params
-            if (peek.type == TOK_MINUS && p->pos + 1 < p->count &&
-                p->tokens[p->pos + 1].type == TOK_GT) {
-                break;
-            }
-            if (peek.type == TOK_IDENT) {
+            if (peek.type == TOK_IDENT && n->param_count < 8) {
                 parser_advance(p);
                 strcpy(n->params[n->param_count++], peek.text);
-                // Skip optional type annotation: param : TYPE
-                if (parser_peek(p).type == TOK_COLON) {
-                    parser_advance(p); // skip ':'
-                    if (parser_peek(p).type == TOK_IDENT)
-                        parser_advance(p); // skip type name
-                }
             } else {
                 parser_advance(p);
             }
@@ -1234,6 +1230,7 @@ ASTNode* parse_program(Parser* p) {
     prog->child_count = 0;
 
     while (parser_peek(p).type != TOK_EOF) {
+        while (parser_peek(p).type == TOK_SEMICOLON) parser_advance(p);
         if (prog->child_count >= cap) {
             cap *= 2;
             prog->children = (ASTNode**)realloc(prog->children, cap * sizeof(ASTNode*));
@@ -1920,7 +1917,7 @@ static void vm_exec_import(VM* vm, const char* source, const char* path) {
     Parser *parser = (Parser*)calloc(1, sizeof(Parser));
     while (1) {
         NbsToken tok = lexer_next(&lexer);
-        if (parser->count >= 4096) {
+        if (parser->count >= 8192) {
             fprintf(stderr, "Import error: too many tokens in '%s'\n", path);
             free(parser);
             return;
@@ -2749,6 +2746,17 @@ int vm_run(VM* vm, uint8_t* code, int code_len) {
                     for (int i = 0; i < ffi_argc; i++) val_free(ffi_args[i]);
                     val_free(lib_name_val); val_free(func_name_val);
                     vm->stack[vm->sp++] = result;
+                } else if (strcmp(name, "ARGUMENT_COUNT") == 0) {
+                    for (int i = 0; i < arity; i++) val_free(vm->stack[--vm->sp]);
+                    vm->stack[vm->sp++] = val_int(g_argc);
+                } else if (strcmp(name, "ARGUMENT") == 0) {
+                    Value v = vm->stack[--vm->sp];
+                    int64_t idx = (v.type == VAL_INT) ? v.as.i : 0;
+                    val_free(v);
+                    if (idx >= 0 && idx < g_argc)
+                        vm->stack[vm->sp++] = val_string(g_argv[idx]);
+                    else
+                        vm->stack[vm->sp++] = val_string("");
                 } else {
                     // User-defined function
                     int fi = ft_find(vm->funcs, name);
@@ -3016,6 +3024,163 @@ static void nb_syscall(NativeBuf *nb) { nb_emit(nb, 0x0F); nb_emit(nb, 0x05); }
 static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
                             StringTable *strings, FuncTable *funcs) {
     /* Write a C file that embeds the bytecode and runs it via a mini-VM */
+
+    /* ------------------------------------------------------------------
+     * Phase 1: Resolve BC_IMPORT opcodes at codegen time.
+     * Each imported file is compiled and appended into a merged bytecode
+     * buffer. The main bytecode's BC_IMPORT instructions are patched to
+     * BC_JUMP +0 so they are skipped at runtime.
+     * ------------------------------------------------------------------ */
+    typedef struct {
+        uint8_t *bc; int bc_len;
+        int func_base;      /* funcs->count before this import */
+        int func_count;     /* funcs->count after this import */
+    } EmbeddedImport;
+    EmbeddedImport imports[64];
+    int import_count = 0;
+    int imports_total_len = 0;
+    char imported_paths[64][256];
+    int imported_path_count = 0;
+
+    {
+        int scan_ip = 0;
+        while (scan_ip < bc_len) {
+            uint8_t op = bytecode[scan_ip];
+            int instr_len = 1;
+            switch (op) {
+                case BC_PUSH_INT: instr_len = 9; break;  /* opcode + i64 */
+                case BC_PUSH_STR:
+                case BC_STORE:
+                case BC_LOAD:
+                case BC_JUMP:
+                case BC_JUMP_IF:
+                case BC_JUMP_IFNOT:
+                case BC_ARRAY_NEW:
+                case BC_TRY:
+                case BC_IMPORT:
+                case BC_GOROUTINE:
+                case BC_CHANNEL_NEW:
+                case BC_SLEEP: instr_len = 5; break;     /* opcode + i32 */
+                case BC_CALL: instr_len = 9; break;      /* opcode + name + arity */
+                case BC_PUSH_BOOL: instr_len = 2; break; /* opcode + byte */
+                case BC_SELECT: {
+                    /* opcode + i32 num_cases + (i32 addr + i32 type) per case */
+                    int n = 0;
+                    if (scan_ip + 5 <= bc_len) {
+                        memcpy(&n, bytecode + scan_ip + 1, 4);
+                        if (n < 0 || n > 256) n = 0;
+                    }
+                    instr_len = 5 + 8 * n;
+                } break;
+                default: instr_len = 1; break;
+            }
+            if (op == BC_IMPORT && scan_ip + 5 <= bc_len) {
+                int32_t str_idx;
+                memcpy(&str_idx, bytecode + scan_ip + 1, 4);
+                if (str_idx >= 0 && str_idx < strings->count) {
+                    const char *path = strings->strings[str_idx];
+                    int already = 0;
+                    for (int k = 0; k < imported_path_count; k++) {
+                        if (strcmp(imported_paths[k], path) == 0) { already = 1; break; }
+                    }
+                    if (!already && import_count < 64) {
+                        strncpy(imported_paths[imported_path_count], path, 255);
+                        imported_paths[imported_path_count][255] = 0;
+                        imported_path_count++;
+                        FILE *fp = fopen(path, "rb");
+                        if (fp) {
+                            fseek(fp, 0, SEEK_END);
+                            long sz = ftell(fp);
+                            fseek(fp, 0, SEEK_SET);
+                            char *src = (char*)malloc(sz + 1);
+                            fread(src, 1, sz, fp);
+                            src[sz] = 0;
+                            fclose(fp);
+                            Lexer imp_lexer = lexer_new(src);
+                            Parser *imp_parser = (Parser*)calloc(1, sizeof(Parser));
+                            while (1) {
+                                NbsToken tok = lexer_next(&imp_lexer);
+                                if (imp_parser->count >= 4096) break;
+                                imp_parser->tokens[imp_parser->count++] = tok;
+                                if (tok.type == TOK_EOF) break;
+                            }
+                            ASTNode *imp_ast = parse_program(imp_parser);
+                            if (!imp_parser->has_error) {
+                                int funcs_before = funcs->count;
+                                BytecodeBuf imp_bc;
+                                bc_init(&imp_bc);
+                                Compiler imp_comp = {&imp_bc, strings, funcs};
+                                compile_node(&imp_comp, imp_ast);
+                                for (int fi = funcs_before; fi < funcs->count; fi++)
+                                    funcs->entries[fi].code = imp_bc.code;
+                                imports[import_count].bc = imp_bc.code;
+                                imports[import_count].bc_len = imp_bc.pos;
+                                imports[import_count].func_base = funcs_before;
+                                imports[import_count].func_count = funcs->count;
+                                imports_total_len += imp_bc.pos;
+                                import_count++;
+                                fprintf(stderr, "  import: %s (%d bytes bytecode, %d functions)\n",
+                                        path, imp_bc.pos, funcs->count - funcs_before);
+                            } else {
+                                fprintf(stderr, "  import error: %s: %s\n", path, imp_parser->error_msg);
+                            }
+                            free(imp_parser);
+                            free(src);
+                        }
+                    }
+                    /* Patch BC_IMPORT -> BC_JUMP +0 (5-byte no-op) */
+                    bytecode[scan_ip] = BC_JUMP;
+                    bytecode[scan_ip + 1] = 0;
+                    bytecode[scan_ip + 2] = 0;
+                    bytecode[scan_ip + 3] = 0;
+                    bytecode[scan_ip + 4] = 0;
+                    instr_len = 5;
+                }
+            }
+            scan_ip += instr_len;
+        }
+    }
+
+    /* Merged bytecode = imports first, then main, concatenated directly.
+     * Each import segment's trailing BC_HALT is dropped so top-level
+     * execution flows from segment to segment and finally into main,
+     * whose own BC_HALT terminates the program. Function addresses are
+     * rebased onto the merged buffer. */
+    int merged_len = imports_total_len + bc_len;
+    uint8_t *merged = (uint8_t*)calloc(merged_len + 16, 1);
+    int segment_count = import_count + 1;
+    int *segment_starts = (int*)malloc(segment_count * sizeof(int));
+    {
+        int off = 0;
+        for (int i = 0; i < import_count; i++) {
+            segment_starts[i] = off;
+            if (imports[i].bc_len > 0 &&
+                imports[i].bc[imports[i].bc_len - 1] == BC_HALT)
+                imports[i].bc_len -= 1; /* drop trailing HALT */
+            memcpy(merged + off, imports[i].bc, imports[i].bc_len);
+            off += imports[i].bc_len;
+        }
+        segment_starts[import_count] = off;
+        memcpy(merged + off, bytecode, bc_len);
+    }
+    /* Adjust function addresses: main functions were compiled relative to
+     * the main buffer (offset 0), so add the main segment base. Imported
+     * functions are relative to their own buffers, so add their section. */
+    for (int i = 0; i < funcs->count; i++) {
+        int fi_base = segment_starts[import_count];
+        for (int ii = 0; ii < import_count; ii++) {
+            if (i >= imports[ii].func_base && i < imports[ii].func_count) {
+                fi_base = segment_starts[ii];
+                break;
+            }
+        }
+        funcs->entries[i].addr += fi_base;
+    }
+    /* Free original bytecode buffer */
+    uint8_t *orig_bc = bytecode;
+    bytecode = merged;
+    bc_len = merged_len;
+
     char cpath[1024];
     snprintf(cpath, sizeof(cpath), "%s.neb.c", outpath);
 
@@ -3117,7 +3282,9 @@ static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
     fprintf(f, "#define VAL_NULL 0\n#define VAL_INT 1\n#define VAL_STRING 2\n#define VAL_BOOL 3\n#define VAL_ARRAY 4\n\n");
     fprintf(f, "Value val_array_new(void) { Value v; v.type=VAL_ARRAY; v.as.a=(ValueArray*)calloc(1,sizeof(ValueArray)); v.as.a->capacity=8; v.as.a->items=(Value*)calloc(8,sizeof(Value)); v.as.a->count=0; return v; }\n");
     fprintf(f, "Value val_copy(Value v) { if(v.type==VAL_STRING){v.as.s=strdup(v.as.s);} else if(v.type==VAL_ARRAY){ValueArray *na=(ValueArray*)calloc(1,sizeof(ValueArray)); na->count=v.as.a->count; na->capacity=v.as.a->capacity; na->items=(Value*)malloc(na->capacity*sizeof(Value)); for(int i=0;i<na->count;i++) na->items[i]=val_copy(v.as.a->items[i]); v.as.a=na;} return v; }\n\n");
-    fprintf(f, "int main(void) {\n");
+    fprintf(f, "int g_argc = 0; char **g_argv = NULL;\n");
+    fprintf(f, "int main(int argc, char **argv) {\n");
+    fprintf(f, "    g_argc = argc; g_argv = argv;\n");
     fprintf(f, "    Value stack[4096]; int sp = 0;\n");
     fprintf(f, "    Value vars[1024]; int ip = 0;\n");
     fprintf(f, "    /* Call stack: saves return IP + saved param var values */\n");
@@ -3142,7 +3309,7 @@ static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
     fprintf(f, "                stack[sp++] = (Value){VAL_STRING, {.s=(char*)strings[idx]}};\n");
     fprintf(f, "            } break;\n");
     fprintf(f, "            case BC_PUSH_BOOL: {\n");
-    fprintf(f, "                int b; memcpy(&b, bytecode+ip, 4); ip+=4;\n");
+    fprintf(f, "                uint8_t b = bytecode[ip++];\n");
     fprintf(f, "                stack[sp++] = (Value){VAL_BOOL, {.b=b}};\n");
     fprintf(f, "            } break;\n");
     fprintf(f, "            case BC_PUSH_NULL: stack[sp++] = (Value){VAL_NULL,{0}}; break;\n");
@@ -3306,6 +3473,15 @@ static int codegen_native_c(uint8_t *bytecode, int bc_len, const char *outpath,
     fprintf(f, "                    while(len>0&&(s[len-1]==' '||s[len-1]=='\\t'||s[len-1]=='\\n'||s[len-1]=='\\r'))len--;\n");
     fprintf(f, "                    char*buf=malloc(len+1);memcpy(buf,s,len);buf[len]=0;\n");
     fprintf(f, "                    stack[sp++]=(Value){VAL_STRING,{.s=buf}};} else stack[sp++]=(Value){VAL_STRING,{.s=\"\"}};\n");
+    fprintf(f, "                } else if(strcmp(fname,\"ARGUMENT_COUNT\")==0) {\n");
+    fprintf(f, "                    for(int i=0;i<arity;i++) sp--;\n");
+    fprintf(f, "                    stack[sp++]=(Value){VAL_INT,{.i=g_argc}};\n");
+    fprintf(f, "                } else if(strcmp(fname,\"ARGUMENT\")==0) {\n");
+    fprintf(f, "                    Value v=stack[--sp];\n");
+    fprintf(f, "                    int64_t idx=(v.type==VAL_INT)?v.as.i:0;\n");
+    fprintf(f, "                    if(idx>=0 && idx<g_argc)\n");
+    fprintf(f, "                        stack[sp++]=(Value){VAL_STRING,{.s=g_argv[idx]}};\n");
+    fprintf(f, "                    else stack[sp++]=(Value){VAL_STRING,{.s=\"\"}};\n");
     fprintf(f, "                } else {\n");
     fprintf(f, "                    /* User function: find in func table */\n");
     fprintf(f, "                    int found = 0;\n");
@@ -3596,6 +3772,8 @@ static int codegen_native(uint8_t *bytecode, int bc_len, const char *outpath,
 
 int main(int argc, char** argv) {
     srand((unsigned)time(NULL));
+    g_argc = argc;
+    g_argv = argv;
 
     if (argc >= 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "version") == 0)) {
         printf("nebulara 1.2.0\n");
@@ -3632,14 +3810,14 @@ int main(int argc, char** argv) {
     Parser* parser = (Parser*)calloc(1, sizeof(Parser));
     while (1) {
         NbsToken tok = lexer_next(&lexer);
-        parser->tokens[parser->count++] = tok;
-        if (tok.type == TOK_EOF) break;
-        if (parser->count >= 4096) {
+        if (parser->count >= 8192) {
             fprintf(stderr, "Error: too many tokens\n");
             free(src);
             free(parser);
             return 1;
         }
+        parser->tokens[parser->count++] = tok;
+        if (tok.type == TOK_EOF) break;
     }
     free(src);
 

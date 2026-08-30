@@ -1,0 +1,150 @@
+# ============================================================
+# Simple Calculator - Nebulara Trial Project
+# ============================================================
+
+# --- Core calculator functions ---
+
+FUNC! add(a, b):
+    RETURN a + b
+END!
+
+FUNC! subtract(a, b):
+    RETURN a - b
+END!
+
+FUNC! multiply(a, b):
+    RETURN a * b
+END!
+
+FUNC! divide(a, b):
+    IF? b == 0:
+        PRINT "Error: Cannot divide by zero"
+        RETURN 0
+    END!
+    RETURN a / b
+END!
+
+FUNC! modulo(a, b):
+    IF? b == 0:
+        PRINT "Error: Cannot modulo by zero"
+        RETURN 0
+    END!
+    RETURN a % b
+END!
+
+FUNC! power(base, exp):
+    LET result = 1
+    LET i = 0
+    WHILE? i < exp:
+        result = result * base
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! absolute(n):
+    IF? n < 0:
+        RETURN 0 - n
+    END!
+    RETURN n
+END!
+
+FUNC! is_even(n):
+    IF? n % 2 == 0:
+        RETURN TRUE
+    END!
+    RETURN FALSE
+END!
+
+FUNC! factorial(n):
+    IF? n <= 1:
+        RETURN 1
+    END!
+    RETURN n * factorial(n - 1)
+END!
+
+# --- Display helpers ---
+
+FUNC! print_result(label, result):
+    PRINT label + TO_STRING(result)
+END!
+
+FUNC! print_separator():
+    PRINT "----------------------------"
+END!
+
+# ============================================================
+# DEMO: Run calculations
+# ============================================================
+
+PRINT "============================"
+PRINT "   Nebulara Calculator"
+PRINT "============================"
+
+LET a = 20
+LET b = 4
+
+PRINT ""
+PRINT "Values: a = " + TO_STRING(a) + "  b = " + TO_STRING(b)
+print_separator()
+
+print_result("Add:       ", add(a, b))
+print_result("Subtract:  ", subtract(a, b))
+print_result("Multiply:  ", multiply(a, b))
+print_result("Divide:    ", divide(a, b))
+print_result("Modulo:    ", modulo(a, b))
+print_result("Power:     ", power(a, b))
+
+print_separator()
+
+# Test divide by zero guard
+PRINT "Divide by zero test:"
+divide(10, 0)
+
+print_separator()
+
+# Absolute value
+print_result("ABS(-42):  ", absolute(-42))
+print_result("ABS(15):   ", absolute(15))
+
+print_separator()
+
+# Even/Odd check
+PRINT "Even/Odd checks:"
+FOR! n = 1 TO 6:
+    IF? is_even(n):
+        PRINT TO_STRING(n) + " is even"
+    ELSE:
+        PRINT TO_STRING(n) + " is odd"
+    END!
+END!
+
+print_separator()
+
+# Factorial
+PRINT "Factorials:"
+FOR! i = 1 TO 8:
+    print_result(TO_STRING(i) + "! = ", factorial(i))
+END!
+
+print_separator()
+
+# Chained arithmetic
+LET x = add(10, 5)
+LET y = multiply(x, 2)
+LET z = subtract(y, divide(20, 4))
+PRINT "Chained: ((10+5)*2) - (20/4) = " + TO_STRING(z)
+
+print_separator()
+
+# Sum of range using a loop
+LET sum = 0
+FOR! k = 1 TO 100:
+    sum = sum + k
+END!
+PRINT "Sum 1..100 = " + TO_STRING(sum)
+
+PRINT ""
+PRINT "============================"
+PRINT "   Done"
+PRINT "============================"

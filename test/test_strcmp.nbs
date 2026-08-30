@@ -1,0 +1,9 @@
+FUNC! foo(x):
+    LET a = 0
+    IF? x == "hello":
+        RETURN 1
+    END!
+    RETURN 2
+END!
+PRINT("foo(hello)=" + TO_STRING(foo("hello")))
+PRINT("foo(world)=" + TO_STRING(foo("world")))

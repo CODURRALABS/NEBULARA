@@ -1,0 +1,8 @@
+FUNC! factorial(n):
+  IF? n <= 1:
+    RETURN 1
+  END!
+  RETURN n * factorial(n - 1)
+END!
+
+PRINT factorial(5)

@@ -1,0 +1,10 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(s, p):
+    IF? CHAR_AT(s, p) == "4":
+        RETURN helper(41)
+    END!
+    RETURN 99
+END!
+PRINT('foo("42",0)=' + TO_STRING(foo("42", 0)))

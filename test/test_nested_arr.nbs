@@ -1,0 +1,11 @@
+# test nested arrays
+LET out = []
+LET pair = ["hello world", "README.md|nebulara|1.0"]
+PUSH(out, pair)
+LET pair2 = ["second answer", "FAQ.md|manual|1.0"]
+PUSH(out, pair2)
+PRINT(LEN(out))
+PRINT(out[0][0])
+PRINT(out[0][1])
+PRINT(out[1][0])
+PRINT(out[1][1])

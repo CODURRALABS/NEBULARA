@@ -1,0 +1,6 @@
+FUNC! foo(a, b, c):
+    PRINT("a=" + TO_STRING(a))
+    PRINT("b=" + TO_STRING(b))
+    PRINT("c=" + TO_STRING(c))
+END!
+foo(1, 2, 3)

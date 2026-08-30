@@ -1,0 +1,12 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(s):
+    LET pc = CHAR_AT(s, 0)
+    PRINT("pc=" + pc)
+    IF? pc == "4":
+        RETURN helper(41)
+    END!
+    RETURN 99
+END!
+PRINT("result=" + TO_STRING(foo("42")))

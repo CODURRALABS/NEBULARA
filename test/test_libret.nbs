@@ -1,0 +1,14 @@
+FUNC! returns42():
+    RETURN 42
+END!
+FUNC! returnsArr():
+    LET v = returns42()
+    RETURN [v, 2]
+END!
+FUNC! wraps():
+    LET result = returnsArr()
+    RETURN result
+END!
+LET x = wraps()
+PRINT("x[0]=" + TO_STRING(x[0]))
+PRINT("x[1]=" + TO_STRING(x[1]))

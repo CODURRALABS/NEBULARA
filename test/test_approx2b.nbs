@@ -1,0 +1,13 @@
+FUNC! parse_num(pns, pnp2):
+    RETURN [TO_NUMBER(pns), 2]
+END!
+FUNC! parse_val(ps, pp):
+    LET pnp = 0
+    LET pc = CHAR_AT(ps, pnp)
+    IF? ORD(pc) >= 48:
+        RETURN parse_num(ps, pnp)
+    END!
+    RETURN [NULL, pnp]
+END!
+LET pv = parse_val("42", 0)
+PRINT("B: pv[0]=" + TO_STRING(pv[0]) + " pv[1]=" + TO_STRING(pv[1]))

@@ -98,21 +98,23 @@ LET TOK_EOF = 37
 # ============================================================
 
 FUNC! is_alpha c:
-  IF? c >= 65:
-    IF? c <= 90: RETURN 1 END!
+  LET code = ORD(c)
+  IF? code >= 65:
+    IF? code <= 90: RETURN 1 END!
   END!
-  IF? c >= 97:
-    IF? c <= 122: RETURN 1 END!
+  IF? code >= 97:
+    IF? code <= 122: RETURN 1 END!
   END!
-  IF? c == 95: RETURN 1 END!
-  IF? c == 33: RETURN 1 END!
-  IF? c == 63: RETURN 1 END!
+  IF? code == 95: RETURN 1 END!
+  IF? code == 33: RETURN 1 END!
+  IF? code == 63: RETURN 1 END!
   RETURN 0
 END!
 
 FUNC! is_digit c:
-  IF? c >= 48:
-    IF? c <= 57: RETURN 1 END!
+  LET code = ORD(c)
+  IF? code >= 48:
+    IF? code <= 57: RETURN 1 END!
   END!
   RETURN 0
 END!
@@ -129,7 +131,7 @@ END!
 FUNC! lexer_advance:
   LET c = CHAR_AT(G_source, G_src_pos)
   G_src_pos = G_src_pos + 1
-  IF? c == 10:
+  IF? c == "\n":
     G_line = G_line + 1
   END!
   RETURN c
@@ -138,13 +140,13 @@ END!
 FUNC! lexer_skip_ws:
   WHILE? G_src_pos < G_src_len:
     LET c = CHAR_AT(G_source, G_src_pos)
-    IF? c == 32 OR c == 9 OR c == 13 OR c == 10:
+    IF? c == " " OR c == "\t" OR c == "\r" OR c == "\n":
       G_src_pos = G_src_pos + 1
     ELSE:
-      IF? c == 35:
+      IF? c == "#":
         WHILE? G_src_pos < G_src_len:
           LET c2 = CHAR_AT(G_source, G_src_pos)
-          IF? c2 == 10:
+          IF? c2 == "\n":
             G_src_pos = G_src_pos + 1
             G_line = G_line + 1
             BREAK
@@ -207,21 +209,21 @@ FUNC! read_string:
   LET result = ""
   WHILE? G_src_pos < G_src_len:
     LET c = CHAR_AT(G_source, G_src_pos)
-    IF? c == 34:
+    IF? c == "\"":
       G_src_pos = G_src_pos + 1
       RETURN result
     END!
-    IF? c == 92:
+    IF? c == "\\":
       G_src_pos = G_src_pos + 1
       LET e = CHAR_AT(G_source, G_src_pos)
       G_src_pos = G_src_pos + 1
-      IF? e == 110: result = result + CHAR(10) END!
-      IF? e == 116: result = result + CHAR(9) END!
-      IF? e == 92: result = result + CHAR(92) END!
-      IF? e == 34: result = result + CHAR(34) END!
-      IF? e != 110 AND e != 116 AND e != 92 AND e != 34: result = result + CHAR(e) END!
+      IF? e == "n": result = result + "\n" END!
+      IF? e == "t": result = result + "\t" END!
+      IF? e == "\\": result = result + "\\" END!
+      IF? e == "\"": result = result + "\"" END!
+      IF? e != "n" AND e != "t" AND e != "\\" AND e != "\"": result = result + e END!
     ELSE:
-      result = result + CHAR(c)
+      result = result + c
       G_src_pos = G_src_pos + 1
     END!
   END!
@@ -230,25 +232,25 @@ END!
 
 FUNC! classify_char c:
   IF? is_digit(c) == 1: RETURN "digit" END!
-  IF? c == 34: RETURN "quote" END!
+  IF? c == "\"": RETURN "quote" END!
   IF? is_alpha(c) == 1: RETURN "alpha" END!
-  IF? c == 43: RETURN "plus" END!
-  IF? c == 45: RETURN "minus" END!
-  IF? c == 42: RETURN "star" END!
-  IF? c == 47: RETURN "slash" END!
-  IF? c == 37: RETURN "mod" END!
-  IF? c == 40: RETURN "lparen" END!
-  IF? c == 41: RETURN "rparen" END!
-  IF? c == 91: RETURN "lbracket" END!
-  IF? c == 93: RETURN "rbracket" END!
-  IF? c == 44: RETURN "comma" END!
-  IF? c == 58: RETURN "colon" END!
-  IF? c == 61: RETURN "eq" END!
-  IF? c == 33: RETURN "bang" END!
-  IF? c == 60: RETURN "lt" END!
-  IF? c == 62: RETURN "gt" END!
-  IF? c == 46: RETURN "dot" END!
-  IF? c == 35: RETURN "hash" END!
+  IF? c == "+": RETURN "plus" END!
+  IF? c == "-": RETURN "minus" END!
+  IF? c == "*": RETURN "star" END!
+  IF? c == "/": RETURN "slash" END!
+  IF? c == "%": RETURN "mod" END!
+  IF? c == "(": RETURN "lparen" END!
+  IF? c == ")": RETURN "rparen" END!
+  IF? c == "[": RETURN "lbracket" END!
+  IF? c == "]": RETURN "rbracket" END!
+  IF? c == ",": RETURN "comma" END!
+  IF? c == ":": RETURN "colon" END!
+  IF? c == "=": RETURN "eq" END!
+  IF? c == "!": RETURN "bang" END!
+  IF? c == "<": RETURN "lt" END!
+  IF? c == ">": RETURN "gt" END!
+  IF? c == ".": RETURN "dot" END!
+  IF? c == "#": RETURN "hash" END!
   RETURN "other"
 END!
 
@@ -318,10 +320,10 @@ FUNC! tokenize_source src:
     IF? kind == "colon": add_token(TOK_COLON, 0); G_src_pos = G_src_pos + 1 END!
     IF? kind == "dot": add_token(TOK_DOT, 0); G_src_pos = G_src_pos + 1 END!
     IF? kind == "hash": G_src_pos = G_src_pos + 1
-      WHILE? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) != 10: G_src_pos = G_src_pos + 1 END! END!
+      WHILE? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) != "\n": G_src_pos = G_src_pos + 1 END! END!
     IF? kind == "eq":
       G_src_pos = G_src_pos + 1
-      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == "=":
         add_token(TOK_EQ, 0); G_src_pos = G_src_pos + 1
       ELSE:
         add_token(TOK_ASSIGN, 0)
@@ -329,7 +331,7 @@ FUNC! tokenize_source src:
     END!
     IF? kind == "bang":
       G_src_pos = G_src_pos + 1
-      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == "=":
         add_token(TOK_NEQ, 0); G_src_pos = G_src_pos + 1
       ELSE:
         add_token(TOK_NOT, 0)
@@ -337,7 +339,7 @@ FUNC! tokenize_source src:
     END!
     IF? kind == "lt":
       G_src_pos = G_src_pos + 1
-      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == "=":
         add_token(TOK_LTE, 0); G_src_pos = G_src_pos + 1
       ELSE:
         add_token(TOK_LT, 0)
@@ -345,7 +347,7 @@ FUNC! tokenize_source src:
     END!
     IF? kind == "gt":
       G_src_pos = G_src_pos + 1
-      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == 61:
+      IF? G_src_pos < G_src_len AND CHAR_AT(G_source, G_src_pos) == "=":
         add_token(TOK_GTE, 0); G_src_pos = G_src_pos + 1
       ELSE:
         add_token(TOK_GT, 0)

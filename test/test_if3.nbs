@@ -1,0 +1,8 @@
+FUNC! foo(x):
+    IF? x == 1:
+        RETURN [42, 7]
+    END!
+    RETURN [99, 0]
+END!
+LET r = foo(1)
+PRINT("r[0]=" + TO_STRING(r[0]) + " r[1]=" + TO_STRING(r[1]))

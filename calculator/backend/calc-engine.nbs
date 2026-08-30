@@ -1,0 +1,276 @@
+# ============================================================
+# Nebulara Calculator Backend Engine
+# calc-engine.nbs
+#
+# Protocol (file-based IPC):
+#   Reads  -> request.json   { "op": "+", "a": 10, "b": 5 }
+#   Writes -> response.json  { "result": 15, "error": "" }
+#
+# Supported ops: + - * / % pow sqrt abs factorial gcd prime max min
+# ============================================================
+
+# ---- Lightweight JSON field extractor ----
+# Finds the value of a known key in a flat JSON object string.
+# Works for string values and integer values.
+
+# Read a quoted string value starting right after the opening "
+FUNC! jx_read_str(s, pos):
+    LET n = LEN(s)
+    LET result = ""
+    WHILE? pos < n:
+        LET c = CHAR_AT(s, pos)
+        IF? c == "\"":
+            RETURN [result, pos + 1]
+        END!
+        result = result + c
+        pos = pos + 1
+    END!
+    RETURN [result, pos]
+END!
+
+# Read an integer value (digits, optional leading minus)
+FUNC! jx_read_num(s, pos):
+    LET n = LEN(s)
+    LET neg = FALSE
+    IF? CHAR_AT(s, pos) == "-":
+        neg = TRUE
+        pos = pos + 1
+    END!
+    LET num_str = ""
+    WHILE? pos < n:
+        LET c = CHAR_AT(s, pos)
+        LET code = ORD(c)
+        IF? code >= 48 AND code <= 57:
+            num_str = num_str + c
+            pos = pos + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    IF? LEN(num_str) == 0:
+        RETURN [0, pos]
+    END!
+    LET val = TO_NUMBER(num_str)
+    IF? neg:
+        val = 0 - val
+    END!
+    RETURN [val, pos]
+END!
+
+# Get the value of key from a JSON object string.
+# Returns the value as string (for strings) or int.
+# Returns NULL if key not found.
+FUNC! json_get(json, key):
+    LET n = LEN(json)
+    LET search = "\"" + key + "\":"
+    LET klen = LEN(search)
+    LET i = 0
+    WHILE? i <= n - klen:
+        LET match = TRUE
+        LET j = 0
+        WHILE? j < klen:
+            IF? CHAR_AT(json, i + j) != CHAR_AT(search, j):
+                match = FALSE
+                BREAK
+            END!
+            j = j + 1
+        END!
+        IF? match:
+            LET vpos = i + klen
+            # skip whitespace
+            WHILE? vpos < n:
+                LET vc = CHAR_AT(json, vpos)
+                IF? vc == " " OR vc == "\t":
+                    vpos = vpos + 1
+                ELSE:
+                    BREAK
+                END!
+            END!
+            LET fc = CHAR_AT(json, vpos)
+            IF? fc == "\"":
+                LET r = jx_read_str(json, vpos + 1)
+                RETURN r[0]
+            ELSE:
+                LET r = jx_read_num(json, vpos)
+                RETURN r[0]
+            END!
+        END!
+        i = i + 1
+    END!
+    RETURN NULL
+END!
+
+# ---- Response builder ----
+
+FUNC! make_response(result, error):
+    LET r = TO_STRING(result)
+    RETURN "{\"result\":" + r + ",\"error\":\"" + error + "\"}"
+END!
+
+# ---- Math helpers ----
+
+FUNC! calc_power(base, exp):
+    IF? exp < 0:
+        RETURN 0
+    END!
+    LET result = 1
+    LET i = 0
+    WHILE? i < exp:
+        result = result * base
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+FUNC! calc_abs(n):
+    IF? n < 0:
+        RETURN 0 - n
+    END!
+    RETURN n
+END!
+
+FUNC! calc_gcd(a, b):
+    a = calc_abs(a)
+    b = calc_abs(b)
+    WHILE? b != 0:
+        LET t = b
+        b = a % b
+        a = t
+    END!
+    RETURN a
+END!
+
+FUNC! calc_is_prime(n):
+    IF? n < 2:
+        RETURN FALSE
+    END!
+    IF? n == 2:
+        RETURN TRUE
+    END!
+    IF? n % 2 == 0:
+        RETURN FALSE
+    END!
+    LET i = 3
+    WHILE? i * i <= n:
+        IF? n % i == 0:
+            RETURN FALSE
+        END!
+        i = i + 2
+    END!
+    RETURN TRUE
+END!
+
+FUNC! calc_factorial(n):
+    IF? n <= 1:
+        RETURN 1
+    END!
+    LET result = 1
+    LET i = 2
+    WHILE? i <= n:
+        result = result * i
+        i = i + 1
+    END!
+    RETURN result
+END!
+
+# ---- Request processor ----
+
+FUNC! process(req_str):
+    LET op = json_get(req_str, "op")
+    LET a_raw = json_get(req_str, "a")
+    LET b_raw = json_get(req_str, "b")
+
+    IF? op == NULL:
+        RETURN make_response(0, "missing op field")
+    END!
+
+    LET a = 0
+    LET b = 0
+
+    IF? a_raw != NULL:
+        IF? TYPEOF(a_raw) == "string":
+            a = TO_NUMBER(a_raw)
+        ELSE:
+            a = a_raw
+        END!
+    END!
+
+    IF? b_raw != NULL:
+        IF? TYPEOF(b_raw) == "string":
+            b = TO_NUMBER(b_raw)
+        ELSE:
+            b = b_raw
+        END!
+    END!
+
+    IF? op == "+":
+        RETURN make_response(a + b, "")
+    END!
+    IF? op == "-":
+        RETURN make_response(a - b, "")
+    END!
+    IF? op == "*":
+        RETURN make_response(a * b, "")
+    END!
+    IF? op == "/":
+        IF? b == 0:
+            RETURN make_response(0, "Division by zero")
+        END!
+        RETURN make_response(a / b, "")
+    END!
+    IF? op == "%":
+        IF? b == 0:
+            RETURN make_response(0, "Modulo by zero")
+        END!
+        RETURN make_response(a % b, "")
+    END!
+    IF? op == "pow":
+        RETURN make_response(calc_power(a, b), "")
+    END!
+    IF? op == "sqrt":
+        IF? a < 0:
+            RETURN make_response(0, "Square root of negative")
+        END!
+        RETURN make_response(SQRT(a), "")
+    END!
+    IF? op == "abs":
+        RETURN make_response(calc_abs(a), "")
+    END!
+    IF? op == "factorial":
+        IF? a > 20:
+            RETURN make_response(0, "Input too large (max 20)")
+        END!
+        RETURN make_response(calc_factorial(a), "")
+    END!
+    IF? op == "gcd":
+        RETURN make_response(calc_gcd(a, b), "")
+    END!
+    IF? op == "prime":
+        IF? calc_is_prime(a):
+            RETURN make_response(1, "")
+        END!
+        RETURN make_response(0, "")
+    END!
+    IF? op == "max":
+        RETURN make_response(MAX(a, b), "")
+    END!
+    IF? op == "min":
+        RETURN make_response(MIN(a, b), "")
+    END!
+
+    RETURN make_response(0, "unknown op")
+END!
+
+# ---- Entry point ----
+
+LET req_path  = "calculator/backend/request.json"
+LET resp_path = "calculator/backend/response.json"
+
+LET req_str = READ_FILE(req_path)
+
+IF? req_str == NULL:
+    WRITE_FILE(resp_path, make_response(0, "could not read request.json"))
+ELSE:
+    LET resp = process(TRIM(req_str))
+    WRITE_FILE(resp_path, resp)
+END!

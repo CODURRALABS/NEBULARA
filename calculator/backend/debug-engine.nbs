@@ -1,0 +1,16 @@
+IMPORT "std/json.nbs"
+
+LET req_str = READ_FILE("calculator/backend/request.json")
+PRINT "raw: " + req_str
+LET req = json_parse(TRIM(req_str))
+PRINT "type: " + TYPEOF(req)
+IF? TYPEOF(req) == "array":
+    PRINT "len: " + TO_STRING(LEN(req))
+    LET i = 0
+    WHILE? i < LEN(req):
+        PRINT "  [" + TO_STRING(i) + "] = " + TO_STRING(req[i])
+        i = i + 1
+    END!
+ELSE:
+    PRINT "not array: " + TO_STRING(req)
+END!

@@ -1,0 +1,4 @@
+FUNC! b(x, y):
+    PRINT(TO_STRING(x) + " " + TO_STRING(y))
+END!
+b(3, 4)

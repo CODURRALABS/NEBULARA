@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nebulara Calculator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- Header -->
+    <header class="app-header">
+      <span class="logo-text">nebulara</span>
+      <span class="badge">calculator</span>
+    </header>
+
+    <!-- Calculator Card -->
+    <main class="calc-card">
+
+      <!-- Display -->
+      <div class="display">
+        <div class="display-expr" id="expr">&nbsp;</div>
+        <div class="display-result" id="result">0</div>
+        <div class="display-status" id="status">&nbsp;</div>
+      </div>
+
+      <!-- Standard Grid -->
+      <div class="btn-grid">
+
+        <!-- Row 1 -->
+        <button class="btn btn-fn"  data-action="fn"  data-fn="factorial">n!</button>
+        <button class="btn btn-fn"  data-action="fn"  data-fn="prime">prime?</button>
+        <button class="btn btn-fn"  data-action="fn"  data-fn="sqrt">√</button>
+        <button class="btn btn-fn"  data-action="fn"  data-fn="abs">|x|</button>
+
+        <!-- Row 2 -->
+        <button class="btn btn-fn"  data-action="fn"  data-fn="pow">xʸ</button>
+        <button class="btn btn-fn"  data-action="fn"  data-fn="gcd">gcd</button>
+        <button class="btn btn-clear" data-action="clear">C</button>
+        <button class="btn btn-op"  data-action="op"  data-op="%">%</button>
+
+        <!-- Row 3 -->
+        <button class="btn btn-num" data-action="num" data-val="7">7</button>
+        <button class="btn btn-num" data-action="num" data-val="8">8</button>
+        <button class="btn btn-num" data-action="num" data-val="9">9</button>
+        <button class="btn btn-op"  data-action="op"  data-op="/">÷</button>
+
+        <!-- Row 4 -->
+        <button class="btn btn-num" data-action="num" data-val="4">4</button>
+        <button class="btn btn-num" data-action="num" data-val="5">5</button>
+        <button class="btn btn-num" data-action="num" data-val="6">6</button>
+        <button class="btn btn-op"  data-action="op"  data-op="*">×</button>
+
+        <!-- Row 5 -->
+        <button class="btn btn-num" data-action="num" data-val="1">1</button>
+        <button class="btn btn-num" data-action="num" data-val="2">2</button>
+        <button class="btn btn-num" data-action="num" data-val="3">3</button>
+        <button class="btn btn-op"  data-action="op"  data-op="-">−</button>
+
+        <!-- Row 6 -->
+        <button class="btn btn-num btn-zero" data-action="num" data-val="0">0</button>
+        <button class="btn btn-num" data-action="negate">±</button>
+        <button class="btn btn-op"  data-action="op"  data-op="+">+</button>
+        <button class="btn btn-eq"  data-action="eq">=</button>
+
+      </div>
+
+      <!-- History -->
+      <section class="history-section">
+        <div class="history-header">
+          <span>History</span>
+          <button class="btn-clear-hist" id="clearHist">clear</button>
+        </div>
+        <ul class="history-list" id="history"></ul>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      Powered by <strong>Nebulara</strong> · backend: <code>calc-engine.nbs</code>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

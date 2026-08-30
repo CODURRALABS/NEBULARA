@@ -1,0 +1,11 @@
+FUNC! helper(x):
+    RETURN [x, 7]
+END!
+FUNC! foo(x):
+    IF? x == 1:
+        RETURN helper(x)
+    END!
+    RETURN helper(99)
+END!
+LET r = foo(1)
+PRINT("r[0]=" + TO_STRING(r[0]) + " r[1]=" + TO_STRING(r[1]))
