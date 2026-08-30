@@ -1,0 +1,8 @@
+FUNC! foo(x):
+    IF? x == 1:
+        RETURN 42
+    END!
+    RETURN 99
+END!
+PRINT("foo(1)=" + TO_STRING(foo(1)))
+PRINT("foo(0)=" + TO_STRING(foo(0)))

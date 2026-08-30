@@ -1,0 +1,12 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(x):
+    LET a = 0
+    IF? x == 1:
+        RETURN helper(x)
+    END!
+    RETURN 99
+END!
+PRINT("foo(1)=" + TO_STRING(foo(1)))
+PRINT("foo(0)=" + TO_STRING(foo(0)))

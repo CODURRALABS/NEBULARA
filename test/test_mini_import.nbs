@@ -1,0 +1,3 @@
+IMPORT "std/test_mini_json.nbs"
+LET a = my_json_parse("42")
+PRINT("a=" + TO_STRING(a) + " type=" + TYPEOF(a))

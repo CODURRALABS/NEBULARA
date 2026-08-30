@@ -1,0 +1,7 @@
+IMPORT "std/json.nbs"
+LET pv = parse_val("42", 0)
+PRINT("pv[0]=" + TO_STRING(pv[0]) + " pv[1]=" + TO_STRING(pv[1]))
+
+LET xr = parse_val("42", 0)
+PRINT("xr[0]=" + TO_STRING(xr[0]))
+PRINT("xr[1]=" + TO_STRING(xr[1]))

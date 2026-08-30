@@ -1,0 +1,9 @@
+FUNC! foo(s, i):
+    PRINT("s=" + s)
+    PRINT("i=" + TO_STRING(i))
+    LET x = s
+    LET y = i
+    PRINT("x=" + x)
+    PRINT("y=" + TO_STRING(y))
+END!
+foo("hello", 42)

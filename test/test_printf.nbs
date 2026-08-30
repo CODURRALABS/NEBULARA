@@ -1,0 +1,8 @@
+# Test PRINTF builtin
+PRINTF("name: ")
+LET x = READ_LINE()
+PRINT("got: " + x)
+PRINTF("count: ")
+PRINT(42)
+PRINTF("pi? ")
+PRINT(TRUE)

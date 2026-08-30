@@ -1,0 +1,11 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(s):
+    LET pc = SUBSTR(s, 0, 1)
+    IF? pc == "4":
+        RETURN helper(41)
+    END!
+    RETURN 99
+END!
+PRINT(TO_STRING(foo("42")))

@@ -1,0 +1,11 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(s):
+    LET n = LEN(s)
+    IF? n == 2:
+        RETURN helper(41)
+    END!
+    RETURN 99
+END!
+PRINT("foo(42)=" + TO_STRING(foo("42")))

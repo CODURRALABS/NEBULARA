@@ -1,0 +1,11 @@
+LET x = 5
+LET y = 10
+IF? x == 5 OR y == 10:
+    PRINT("E1: OR works")
+END!
+IF? (x == 5 AND y == 10) OR x == 0:
+    PRINT("E2: OR with AND works")
+END!
+IF? (x >= 3 AND x <= 7) OR x == 99:
+    PRINT("E3: range OR works")
+END!

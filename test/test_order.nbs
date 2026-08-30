@@ -1,0 +1,4 @@
+FUNC! a(x, y):
+    PRINT("x=" + TO_STRING(x) + " y=" + TO_STRING(y))
+END!
+a(1, 2)

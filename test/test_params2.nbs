@@ -1,0 +1,5 @@
+FUNC! foo(s, i):
+    PRINT(s)
+    PRINT(TO_STRING(i))
+END!
+foo("hello", 42)

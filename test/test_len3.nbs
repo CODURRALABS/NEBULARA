@@ -1,0 +1,7 @@
+FUNC! foo(s):
+    IF? LEN(s) == 2:
+        RETURN 42
+    END!
+    RETURN 99
+END!
+PRINT("foo(42)=" + TO_STRING(foo("42")))

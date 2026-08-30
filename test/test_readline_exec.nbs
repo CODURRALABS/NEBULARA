@@ -1,0 +1,16 @@
+# Test READ_LINE and EXEC builtins
+PRINT("Test READ_LINE:")
+LET line = READ_LINE()
+PRINT("You typed: " + line)
+
+PRINT("Test EXEC:")
+LET rc = EXEC("cmd /c echo hello from exec")
+PRINT("EXEC exit code: " + TO_STRING(rc))
+
+PRINT("EOF test:")
+LET eof_line = READ_LINE()
+IF? eof_line == NULL THEN:
+    PRINT("EOF returned NULL (correct)")
+ELSE:
+    PRINT("EOF returned: " + TO_STRING(eof_line))
+END!

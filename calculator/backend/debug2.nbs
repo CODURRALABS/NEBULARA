@@ -1,0 +1,23 @@
+IMPORT "std/json.nbs"
+
+# Test simple string parse
+LET r1 = parse_str("hello world\" rest", 0)
+PRINT "str result: " + TO_STRING(r1[0])
+PRINT "str pos: " + TO_STRING(r1[1])
+
+# Test parse_val on a quoted string
+LET r2 = parse_val("\"+\"", 0)
+PRINT "val of plus: " + TO_STRING(r2[0])
+PRINT "val pos: " + TO_STRING(r2[1])
+
+# Test simple object
+LET r3 = json_parse("{\"x\":5}")
+PRINT "obj type: " + TYPEOF(r3)
+IF? TYPEOF(r3) == "array":
+    PRINT "obj len: " + TO_STRING(LEN(r3))
+    LET i = 0
+    WHILE? i < LEN(r3):
+        PRINT "  [" + TO_STRING(i) + "] " + TO_STRING(r3[i]) + " (" + TYPEOF(r3[i]) + ")"
+        i = i + 1
+    END!
+END!

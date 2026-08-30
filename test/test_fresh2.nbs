@@ -1,0 +1,8 @@
+FUNC! foo(s, i):
+    LET pc = CHAR_AT(s, i)
+    PRINT("pc=" + pc)
+    IF? pc == "4":
+        PRINT("match!")
+    END!
+END!
+foo("42", 0)

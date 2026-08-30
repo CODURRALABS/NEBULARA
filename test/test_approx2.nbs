@@ -1,0 +1,8 @@
+FUNC! parse_num(pns, pnp2):
+    RETURN [TO_NUMBER(pns), 2]
+END!
+FUNC! parse_val(ps, pp):
+    RETURN parse_num(ps, pp)
+END!
+LET pv = parse_val("42", 0)
+PRINT("A: pv[0]=" + TO_STRING(pv[0]) + " pv[1]=" + TO_STRING(pv[1]))

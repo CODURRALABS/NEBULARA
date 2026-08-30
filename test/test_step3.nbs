@@ -1,0 +1,26 @@
+FUNC! skip_ws(ss, sp):
+    LET sn = LEN(ss)
+    WHILE? sp < sn:
+        IF? FALSE:
+            sp = sp + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    RETURN sp
+END!
+FUNC! parse_num(pns, pnp2):
+    RETURN [TO_NUMBER("42"), 2]
+END!
+FUNC! parse_val(ps, pp):
+    LET pnp = skip_ws(ps, pp)
+    LET pc = CHAR_AT(ps, pnp)
+    IF? pc == "x":
+        RETURN [TRUE, 1]
+    ELSEIF? pc == "4":
+        RETURN parse_num(ps, pnp)
+    END!
+    RETURN [NULL, pnp]
+END!
+LET pv = parse_val("42", 0)
+PRINT("pv[0]=" + TO_STRING(pv[0]) + " pv[1]=" + TO_STRING(pv[1]))

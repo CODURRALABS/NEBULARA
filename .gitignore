@@ -47,3 +47,8 @@ debug-output.txt
 *.bak
 run_tcc.bat
 tcc_test.c
+
+# Bytecode / native build artifacts
+*.nbsc
+test/native-test
+vscode-nebulara/*.vsix

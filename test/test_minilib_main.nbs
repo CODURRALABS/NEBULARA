@@ -1,0 +1,3 @@
+IMPORT "std/test_minilib.nbs"
+PRINT("foo(1)=" + TO_STRING(foo(1)))
+PRINT("foo(0)=" + TO_STRING(foo(0)))

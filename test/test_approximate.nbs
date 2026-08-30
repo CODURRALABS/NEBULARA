@@ -1,0 +1,64 @@
+FUNC! skip_ws(ss, sp):
+    LET sn = LEN(ss)
+    WHILE? sp < sn:
+        LET sc = CHAR_AT(ss, sp)
+        IF? sc == " " OR sc == "\n" OR sc == "\r" OR sc == "\t":
+            sp = sp + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    RETURN sp
+END!
+
+FUNC! parse_num(pns, pnp2):
+    LET pstart = pnp2
+    LET pnn = LEN(pns)
+    IF? CHAR_AT(pns, pnp2) == "-":
+        pnp2 = pnp2 + 1
+    END!
+    WHILE? pnp2 < pnn:
+        LET pnc = CHAR_AT(pns, pnp2)
+        IF? ORD(pnc) >= 48 AND ORD(pnc) <= 57:
+            pnp2 = pnp2 + 1
+        ELSE:
+            BREAK
+        END!
+    END!
+    LET pnum_str = SUBSTR(pns, pstart, pnp2 - pstart)
+    RETURN [TO_NUMBER(pnum_str), pnp2]
+END!
+
+FUNC! parse_val(ps, pp):
+    LET pnp = skip_ws(ps, pp)
+    LET pc = CHAR_AT(ps, pnp)
+    IF? pc == "\"":
+        RETURN parse_str(ps, pnp + 1)
+    ELSEIF? pc == "t" OR pc == "T":
+        RETURN [TRUE, pnp + 4]
+    ELSEIF? pc == "f" OR pc == "F":
+        RETURN [FALSE, pnp + 5]
+    ELSEIF? pc == "n" OR pc == "N":
+        RETURN [NULL, pnp + 4]
+    ELSEIF? pc == "{":
+        RETURN parse_obj(ps, pnp + 1)
+    ELSEIF? pc == "[":
+        RETURN parse_arr(ps, pnp + 1)
+    ELSEIF? (ORD(pc) >= 48 AND ORD(pc) <= 57) OR pc == "-":
+        RETURN parse_num(ps, pnp)
+    END!
+    RETURN [NULL, pnp]
+END!
+
+FUNC! parse_str(ps2, pp2):
+    RETURN ["", pp2]
+END!
+FUNC! parse_obj(os, op):
+    RETURN [[], op]
+END!
+FUNC! parse_arr(xs, xp):
+    RETURN [[], xp]
+END!
+
+LET pv = parse_val("42", 0)
+PRINT("pv[0]=" + TO_STRING(pv[0]) + " pv[1]=" + TO_STRING(pv[1]))

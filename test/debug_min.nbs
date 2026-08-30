@@ -1,0 +1,4 @@
+LET x = 5
+PRINT x
+x = x + 1
+PRINT x

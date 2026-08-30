@@ -1,0 +1,16 @@
+FUNC! helper(x):
+    RETURN x + 1
+END!
+FUNC! foo(ps, pp):
+    LET pc = CHAR_AT(ps, pp)
+    PRINT("DEBUG pc=" + pc)
+    PRINT("DEBUG type=" + TYPEOF(pc))
+    PRINT("DEBUG len=" + TO_STRING(LEN(pc)))
+    IF? pc == "4":
+        PRINT("DEBUG condition true")
+        RETURN helper(41)
+    END!
+    PRINT("DEBUG condition false")
+    RETURN 99
+END!
+PRINT(TO_STRING(foo("42", 0)))
