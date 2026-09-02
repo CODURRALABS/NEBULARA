@@ -62,8 +62,9 @@ tiny probe file:
 PRINT TYPEOF(10)
 SLEEP(100)          # does SLEEP exist in this build?
 ```
-Run it. If `SLEEP` errors, it's not built in — don't use it. This one habit
-saves the most time in this language (docs drift).
+Run it. If `SLEEP` errors, your binary is older than the source — rebuild
+`Compiler/nbs-bootstrap.c` to get the current feature set. This one habit saves
+the most time in this language (docs drift).
 
 **Quick probe of the verified builtins** (these should all work):
 ```nbs

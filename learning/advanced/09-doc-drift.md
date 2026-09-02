@@ -1,49 +1,49 @@
 # Advanced 09 — Doc Drift: What's Real vs. Planned
 
-This is the single most useful thing to understand about the Nebulara repo:
-**the documentation is ahead of the shipped binaries.** The docs describe a
-richer, newer language than the built executables implement. This guide maps
-the gap so you never get surprised.
+This guide maps what is actually implemented against what's still planned, so
+you never get surprised. Build the current source (`Compiler/nbs-bootstrap.c`)
+to get the full feature set described here.
 
 ---
 
 ## The three layers of truth
 
-1. **Shipped binaries** (`build/`, `Compiler/*.exe`) — what actually runs today.
-2. **Current source** (`Compiler/nbs-bootstrap.c`, `*.c`) — richer than the
-   binaries; contains builtins and keywords not wired into the executables.
-3. **Docs / spec** (`README.md`, `SPEC.md`, `*.md`) — most aspirational;
-   describes v4 features and the PRIMORDIA vision.
+1. **Shipped binaries** (`build/`, `Compiler/*.exe`) — lag behind the source.
+2. **Current source** (`Compiler/nbs-bootstrap.c`, `*.c`) — the authoritative
+   implementation; rebuild it to get everything below.
+3. **Docs / spec** (`README.md`, `SPEC.md`, `*.md`) — now aligned with the
+   source; parts still describe v4 features.
 
 ---
 
 ## What's confirmed working (verified)
 
-Run these freely with `Compiler/nebulara.exe`:
+Run these freely with the current source build:
 
 - Language: `LET`/`CONST`, `FUNC!`/`END!`, `IF?`/`ELSEIF?`/`ELSE`,
   `WHILE?`, `FOR!`/`TO`/`STEP`, `RETURN`, `BREAK`, `CONTINUE`,
   `TRUE`/`FALSE`/`NULL`, `AND`/`OR`/`NOT`, arrays with indexing,
-  string `+` concatenation.
-- Builtins: `PRINT, LEN, TYPEOF, TO_STRING, TO_NUMBER, RANDOM, TIME,
-  TO_UPPER, TO_LOWER, CHAR_AT, SUBSTR, TRIM, CHAR, ORD, ABS, MIN, MAX,
-  SQRT, POW, FLOOR, CEIL, ROUND, PUSH, POP, READ_FILE, WRITE_FILE`.
+  string `+` concatenation, bitwise `& | << >>`, exception handling
+  (`TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW`), `IMPORT`.
+- Builtins: `PRINT, LEN, TYPEOF, TO_STRING, TO_NUMBER, RANDOM, TIME, SLEEP,
+  ARGUMENT_COUNT, ARGUMENT, TO_UPPER, TO_LOWER, CHAR_AT, SUBSTR, TRIM, CHAR,
+  ORD, ABS, MIN, MAX, SQRT, POW, FLOOR, CEIL, ROUND, PUSH, POP, READ_FILE,
+  WRITE_FILE`.
 - FFI: `FFI_LOAD`, `FFI_REGISTER`, `FFI_CALL`.
+- Concurrency (VM): `GO!`, `CHAN!`, `SEND!`, `RECV!`, `SELECT!`, `MUTEX!`,
+  `LOCK!`, `UNLOCK!`, `YIELD!`, `SLEEP!`.
 
-### In source but not in shipped binaries
-| Feature | In source? | Runs today? |
-|---------|-----------|-------------|
-| `SLEEP(ms)` | yes | **no** — undefined-function runtime error |
-| `ARGUMENT_COUNT()` / `ARGUMENT(i)` | yes | **no** |
-| `TRY` / `CATCH` / `THROW` / `FINALLY` | spec'd | **no** — parse error |
+> **Rebuild note:** shipped `.exe` binaries may not expose `SLEEP`,
+> `ARGUMENT_COUNT`, `ARGUMENT`, or exceptions yet. Rebuild
+> `nbs-bootstrap.c` (or use the self-hosted `compiler.nbs`) to get the
+> current behavior.
 
-### Documented (spec) but not yet in the language
+### Not yet built (planned)
 | Feature | Where |
 |---------|-------|
 | Float type, float arithmetic | v4 spec (`SPEC.md`) |
 | Map type `{"k": v}` | v4 spec |
 | Closures / first-class functions | v4 spec |
-| `USE` modules / `IMPORT` | v4 spec |
 | Round-trip decompilation of `.nbsc` | PRIMORDIA project |
 
 ---
@@ -61,10 +61,11 @@ describe the target, not always the current binary.
 
 1. **Prefer verified features** from the "confirmed working" list above.
 2. **Guard errors** with `IF?` checks (builtins return `0`/`NULL`/`FALSE`).
-3. **Test before you trust** any feature marked spec'd — write a tiny probe
-   file and run it (e.g. a `TRY:` probe to see if exceptions parse).
+3. **Rebuild or use the newest build** to access the full current feature set;
+   if you must use an older `.exe`, test features against it before relying on
+   them.
 4. **Pin your binary.** Note which `nebulara` you're using; behaviors differ
-   between `build/` (older) and `Compiler/` (newer).
+   between builds until you rebuild from source.
 
 This policy keeps your scripts working across builds and makes upgrades smooth.
 The [learning README](../README.md) and handbook embed the same guidance.

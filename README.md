@@ -79,7 +79,7 @@ WHILE? count > 0 THEN:
     count = count - 1
 END!
 
-FOR! i = 0 TO 10 (STEP 2):
+FOR! i = 0 TO 10 STEP 2:
     PRINT(i)
 END!
 
@@ -89,11 +89,11 @@ FUNC! add(a, b):
 END!
 
 # Exception handling
-TRY:
-    THROW "something went wrong"
-CATCH err:
+TRY!
+    THROW("something went wrong")
+CATCH! err:
     PRINT("Caught: " + err)
-END!
+ENDTRY!
 
 # Math builtins
 PRINT(ABS(-42))     # 42
@@ -107,7 +107,7 @@ PRINT(ORD("Z"))     # 90
 
 | Component | What it does |
 |-----------|-------------|
-| **Interpreter** (`nebulara.exe`) | Full AST, bytecode VM, 40+ opcodes, 35+ builtins |
+| **Interpreter** (`nebulara.exe`) | Full AST, bytecode VM, 40+ opcodes, 31 builtins |
 | **CLI** (`neb-cli.exe`) | REPL, .nbsc bytecode compilation, syntax highlighting |
 | **Pipeline** (`neb-pipeline.exe`) | `.nbs` -> JavaScript / Python transpilation |
 | **Semantic Analyzer** | Scope-based type checking, undefined variable detection |
@@ -137,7 +137,7 @@ check('./app.nbs');              // Type checking
 | `collections.nbs` | find, contains, reverse_array, sum_array, max_array, min_array |
 | `json.nbs` | json_stringify (json_parse stub - needs FFI) |
 | `net.nbs` | All stubs (needs FFI to libcurl/WinHTTP) |
-| `time.nbs` | now, elapsed, sleep (needs FFI) |
+| `time.nbs` | now, elapsed, sleep |
 
 ## Tests
 

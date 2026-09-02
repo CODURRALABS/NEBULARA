@@ -29,48 +29,33 @@ lists.
 
 ---
 
-## 2. How to use a module: the `USE` keyword
+## 2. How to use a module: `IMPORT`
 
-Nebulara v4 introduces `USE "module"` to load a file and access its functions
-through a namespace:
+`IMPORT "path.nbs"` loads a module file into the same namespace, so its
+functions become directly available:
 
 ```nbs
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # 10
+```
+
+- Imports are deduplicated (each path is loaded once).
+- Function names stay lowercase (`clamp`), distinct from all-caps builtins.
+
+---
+
+## 3. The `USE` keyword (spec'd, not implemented)
+
+The v4 spec describes `USE "module"` with a namespace:
+
+```nbs
+# v4 preview - not yet implemented
 USE "math"
 PRINT math.clamp(15, 0, 10)     # 10
 ```
 
-- The module name is the file's stem (`math.nbs` → namespace `math`).
-- Files load once and are cached.
-- Circular `USE` is a compile error.
-
----
-
-## 3. If your build lacks `USE`
-
-The base interpreter may not expose `USE` yet. Two workarounds:
-
-**Workaround A — call by name if the file is bundled/concatenated.** Many
-stdlib files are self-contained; you can paste the functions you need, or
-prepend the file's content to yours before running.
-
-**Workaround B — just reimplement the small helper.** Most stdlib functions
-are tiny. For example, instead of `clamp`:
-
-```nbs
-FUNC! clamp(v, lo, hi):
-    IF? v < lo:
-        RETURN lo
-    END!
-    IF? v > hi:
-        RETURN hi
-    END!
-    RETURN v
-END!
-PRINT clamp(15, 0, 10)    # 10
-```
-
-This "vendor the function" approach is totally idiomatic given how small the
-helpers are.
+`USE` is **not implemented** yet — use `IMPORT` today. Also, never assume
+module functions are namespaced: with `IMPORT` they're top-level.
 
 ---
 
@@ -123,8 +108,8 @@ This is a tiny testing framework you can use to verify your own exercises.
 
 ## Checkpoint
 - The stdlib is `.nbs` files full of small helpers. ✅
-- `USE` namespaces modules (when supported). ✅
-- You can vendor helpers or use `USE`. ✅
+- `IMPORT` loads a module into your namespace. ✅
+- `USE` namespacing is spec'd for v4 (not implemented). ✅
 - You can verify code with `test.nbs`. ✅
 
 Next: **[Lesson 11 — Putting It Together](11-project.md)**

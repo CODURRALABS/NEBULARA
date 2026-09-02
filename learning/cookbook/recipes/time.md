@@ -22,14 +22,13 @@ LET elapsed = TIME() - start
 PRINT "elapsed: " + elapsed
 ```
 
-## A pseudo timer with RANDOM
-No `SLEEP` in the base interpreter, but if you have the stdlib `time` module
-and `SLEEP` works on your build, pause with:
+## A pseudo timer
+`SLEEP(ms)` is implemented in the current source (`Compiler/nbs-bootstrap.c`),
+and the stdlib `time` module wraps it. Pause with:
 ```nbs
-# stdlib: USE "time"  → time.sleep(ms)
+SLEEP(100)   # wait 100 ms
 ```
-Otherwise, simulate a delay by doing busy work (a big loop). This is not
-precise wall-clock timing, just a delay.
+If a shipped `.exe` errors on it, rebuild from source to get `SLEEP`.
 
 ## Timestamp-ish value for logging
 ```nbs
@@ -47,22 +46,22 @@ PRINT seed
 ```
 
 ## Note on `SLEEP`
-`sleep(ms)` exists in the stdlib `time.nbs` module and as a `SLEEP` builtin in
-source, but **is not wired into the base interpreter** — it raises an
-undefined-function error. Check your build with a probe before relying on it:
+`SLEEP(ms)` is implemented in the current source (`Compiler/nbs-bootstrap.c`).
+If your shipped `.exe` raises an undefined-function error for it, rebuild from
+source. Confirm with a probe:
 ```nbs
 # probe.nbs
 SLEEP(100)
 ```
-If it errors, don't use it.
+If it errors, your binary is older than the source — rebuild.
 
 ---
 
 ## The timer module (stdlib)
-If your build supports `USE` and `sleep`:
+Use `IMPORT` to load the time module, then call its functions directly:
 ```nbs
-USE "time"
-LET start = time.now()
+IMPORT "std/time.nbs"
+LET start = now()
 # ... work ...
-PRINT "elapsed: " + time.elapsed(start)
+PRINT "elapsed: " + elapsed(start)
 ```

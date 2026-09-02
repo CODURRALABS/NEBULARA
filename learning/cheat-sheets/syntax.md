@@ -69,11 +69,13 @@ PRINT add(3, 4)          # 7
 
 ## Exceptions
 ```nbs
-TRY:
-    THROW "something went wrong"
-CATCH err:
+TRY!
+    THROW("something went wrong")
+CATCH! err:
     PRINT "Caught: " + err
-END!
+FINALLY!
+    PRINT "always runs"
+ENDTRY!
 ```
 
 ## Arrays
@@ -110,7 +112,9 @@ FUNC! END! LET CONST
 IF? ELSEIF? ELSE END!
 WHILE? FOR! TO STEP
 RETURN BREAK CONTINUE
-TRY CATCH FINALLY THROW ENDTRY
+TRY! CATCH! FINALLY! THROW ENDTRY!
+IMPORT GO! CHAN! SEND! RECV! SELECT!
+MUTEX! LOCK! UNLOCK! YIELD! SLEEP!
 TRUE FALSE NULL
 AND OR NOT
 PRINT LEN TYPEOF
@@ -121,10 +125,10 @@ PRINT LEN TYPEOF
 ## Gotchas (read these!)
 - `PRINT arrayName` prints `[array N]` (count), **not** the element list.
 - Keywords use **suffix symbols**: `IF?` has a `?`, `FUNC!`/`END!`/`FOR!` have a `!`.
-- `END!` closes blocks. There are **no braces** `{}`.
+- `END!` closes blocks. There are **no braces** `{}`. Exception blocks use `ENDTRY!`.
 - Logical operators are **words**, not `&&`/`||`/`!`.
 - Integer division: `7 / 2` → `3` (truncates).
 - `FLOOR`, `CEIL`, `ROUND` are currently pass-through no-ops on ints.
 - Booleans print as lowercase `true`/`false`; you *type* `TRUE`/`FALSE`.
-- `TRY`/`CATCH`/`THROW` and `FINALLY` are **spec'd but not yet in the base
-  interpreter** — guard with `IF?` checks until they land.
+- Exceptions use `TRY!`/`CATCH!`/`ENDTRY!` (note the `!`) — `THROW` takes
+  parens: `THROW("msg")`.

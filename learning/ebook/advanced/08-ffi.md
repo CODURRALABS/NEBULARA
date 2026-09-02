@@ -12,76 +12,93 @@ the "universal" claim concrete at the ABI level.
 
 Nebulara exposes FFI through three builtins:
 
-| Builtin | Purpose |
-|---------|---------|
-| `FFI_LOAD("lib")` | Load a shared library / DLL by name |
-| `FFI_REGISTER(handle, "name", "sig")` | Look up a function by name |
-| `FFI_CALL(reg, args...)` | Call it |
+| Builtin | Signature | Purpose |
+|---------|-----------|---------|
+| `FFI_LOAD` | `FFI_LOAD(name, path)` | Load a shared library / DLL |
+| `FFI_REGISTER` | `FFI_REGISTER(lib, sym, retType, nArgs)` | Declare a function |
+| `FFI_CALL` | `FFI_CALL(lib, sym, args...)` | Call it |
+
+- `FFI_LOAD` takes a **lookup name** (first arg) and the **file path** to the
+  DLL/so (second arg). On Windows, `path` is fed to `LoadLibraryA`.
+- `FFI_REGISTER` binds a symbol from a loaded library. `retType` is an integer
+  return-type code, `nArgs` the fixed argument count:
+  | Code | Type |
+  |------|------|
+  | `0` | void |
+  | `1` | int |
+  | `2` | float |
+  | `3` | double |
+  | `4` | string |
+  | `5` | pointer |
+- `FFI_CALL` looks up the registered function by lib name + symbol (not a
+  handle) and invokes it. Arguments are passed as machine ints/pointers; the
+  return value is decoded per the registered `retType`.
 
 ---
 
 ## A working example (Windows / msvcrt)
 
-Load the C runtime, register `pow`, and call it:
+Load the C runtime, register `abs`, and call it:
 
 ```nbs
-LET lib = FFI_LOAD("msvcrt")
-LET power = FFI_REGISTER(lib, "pow", "dd->d")
-LET result = FFI_CALL(power, 2.0, 10.0)
-PRINT result
+FFI_LOAD("msvcrt", "msvcrt.dll")
+FFI_REGISTER("msvcrt", "abs", 1, 1)     # ret=int(1), 1 argument
+LET result = FFI_CALL("msvcrt", "abs", -42)
+PRINT result                              # 42
 ```
 
 Interpretation:
-- `FFI_LOAD("msvcrt")` opens the Microsoft C runtime DLL.
-- `FFI_REGISTER(..., "pow", "dd->d")` finds `pow`, with a type signature
-  `dd->d` (two doubles in, one double out).
-- `FFI_CALL(power, 2.0, 10.0)` invokes it → `1024.0`.
+- `FFI_LOAD("msvcrt", "msvcrt.dll")` registers a lib named `msvcrt` with the
+  path `msvcrt.dll`.
+- `FFI_REGISTER("msvcrt", "abs", 1, 1)` finds `abs`, return type `int`,
+  one argument.
+- `FFI_CALL("msvcrt", "abs", -42)` invokes it → `42`.
+
+Nothing returns a handle; you always refer to functions by `(lib, symbol)`.
 
 ---
 
-## The signature mini-language
+## The return-type codes
 
-`FFI_REGISTER` needs a signature string so Nebulara knows how to pass data.
-The convention is `<in-types>-><return-type>`:
+`FFI_REGISTER` selects the return type with an integer code:
 
-| Letter | C type |
-|--------|--------|
-| `i` | int |
-| `d` | double |
-| `c` | char |
-| `s` | char* (string) |
-| `v` | void |
+| Code | Meaning |
+|------|---------|
+| `0` | void (returns 0) |
+| `1` | int |
+| `2` | float (32-bit) |
+| `3` | double (64-bit) |
+| `4` | string (`const char*`, imported as a Nebulara string) |
+| `5` | pointer (imported as a string if non-null) |
 
-Examples:
-- `"ii->i"` — (int, int) → int — e.g. a C `add(int, int)`.
-- `"dd->d"` — (double, double) → double — e.g. `pow`.
-- `"s->i"` — (string) → int — e.g. `strlen`.
-
-The run functions decode/encode values across the boundary; several functions
-handle the conversion so your Nebulara call reads naturally.
+There is **no signature string** — the ABI is fixed-width int/pointer
+arguments plus a single chosen return type. The run functions decode/encode
+values across the boundary.
 
 ---
 
 ## Flow of a call
 
 ```
-Nebulara value --FFI_CALL--> args decoded per signature
+Nebulara value --FFI_CALL--> args pushed as intptr_t
         ---> native C function runs
-        <--- return encoded per signature --> Nebulara value
+        <--- return encoded per retType --> Nebulara value
 ```
 
-Demonstrated in the `Compilers/neb-ffi/nbs_ffi.c` demo (File Demo: `ffi`):
-calling a C math function from Nebulara and printing the result.
+Demonstrated in the `Compilers/neb-ffi.c` demo (`ffi_register_func` +
+`FFI_TYPE_INT`): calling a C math function from Nebulara and printing the
+result.
 
 ---
 
 ## Platform notes
 
-- **Library name** is platform-specific: `msvcrt` (Windows), `libm.so`
-  (Linux), `libm.dylib` (macOS).
-- **ABI types** must match the real C signature — an exact signature string is
-  required or the call misbehaves.
-- This only works where you can load native libraries (a real OS with dlopen/
+- **Library path** is platform-specific: `msvcrt.dll` / `user32.dll`
+  (Windows), `libm.so.6` (Linux), `libm.dylib` (macOS).
+- **Types are best-effort**: args are ints or `const char*` pointers; floats/
+  doubles are not marshalled precisely in every build — prefer int/string
+  functions for reliable calls.
+- Only works where you can load native libraries (a real OS with dlopen/
   LoadLibrary); the transpiled JS/Python targets have their own IO instead.
 
 ---
@@ -96,9 +113,11 @@ calling a C math function from Nebulara and printing the result.
 
 ## Summary
 
-- `FFI_LOAD` → `FFI_REGISTER` → `FFI_CALL`.
-- Signatures like `"dd->d"` describe C types across the boundary.
-- Works as a native-call bridge to the C ecosystem.
-- Platform-specific library names; exact ABI signatures required.
+- `FFI_LOAD(name, path)` → `FFI_REGISTER(lib, sym, retType, nArgs)` →
+  `FFI_CALL(lib, sym, args...)`.
+- Refer to functions by **lib name + symbol**, not by handles.
+- Return type is an integer code (`0`..`5`), not a signature string.
+- Platform-specific library paths; int/string-returning functions are the
+  reliable ones.
 
 **Next:** [Chapter 9 — Native Code Generation](09-native.md)

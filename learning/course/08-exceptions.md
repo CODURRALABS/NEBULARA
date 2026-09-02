@@ -1,14 +1,14 @@
 # Lesson 08 — Handling Errors
 
 Things go wrong in real programs. This lesson is about **error handling**.
-It covers both approaches in Nebulara: the **spec'd exception syntax** and the
-**guarding approach that actually runs today** on the base interpreter.
+It covers both approaches in Nebulara: the **exception syntax** and the
+**guarding approach**.
 
-> **Honest status up front:** `TRY`/`CATCH`/`THROW`/`FINALLY` are defined in the
-> language spec and the compiler, but **the base `nebulara.exe` in this repo
-> does not parse them yet** (verified). So this lesson shows you the intended
-> syntax for when it lands, and teaches the guarding pattern you should use
-> right now. Both are worth knowing.
+> **Status:** `TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW` are implemented in
+> the current source (`Compiler/nbs-bootstrap.c`). Note the **`!` suffix** on
+> the block keywords and **parens on `THROW`**. If your *shipped* `.exe`
+> predates this, rebuild from source or use the guarding pattern below — both
+> are worth knowing.
 
 ---
 
@@ -77,43 +77,44 @@ END!
 
 ---
 
-## 4. The spec'd exception syntax (for when it lands)
+## 4. The exception syntax
 
-The language spec defines these `TRY`/`CATCH`/`THROW` blocks, arriving in a
-future build:
+The language supports `TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW`:
 
 ```nbs
-TRY:
-    THROW "something went wrong"
-CATCH err:
+TRY!
+    THROW("something went wrong")
+CATCH! err:
     PRINT "Caught: " + err
-END!
+ENDTRY!
 ```
 
-- `THROW value` raises an exception carrying `value`.
-- `CATCH err:` binds the thrown value to `err`.
-- `FINALLY:` always runs, error or not.
+- `THROW(value)` raises an exception carrying `value`.
+- `CATCH! err:` binds the thrown value to `err`.
+- `FINALLY!` always runs, error or not (optional).
+- `ENDTRY!` closes the block.
 
-A more realistic intended usage:
+A more realistic usage:
 
 ```nbs
-TRY:
+TRY!
     LET n = TO_NUMBER("not a number")
     IF? n == 0:
-        THROW "parse failed"
+        THROW("parse failed")
     END!
     PRINT n
-CATCH err:
+CATCH! err:
     PRINT "Error: " + err
-END!
+FINALLY!
+    PRINT "done"
+ENDTRY!
 ```
 
-Once your interpreter supports these keywords, this becomes the idiomatic way
-to signal "this step failed." Until then, use the guarding pattern from §2–3.
+When a step can fail, exceptions are the idiomatic way to signal it. The
+guarding pattern from §2–3 remains useful for non-throwing sentinel returns.
 
-> **How to check:** try running a file with `TRY:`. If you get a parse error,
-> your build doesn't support exceptions yet — use guarding. If it runs, you're
-> on a newer build and can use the full syntax.
+> **Note on syntax:** block keywords carry a `!` (`TRY!`, `CATCH!`, `FINALLY!`,
+> `ENDTRY!`) and `THROW` uses parentheses (`THROW("msg")`).
 
 ---
 
@@ -137,7 +138,7 @@ END!
 
 1. What does `TO_NUMBER("hello")` return, and how do you guard against it?
 2. Write a guard that prints `"empty"` when a file is missing, else its contents.
-3. (If your build supports it) Convert the guard into a `TRY`/`CATCH`.
+3. (If your build supports it) Convert the guard into a `TRY!`/`CATCH!`.
 
 ### Answers
 1. `0`. Guard with `IF? n == 0:` then handle it.
@@ -152,22 +153,22 @@ END!
 ```
 3.
 ```nbs
-TRY:
+TRY!
     LET data = READ_FILE("f.txt")
     IF? data == NULL:
-        THROW "empty"
+        THROW("empty")
     END!
     PRINT data
-CATCH err:
+CATCH! err:
     PRINT err
-END!
+ENDTRY!
 ```
 
 ---
 
 ## Checkpoint
 - Builtins return sentinel values (`0`/`NULL`/`FALSE`) on failure. ✅
-- You can guard errors with `IF?` — the pattern that runs today. ✅
-- You know the spec'd `TRY`/`CATCH`/`THROW`/`FINALLY` syntax. ✅
+- You can guard errors with `IF?` — the pattern that always works. ✅
+- You know the `TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW` syntax. ✅
 
 Next: **[Lesson 09 — Files & System](09-files-and-system.md)**

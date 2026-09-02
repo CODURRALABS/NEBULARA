@@ -58,9 +58,10 @@ a feature and aren't sure your binary has it, probe it here in 5 seconds:
 
 Same for keywords:
 ```
-> TRY:
+> TRY!
 ```
-- If it errors at parse → exceptions aren't in your binary yet → use guards.
+- If it errors at parse → your build is older than the source → rebuild
+  `nbs-bootstrap.c` to get the current feature set.
 
 This turns "does doc X match reality?" from a research task into a keystroke.
 

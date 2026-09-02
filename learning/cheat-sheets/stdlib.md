@@ -1,13 +1,13 @@
 # Nebulara — Standard Library Cheat Sheet
 
 The standard library lives in `std/*.nbs` and is written **in Nebulara itself**.
-Load a module, then call its functions through the namespace:
+Load a module with `IMPORT`, then call its functions directly:
 ```nbs
-USE "math"
-PRINT math.clamp(15, 0, 10)     # 10
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # 10
 ```
-(If your interpreter build lacks `USE`, you can concatenate files — see the
-[modules guide](../guides/modules.md). Functions below still hold.)
+The v4 spec describes `USE` for namespaced access (`math.clamp(...)`) but it
+isn't implemented yet — with `IMPORT`, functions are top-level.
 
 ## math.nbs
 | Function | Returns |
