@@ -1,8 +1,8 @@
 # Guide: Modules & the Standard Library
 
 The standard library is a set of **self-hosted** `.nbs` modules in `std/`. This
-guide walks you through loading them and working around a big gotcha: the
-`USE` keyword may not be in your build.
+guide walks you through loading them with `IMPORT` and notes that the
+`USE` keyword is spec'd but **not implemented** (v4).
 
 ---
 
@@ -16,46 +16,46 @@ for the full function catalog.
 
 ---
 
-## Loading a module: `USE`
+## Loading a module: `IMPORT`
 
-The intended mechanism:
+`IMPORT "path.nbs"` loads and executes a module file in the same namespace,
+making its functions available directly:
+
 ```nbs
-USE "math"
-PRINT math.clamp(15, 0, 10)     # 10
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # 10
 ```
-`USE "name"` exposes the module's functions through a namespace.
+
+Imports are deduplicated (each path loads once). Function names are lowercase
+in modules, distinct from all-caps builtins.
 
 ---
 
-## The gotcha: `USE` may not be built in
+## The `USE` keyword (spec'd, not implemented)
 
-`USE`/`IMPORT` are **documented (spec)** but may not be wired into your
-shipped binary. Verify first:
+The v4 spec describes `USE "module"` for **namespaced** access:
 
 ```nbs
-# probe.nbs
+# v4 preview - not yet implemented
 USE "math"
 PRINT math.clamp(5, 0, 10)
 ```
-- If it runs and prints `5`, `USE` works — use it everywhere.
-- If it errors, `USE` isn't available **in your build**.
 
-> This is the single most common "why didn't it work?" moment in Nebulara.
-> Docs describe `USE`; the binary might not have it yet. Probe.
+`USE` does **not** parse yet — use `IMPORT` today, which pastes module
+functions into your namespace directly. Revisit this once v4 lands.
 
 ---
 
 ## Workaround: concatenate the module into your file
 
-Since module code is pure Nebulara, you can **include it by hand**:
+Since module code is pure Nebulara, you can also **include it by hand**:
 
 1. Open `std/math.nbs` (or whichever module you need).
-2. Paste its function definitions into your file (rename namespace-based calls
-   to direct function calls).
+2. Paste its function definitions into your file.
 3. Call the functions directly:
    ```nbs
    # after pasting in math.nbs's functions:
-   PRINT clamp(15, 0, 10)    # 10  (no namespace)
+   PRINT clamp(15, 0, 10)    # 10
    ```
 
 For shell users, concatenate:
@@ -65,16 +65,7 @@ cat std/math.nbs myapp.nbs > combined.nbs
 nebulara combined.nbs
 ```
 
----
-
-## Calling patterns without `USE`
-
-Without a namespace, call module functions **directly**:
-```nbs
-# math functions are now top-level after pasting
-PRINT average([10, 20, 30])    # 20
-```
-With `USE`, the same call is `math.average(...)`. Pick one style per project.
+`IMPORT` is the cleaner equivalent of this and is implemented.
 
 ---
 
@@ -83,9 +74,9 @@ With `USE`, the same call is `math.average(...)`. Pick one style per project.
 | Module | Caution |
 |--------|---------|
 | `os`, `net` | may need FFI / stubs — test before relying |
-| `time` | `sleep(ms)` needs `SLEEP` (not in base) — probe |
-| `args` | needs `ARGUMENT` builtins (not in base) — probe |
-| `map`/`set` | provide data types until native `{}` literals land |
+| `time` | `sleep(ms)` needs `SLEEP` — implemented in current source; rebuild from source for old binaries |
+| `args` | needs `ARGUMENT_COUNT`/`ARGUMENT` builtins — implemented in current source |
+| `map`/`set` | provide data types until native `{}` literals land (v4) |
 
 Useful defaults: `math`, `string`, `collections`, `sort`, `rand`, `fmt`,
 `primitives`, `test`.
@@ -94,22 +85,21 @@ Useful defaults: `math`, `string`, `collections`, `sort`, `rand`, `fmt`,
 
 ## Testing with `test.nbs`
 
-If `USE` works:
+`IMPORT` the module, then call assertion helpers directly:
 ```nbs
-USE "test"
+IMPORT "std/test.nbs"
 ASSERT_EQUALS(2 + 2, 4)
 ASSERT_TRUE("hello")
 TEST_SUMMARY()
 ```
-(With concatenation, call `ASSERT_EQUALS` / `TEST_SUMMARY` directly.)
 
 ---
 
 ## Recommended workflow
 
-1. **Probe** whether `USE` works in your binary (tiny file).
-2. **If yes:** `USE "module"` + namespaced calls.
-3. **If no:** concatenate the module source into your file; call functions
-   directly.
-4. Keep module-heavy code portable by preferring modules that are pure
-   functions over those needing FFI/sleep/args.
+1. **Prefer `IMPORT "std/xxx.nbs"`** — implemented, deduplicated, same namespace.
+2. Avoid `USE` — spec'd but not yet implemented.
+3. For portability, prefer modules that are pure functions over those needing
+   FFI/`sleep`/args.
+4. Rebuild from source to get every builtin (`SLEEP`, `ARGUMENT_COUNT`,
+   `ARGUMENT`, exceptions) in your binary.

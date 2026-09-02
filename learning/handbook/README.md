@@ -5,9 +5,10 @@ need to look something up. For a guided learning path, see the
 [Course](../course/README.md) instead.
 
 > **Source of truth note:** this handbook reflects **what actually runs** on the
-> shipped interpreter (`Compiler/nebulara.exe`). Items marked *"spec'd"* exist
-> in NE the language spec (`SPEC.md`) but are not yet wired into the built
-> binaries — treat those as forward-looking.
+> current interpreter (rebuild `Compiler/nbs-bootstrap.c` for the full feature
+> set). Items marked *[planned]* exist in the language spec (`SPEC.md`) but are
+> not yet implemented — treat those as forward-looking. Old shipped `.exe`
+> binaries may lag the source.
 
 ## Contents
 1. [Lexical structure & comments](#lexical)
@@ -207,14 +208,16 @@ Verified present in the runtime:
 
 **System/IO** —
 - `TIME()` (epoch seconds)
+- `SLEEP(ms)`
 - `READ_FILE(path)` (string or `NULL`)
 - `WRITE_FILE(path, content)` (`TRUE`/`FALSE`)
+- `ARGUMENT_COUNT()`, `ARGUMENT(i)` (command-line args)
 
 **FFI** — `FFI_LOAD(name, path)`, `FFI_REGISTER(lib, sym, retType, nArgs)`,
 `FFI_CALL(lib, sym, args...)`
 
-*Spec'd but not in shipped binaries:* `SLEEP(ms)`, `ARGUMENT_COUNT()`,
-`ARGUMENT(i)`.
+*Note: the shipped binaries may lag the source — rebuild `nbs-bootstrap.c` to
+get every builtin above.*
 
 ---
 
@@ -238,8 +241,9 @@ builtins). Notable modules:
 - `primitives.nbs`: `is_string, is_number, is_bool, is_array, is_null, to_int, to_str`
 - `test.nbs`: `ASSERT_EQUALS, ASSERT_NOT_EQUALS, ASSERT_TRUE, ASSERT_FALSE, TEST_SUMMARY`
 
-To load: `USE "math"` then `math.clamp(...)` — *when the build supports `USE`.*
-Otherwise vendor the small helpers (see the [modules guide](../guides/modules.md)).
+To load: `IMPORT "std/math.nbs"` then call `clamp(...)` directly.
+`USE` is spec'd for v4 (namespaced: `math.clamp(...)`) but isn't implemented
+yet.
 
 ---
 
@@ -257,26 +261,28 @@ Otherwise vendor the small helpers (see the [modules guide](../guides/modules.md
 | `BREAK` / `CONTINUE` | loop control |
 | `TRUE` `FALSE` `NULL` | literals |
 | `AND` `OR` `NOT` | logical operators |
-
-*Spec'd (not in shipped binaries):* `TRY` `CATCH` `THROW` `FINALLY` (exceptions),
-`IMPORT` / `USE` (modules), plus concurrency tokens seen in the lexer
+| `TRY!` `CATCH!` `FINALLY!` `ENDTRY!` `THROW` | exception handling |
+| `IMPORT` | load a module file |
+| `GO!` `CHAN!` `SEND!` `RECV!` `SELECT!` `MUTEX!` `LOCK!` `UNLOCK!` `YIELD!` `SLEEP!` | concurrency |
 (`GO`, `CHAN`, `SEND`, `RECV`, `SELECT`, `LOCK`, `MUTEX`, `UNLOCK`, `YIELD`,
 `RUN`, `DATA`).
 
 ---
 
 <a name="notyet"></a>
-## 11. Spec'd features not yet in the shipped binaries
+## 11. Spec'd features not yet implemented
 
-These are defined in `SPEC.md` / the compiler but the built executables don't
-yield them yet. Plan onboarding or rely on them only after a new build ships:
+These are defined in `SPEC.md` / the compiler but not yet implemented. Don't
+build on them yet:
 
-- Exception handling: `TRY` / `CATCH` / `THROW` / `FINALLY` / `ENDTRY`
 - Float type & float arithmetic (v4)
 - Map type `{"k": v}` (v4)
 - Closures & first-class functions (v4)
-- `SLEEP`, `ARGUMENT_COUNT`, `ARGUMENT`
-- Module loading via `USE` / `IMPORT`
+- `USE` module namespacing (v4) — `IMPORT` is implemented, `USE` is not
+- Wait groups (`WAIT!`) and JSON `DATA!`/`RUN!` — tokens/opcodes exist, no parser
+- Concurrency in native codegen — VM-only today
 
 For now, guard errors with `IF?` checks (Lesson 08) and use the verified
-builtins in this handbook.
+builtins in this handbook. Exceptions (`TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/
+`THROW`), `SLEEP`, `ARGUMENT_COUNT`, `ARGUMENT`, and `IMPORT` **are**
+implemented in the current source.

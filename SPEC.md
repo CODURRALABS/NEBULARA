@@ -31,15 +31,28 @@
 | `RETURN` | Return value | `RETURN a + b` |
 | `BREAK` | Exit loop | `BREAK` |
 | `CONTINUE` | Skip iteration | `CONTINUE` |
-| `TRY` | Try block | `TRY:` |
-| `CATCH` | Catch block | `CATCH err:` |
-| `THROW` | Throw exception | `THROW "error"` |
+| `TRY!` | Try block | `TRY!` |
+| `CATCH!` | Catch block | `CATCH! err:` |
+| `FINALLY!` | Finally block | `FINALLY!` |
+| `ENDTRY!` | End try block | `ENDTRY!` |
+| `THROW` | Throw exception | `THROW("error")` |
 | `AND` | Logical AND | `IF? a AND b:` |
 | `OR` | Logical OR | `IF? a OR b:` |
 | `NOT` | Logical NOT | `IF? NOT done:` |
 | `TRUE` | Boolean true | `LET x = TRUE` |
 | `FALSE` | Boolean false | `LET x = FALSE` |
 | `NULL` | Null value | `IF? x == NULL:` |
+| `IMPORT` | Import module | `IMPORT "std/math.nbs"` |
+| `GO!` | Launch goroutine | `GO! name()` |
+| `CHAN!` | Create channel | `CHAN!(16)` |
+| `SEND!` | Send to channel | `SEND! ch, val` |
+| `RECV!` | Receive from channel | `RECV!(ch)` |
+| `SELECT!` | Select on channels | `SELECT!` |
+| `MUTEX!` | Create mutex | `MUTEX!(m)` |
+| `LOCK!` | Lock mutex | `LOCK!(m)` |
+| `UNLOCK!` | Unlock mutex | `UNLOCK!(m)` |
+| `YIELD!` | Yield to scheduler | `YIELD!` |
+| `SLEEP!` | Sleep | `SLEEP!(ms)` |
 
 ## Types
 
@@ -51,6 +64,11 @@
 | Array | Dynamic list | `[1, 2, 3]` |
 | Null | Absence of value | `NULL` |
 | Func | Function reference | `FUNC! name():` |
+| Channel | Buffered channel | `CHAN!(16)` |
+| Mutex | Mutual-exclusion lock | `MUTEX!(m)` |
+
+> **Floats, maps (`{"k": v}`) and closures / first-class functions are planned
+> (v4) but not yet in the language.**
 
 ## Syntax
 
@@ -119,14 +137,53 @@ END!
 
 #### Try/Catch/Throw
 ```
-TRY:
+TRY!
   LET x = TO_NUMBER("not a number")
-CATCH err:
+CATCH! err:
   PRINT "Error: " + err
-END!
+FINALLY!
+  PRINT "always runs"
+ENDTRY!
 ```
 
-`THROW` raises an exception with a value (typically a string). If no `TRY` block is active, the program terminates with an uncaught exception error.
+`THROW(expr)` raises an exception with a value (typically a string). If no
+`TRY!` block is active, the program terminates with an uncaught exception
+error. `FINALLY!` is optional and always runs.
+
+### Constants
+
+`CONST` declares an immutable value. Reassigning a constant is a compile-time
+error.
+
+```
+CONST PI = 314
+PRINT PI
+# PI = 4   # error: cannot reassign constant
+```
+
+### Modules & Import
+
+`IMPORT "path.nbs"` loads and executes another source file in the same
+namespace, making its functions available. Imports are deduplicated (each path
+is loaded once).
+
+```
+IMPORT "std/math.nbs"
+PRINT min(8, 3)   # 3
+```
+
+### Concurrency
+
+Nebulara's VM provides cooperative concurrency with goroutines, channels and
+mutexes (single-threaded, non-preemptive scheduler). Wait-groups (`WAIT!`)
+have token/opcode support but no parser yet — v4.
+
+```
+LET ch = CHAN!(16)
+GO! writer()
+LET msg = RECV!(ch)
+SEND! ch, "data"
+```
 
 ### Operators
 
@@ -230,8 +287,27 @@ Arrays support index-based assignment (`arr[i] = value`) to mutate elements in p
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `TIME` | `TIME()` | Returns the current epoch time in seconds. |
+| `SLEEP` | `SLEEP(ms)` | Sleeps for `ms` milliseconds. |
 | `READ_FILE` | `READ_FILE(path)` | Reads and returns the entire contents of a file as a string. Returns `NULL` if the file cannot be opened. |
 | `WRITE_FILE` | `WRITE_FILE(path, content)` | Writes `content` to the file at `path`. Returns `TRUE` on success, `FALSE` on failure. |
+
+#### Program Argument Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `ARGUMENT_COUNT` | `ARGUMENT_COUNT()` | Returns the number of command-line arguments passed to the program. |
+| `ARGUMENT` | `ARGUMENT(i)` | Returns the `i`-th command-line argument as a string. |
+
+#### FFI (C Interop)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `FFI_LOAD` | `FFI_LOAD(name, path)` | Loads a shared library (`name` for lookup, `path` to the DLL/so). |
+| `FFI_REGISTER` | `FFI_REGISTER(lib, sym, retType, nArgs)` | Registers a function from a loaded library. `retType` codes: `0`=void, `1`=int, `2`=float, `3`=double, `4`=string, `5`=pointer. |
+| `FFI_CALL` | `FFI_CALL(lib, sym, args...)` | Calls a registered foreign function. |
+
+> **Note:** `CONST PI = 314` is a valid declaration; the value `314` (not `3.14`)
+> reflects that Nebulara uses 64-bit integers, not floats (floats are planned).
 
 ## Example Programs
 
@@ -252,21 +328,20 @@ PRINT factorial(10)   # 3628800
 ```
 LET arr = [1, 2, 3]
 PUSH(arr, 4)
-PRINT arr             # [1, 2, 3, 4]
+# PRINT arr prints "[array 4]" (element count), not the element list
 arr[0] = 99
-PRINT arr             # [99, 2, 3, 4]
-PRINT POP(arr)        # 4
-PRINT arr             # [99, 2, 3]
+PRINT arr             # [array 3]
+PRINT POP(arr)        # 3
 ```
 
-### Try/Catch
+### Try/Catch/Throw
 ```
-TRY:
+TRY!
   LET result = TO_NUMBER("not a number")
   IF? result == 0:
-    THROW "parse failed"
+    THROW("parse failed")
   END!
-CATCH err:
+CATCH! err:
   PRINT err
-END!
+ENDTRY!
 ```

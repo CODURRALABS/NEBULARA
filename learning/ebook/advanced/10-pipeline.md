@@ -75,7 +75,7 @@ both a tree and a knowledge-graph node structure.
 
 **Parse error:** a misplaced `END!` or malformed statement errors here — the
 program is rejected before any code runs. This is why a stray token like
-`TRY:` (unimplemented) fails at parse time.
+`TRY:` (wrong keyword — must be `TRY!`) fails at parse time.
 
 ---
 

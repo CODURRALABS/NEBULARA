@@ -97,16 +97,18 @@ neb-pipeline app.nbs --check && nebulara app.nbs
 Called from Nebulara via builtins (see User Manual §8.8):
 
 ```nbs
-LET lib = FFI_LOAD("msvcrt")
-LET power = FFI_REGISTER(lib, "pow", "dd->d")
-PRINT FFI_CALL(power, 2.0, 10.0)     # 1024.0
+FFI_LOAD("msvcrt", "msvcrt.dll")
+FFI_REGISTER("msvcrt", "pow", 3, 2)     # ret=double(3), 2 args
+PRINT FFI_CALL("msvcrt", "pow", 2, 10)  # 1024
 ```
 
-**Signature grammar:** `<in-types>-><ret>` where letters map to C types:
-`i` int, `d` double, `c` char, `s` char*, `v` void.
+**Return type codes:** `0` void, `1` int, `2` float, `3` double, `4` string,
+`5` pointer. There is no signature string — the ABI is fixed-width int/pointer
+arguments plus a chosen return type.
 
-**Platform:** library names differ — `msvcrt` (Windows), `libm.so` (Linux),
-`libm.dylib` (macOS). Exact ABI signatures are required.
+**Platform:** library paths differ — `msvcrt.dll` (Windows), `libm.so.6`
+(Linux), `libm.dylib` (macOS). Prefer int/string-returning functions for
+reliable calls.
 
 ---
 

@@ -18,13 +18,16 @@ Verified on the interpreter (see `Compiler/nbs-bootstrap.c` builtin dispatch):
 | Builtin | Purpose |
 |---------|---------|
 | `TIME()` | current epoch seconds (int) |
+| `SLEEP(ms)` | sleep `ms` milliseconds |
+| `ARGUMENT_COUNT()` / `ARGUMENT(i)` | command-line args |
 | `READ_FILE(path)` | file contents as string, `NULL` if missing |
 | `WRITE_FILE(path, content)` | `TRUE` on success, `FALSE` on failure |
 | `FFI_LOAD` / `FFI_REGISTER` / `FFI_CALL` | call C functions |
 
-**Not currently wired into the shipped executables** (present in newer source
-but not the built binaries): `SLEEP`, `ARGUMENT_COUNT`, `ARGUMENT`. Don't rely
-on them until a build that supports them ships — guard with what works.
+All of the above are **implemented in the current source**
+(`Compiler/nbs-bootstrap.c`). If your shipped `.exe` errors on `SLEEP`,
+`ARGUMENT_COUNT`, or `ARGUMENT`, rebuild from source — don't write off the
+features.
 
 ---
 
@@ -183,10 +186,10 @@ PRINT LEN(r)
 ---
 
 ## Checkpoint
-- Use the newest interpreter binary. ✅
+- Use the newest interpreter binary (rebuild from source for the full set). ✅
 - `READ_FILE` / `WRITE_FILE` with error checks (guarding). ✅
 - `TIME()` for timestamps and rough timing. ✅
+- `SLEEP` / `ARGUMENT_COUNT` / `ARGUMENT` — implemented in current source. ✅
 - FFI exists as the way to call C. ✅
-- Know `SLEEP`/args aren't in shipped builds yet. ✅
 
 Next: **[Lesson 10 — Standard Library & Modules](10-stdlib-and-modules.md)**

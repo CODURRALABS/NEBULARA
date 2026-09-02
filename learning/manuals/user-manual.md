@@ -195,10 +195,13 @@ All of these have been verified against the current interpreter.
 | `PUSH(arr,v)` | append; arr mutated |
 | `POP(arr)` | last element (removed), or `NULL` if empty |
 
-### 8.6 Time
+### 8.6 Time & Program
 | Builtin | Returns |
 |---------|---------|
 | `TIME()` | current time value (epoch-ish) |
+| `SLEEP(ms)` | sleep `ms` milliseconds, returns `0` |
+| `ARGUMENT_COUNT()` | number of command-line arguments |
+| `ARGUMENT(i)` | `i`-th command-line argument as a string |
 
 ### 8.7 Files
 | Builtin | Returns |
@@ -211,25 +214,36 @@ Guard reads: `LET c = READ_FILE("x"); IF? c: ... END!`
 ### 8.8 FFI
 | Builtin | Returns |
 |---------|---------|
-| `FFI_LOAD(lib)` | library handle |
-| `FFI_REGISTER(h, name, sig)` | function handle |
-| `FFI_CALL(h, args...)` | native call result |
+| `FFI_LOAD(name, path)` | 0 on success |
+| `FFI_REGISTER(lib, sym, retType, nArgs)` | 0 on success |
+| `FFI_CALL(lib, sym, args...)` | native call result |
 
-Signature mini-language: `"ii->i"` (ints→int), `"dd->d"` (doubles→double),
-`"s->i"` (string→int), etc.
+Return-type codes for `FFI_REGISTER`: `0` void, `1` int, `2` float,
+`3` double, `4` string, `5` pointer. Refer to functions by **lib name +
+symbol** (no handles). Example:
+
+```nbs
+FFI_LOAD("msvcrt", "msvcrt.dll")
+FFI_REGISTER("msvcrt", "abs", 1, 1)
+PRINT FFI_CALL("msvcrt", "abs", -42)   # 42
+```
 
 ---
 
-## 9. Not in the shipped binaries
+## 9. Spec'd but not in the shipped binaries
 
 | Feature | Symptom |
 |---------|---------|
-| `SLEEP(ms)` | undefined-function error |
-| `ARGUMENT_COUNT()` / `ARGUMENT(i)` | undefined-function error |
-| `TRY` / `CATCH` / `THROW` / `FINALLY` | parse error |
-| floats, maps, closures, `USE`/`IMPORT` | `[planned]`, not built |
+| floats, maps, closures, `USE` | `[planned]`, not built |
+| `WAIT!` wait groups | tokens/opcodes exist, no parser |
+| JSON `DATA!`/`RUN!` | tokens defined, parser not implemented |
+| concurrency in native codegen | VM-only today |
 
-Use the **guard idiom** (`IF?`) for error handling until exceptions land.
+`SLEEP`, `ARGUMENT_COUNT`, `ARGUMENT`, and exceptions (`TRY!`/`CATCH!`/
+`FINALLY!`/`ENDTRY!`/`THROW`) **are implemented** in the current source — if a
+shipped `.exe` reports an undefined-function or parse error for them, rebuild
+`Compiler/nbs-bootstrap.c`. Use the **guard idiom** (`IF?`) for sentinel-return
+builtins.
 
 ---
 

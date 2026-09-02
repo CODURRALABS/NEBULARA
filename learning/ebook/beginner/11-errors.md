@@ -75,16 +75,29 @@ PRINT body
 Now callers never see `NULL`.
 
 ---
+## Exceptions: `TRY!` / `CATCH!` / `THROW`
 
-## `TRY` / `CATCH` / `THROW`: on the roadmap
+Nebulara also supports true exceptions as a jump-out handler — an alternative
+to sentinel-guard chains:
 
-Some Nebulara documentation describes exceptions via `TRY` / `CATCH` /
-`THROW`. **As of the shipped interpreter, these don't parse yet.** Don't write
-code that depends on them. When they arrive in a future build, they'll offer a
-jump-out handler as an alternative to sentinel-guard chains.
+```nbs
+TRY!
+    LET n = TO_NUMBER("not a number")
+    IF? n == 0:
+        THROW("parse failed")
+    END!
+    PRINT n
+CATCH! err:
+    PRINT "Caught: " + err
+ENDTRY!
+```
 
-For now, use the guard pattern. It's honest, works today, and the habit
-transfers to any language.
+`THROW(value)` raises; `CATCH! err:` binds the value to `err`; `FINALLY!` (optional)
+always runs; `ENDTRY!` closes the block. Note the `!` suffixes and parens on
+`THROW`. These are implemented in the current source — rebuild from source if a
+shipped `.exe` errors on them.
+
+For most input-validation code the guard pattern below remains a clean fit.
 
 ---
 
@@ -94,16 +107,16 @@ Since docs can drift from the binary, adopt this habit: **probe first.** Write
 a tiny test file and run it.
 
 ```nbs
-# probe.nbs - does TRY parse yet?
-TRY:
+# probe.nbs - does TRY! parse?
+TRY!
     PRINT "hi"
-CATCH e:
+CATCH! e:
     PRINT "caught"
-END!
+ENDTRY!
 ```
 
-If the interpreter errors at parse time, the feature isn't in your build—
-guard instead. This "tiny probe" habit will save you hours.
+If the interpreter errors at parse time, your build is older than the source —
+rebuild from `Compiler/nbs-bootstrap.c` to get the current feature set.
 
 ---
 
@@ -156,7 +169,8 @@ Dividing by zero would crash; the empty-array guard prevents it.
 - Fatal errors = fix the source. Runtime "failures" = sentinel values.
 - Sentinel values: `NULL`, `0`, `FALSE` — check with `IF?`.
 - The guard pattern (`IF? result:`) is Nebulara's main error idiom.
-- `TRY/CATCH/THROW` are planned, not yet in the shipped binary.
+- Exceptions (`TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW`) are implemented in
+  the current source — rebuild from source if a shipped binary lacks them.
 - Probe uncertain features with a tiny test file.
 
 **Next:** [Chapter 12 — Files and the Real World](12-files.md)

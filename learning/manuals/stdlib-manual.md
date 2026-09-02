@@ -3,17 +3,19 @@
 *Reference for every module in `std/*.nbs`.*
 
 The standard library is written **in Nebulara itself** (self-hosted teaching
-gold). Modules live in `std/*.nbs`. Load a module, then use its names:
+gold). Modules live in `std/*.nbs`. Load a module with `IMPORT`, then call its
+functions directly:
 
 ```nbs
-USE "math"
-PRINT math.clamp(15, 0, 10)     # 10
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # 10
 ```
 
-> **Build note:** if your interpreter lacks `USE`, you can concatenate the
-> module into your file (see [modules guide](../guides/modules.md)). Always
-> test a module in your build before depending on it in a critical script —
-> some stdlib modules are richer than the minimal interpreter exposes.
+> **Note:** the v4 spec describes `USE "math"` for namespaced access
+> (`math.clamp(...)`) but `USE` isn't implemented yet. With `IMPORT`, all
+> module functions are top-level. Always test a module in your build before
+> depending on it in a critical script — some stdlib modules are richer than
+> the minimal interpreter exposes.
 
 ---
 
@@ -27,9 +29,9 @@ PRINT math.clamp(15, 0, 10)     # 10
 | `average(arr)` | mean (0 if empty) |
 
 ```nbs
-USE "math"
-PRINT math.clamp(15, 0, 10)     # 10
-PRINT math.average([10, 20, 30])# 20
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # 10
+PRINT average([10, 20, 30])# 20
 ```
 
 ## math_ext.nbs — extended math
@@ -115,7 +117,7 @@ SET_UNION(a,b) SET_INTERSECT(a,b)  SET_DIFF(a,b)  SET_SIZE(s)
 |----------|---------|
 | `now()` | current time |
 | `elapsed(start)` | time since start |
-| `sleep(ms)` | pause `[depends: builtin SLEEP is not in base interpreter]` |
+| `sleep(ms)` | pause (wraps `SLEEP` builtin) |
 | `format_time(t)` | formatted time string |
 
 ## os.nbs — operating system (may need FFI / stubs)
@@ -145,8 +147,9 @@ Uses the `json`/`map` machinery for serialization.
 ```
 args            program_name()     has_flag(name)     find_arg(name)
 ```
-Reading command-line arguments may depend on the base interpreter's
-`ARGUMENT` support, which is **not in the shipped binary** — see Doc Drift.
+Reading command-line arguments uses the `ARGUMENT_COUNT` / `ARGUMENT` builtins,
+which are implemented in the current source (`Compiler/nbs-bootstrap.c`). If a
+shipped `.exe` lacks them, rebuild from source — see Doc Drift.
 
 ## kanban.nbs — example app module
 ```
@@ -164,7 +167,7 @@ A small kanban-board app written as a module — a great end-to-end example.
 | `TEST_SUMMARY()` | print pass/fail summary |
 
 ```nbs
-USE "test"
+IMPORT "std/test.nbs"
 ASSERT_EQUALS(2 + 2, 4)
 ASSERT_TRUE("yay")
 TEST_SUMMARY()

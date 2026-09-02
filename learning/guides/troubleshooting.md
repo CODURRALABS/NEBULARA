@@ -28,10 +28,11 @@ malformed block.
 | Single quotes instead of double | `'hi'` → `"hi"` |
 | Lowercase keyword | `print` → `PRINT` |
 | Missing `END!` / stray `:` | Count your block closers (`IF?`…`END!`, etc.) |
-| Feature not implemented (e.g. `TRY:`) | It errors at parse — **not in your build**; use guards |
+| Exception keywords without `!` (`TRY:` instead of `TRY!`) | Use `TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!` |
+| Feature not implemented in your build | It errors at parse — **rebuild from source** or guard |
 
 **Verify a keyword parses:** run a probe file containing it. If it errors at
-parse, the feature isn't in your binary.
+parse, your binary is older than the source — rebuild `nbs-bootstrap.c`.
 
 ---
 
@@ -43,7 +44,7 @@ parse, the feature isn't in your binary.
 
 | Message hint | Meaning | Fix |
 |--------------|---------|-----|
-| "undefined function" | builtin not in *this* binary | `SLEEP`, `ARGUMENT` etc. — probe; remove/guard |
+| "undefined function" | builtin is `[planned]` (e.g. `USE`, `WAIT!`) or you're running an old `.exe` | rebuild `Compiler/nbs-bootstrap.c`; probe with `IF?` and remove/guard |
 | null / crash on access | forgot to guard a read/lookup | `IF? result:` before using |
 
 ---
@@ -63,10 +64,13 @@ parse, the feature isn't in your binary.
 
 ## 4. "USE" doesn't work
 
-`USE`/`IMPORT` are spec; may not be in your binary.
-- Probe: `USE "math"` in a file.
-- If it fails, **concatenate** the stdlib file into yours (see
-  [Modules guide](modules.md)).
+`USE` is spec'd but **not implemented** yet. Use `IMPORT` instead:
+```nbs
+IMPORT "std/math.nbs"
+PRINT clamp(15, 0, 10)     # works: top-level
+```
+With `IMPORT`, module functions are in your namespace — there's no
+namespace prefix.
 
 ---
 
@@ -77,12 +81,12 @@ Before losing time, run these quick probes:
 # probe.nbs
 PRINT LEN("hi")        # 2 ?
 PRINT TYPEOF(1)        # int ?
-SLEEP(10)              # error here => SLEEP absent, don't use
-TRY:                   # error here => no exceptions, use guards
+SLEEP(10)              # error here => SLEEP absent, rebuild from source
+TRY!                   # error here => exceptions absent, rebuild from source
     PRINT "x"
-CATCH e:
+CATCH! e:
     PRINT "caught"
-END!
+ENDTRY!
 ```
 Whatever line errors tells you exactly what your build lacks.
 
@@ -111,7 +115,7 @@ Whatever line errors tells you exactly what your build lacks.
 ## Golden rules
 
 1. **Probe first.** A 5-second test file beats reading stale docs.
-2. **The binary is truth.** Docs are aspirational.
+2. **The source is truth.** Old shipped binaries lag; rebuild from source.
 3. **Guard every sentinel.** `IF?` before using `READ_FILE`/`POP`/lookups.
 4. **Use verified features** (see the [builtins cheat sheet](../cheat-sheets/builtins.md)).
 5. **Pin your interpreter** — `build/` differs from `Compiler/`.

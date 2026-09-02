@@ -4,10 +4,10 @@
 > Programming Language (.nbs).
 
 Everything here is **verified against the real, working toolchain** (the
-`nebulara` / `neb-cli` / `neb-pipeline` binaries). Where the shipped docs
-(`README.md`, `SPEC.md`) describe features that the current binaries do not yet
-implement, this material teaches what actually runs — and notes the
-"documented but not yet built" items honestly.
+`nebulara` / `neb-cli` / `neb-pipeline` binaries — rebuild
+`Compiler/nbs-bootstrap.c` for the full current feature set). Where features
+are still `[planned]` (floats, maps, closures, `USE`, etc.), this material
+says so honestly instead of pretending they work.
 
 ---
 
@@ -77,18 +77,18 @@ Compiler\nebulara myfile.nbs     # Windows
 nebulara myfile.nbs
 ```
 
-> **Note on doc drift (important):** This repo's shipped docs (`README.md`,
-> `SPEC.md`) describe features — `SLEEP`, `ARGUMENT_COUNT`, `ARGUMENT`,
-> `TRY`/`CATCH`/`THROW`, floats, maps, closures — that live in the current
-> source (`Compiler/nbs-bootstrap.c`) but are **not yet wired into the built
-> executables**. This material teaches the "documented" syntax where noted,
-> but every *run-now* example is verified against real binaries. When a new
-> build ships, the marked items start working.
+> **Note on doc drift (important):** Docs are kept aligned with the current
+> **source** (`Compiler/nbs-bootstrap.c`). Shipped `.exe` binaries may lag
+> behind and not yet expose newer builtins (`SLEEP`, `ARGUMENT_COUNT`,
+> `ARGUMENT`) or exception handling. **Rebuild from source** (or use the newest
+> `Compiler/` build) to get the full feature set. Every *run-now* example below
+> uses the current source where noted.
 >
 > Verified-present runtime builtins (use these freely): `LEN, TYPEOF,
-> TO_STRING, TO_NUMBER, RANDOM, TIME, TO_UPPER, TO_LOWER, CHAR_AT, SUBSTR,
-> TRIM, CHAR, ORD, ABS, MIN, MAX, SQRT, POW, FLOOR, CEIL, ROUND, PUSH, POP,
-> READ_FILE, WRITE_FILE` + FFI (`FFI_LOAD/FFI_REGISTER/FFI_CALL`).
+> TO_STRING, TO_NUMBER, RANDOM, TIME, SLEEP, TO_UPPER, TO_LOWER, CHAR_AT,
+> SUBSTR, TRIM, CHAR, ORD, ABS, MIN, MAX, SQRT, POW, FLOOR, CEIL, ROUND,
+> PUSH, POP, READ_FILE, WRITE_FILE, ARGUMENT_COUNT, ARGUMENT` + FFI
+> (`FFI_LOAD/FFI_REGISTER/FFI_CALL`).
 
 ---
 

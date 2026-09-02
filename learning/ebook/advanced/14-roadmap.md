@@ -2,9 +2,9 @@
 
 > Book: *Beyond the Bases* · Part V — The Road Ahead
 
-This is the chapter that saves you the most pain: understanding that Nebulara's
-**documentation describes a richer language than the shipped binaries
-implement**. Here's the complete map.
+This chapter saves you the most pain: understanding that Nebulara's
+**documentation is kept aligned with the current source**, but **shipped
+binaries lag behind**. Here's the complete map.
 
 ---
 
@@ -12,12 +12,12 @@ implement**. Here's the complete map.
 
 | Layer | What it is | Status |
 |-------|------------|--------|
-| **Shipped binaries** | `Compiler/*.exe`, `build/` | what runs today |
-| **Current source** | `nbs-bootstrap.c` etc. | richer than binaries — new builtins/keywords unwired |
-| **Docs / spec** | `README.md`, `SPEC.md`, PRIMORDIA v4 | most aspirational |
+| **Current source** | `nbs-bootstrap.c` etc. | authoritative — build this for the full feature set |
+| **Docs / spec** | `README.md`, `SPEC.md`, `learning/` | now aligned with the source |
+| **Shipped binaries** | `Compiler/*.exe`, `build/` | lag behind — rebuild from source |
 
-The v4 spec and the PRIMORDIA project describe a fantasy-ward forward state.
-Always resolve downward: **binary > source > docs.**
+Rebuilding `Compiler/nbs-bootstrap.c` gives you everything the docs describe
+today. If you rely on an old shipped `.exe`, prefer the code over those results.
 
 ---
 
@@ -28,28 +28,21 @@ Language:
   `WHILE?`, `FOR!`/`TO`/`STEP`, `RETURN`, `BREAK`, `CONTINUE`.
 - `TRUE`, `FALSE`, `NULL`; `AND`/`OR`/`NOT`; arrays + indexing.
 - Operators: `+ - * / %`, comparison, bitwise `& | << >>`.
+- Exceptions: `TRY!`/`CATCH!`/`FINALLY!`/`ENDTRY!`/`THROW`.
+- Modules: `IMPORT "file.nbs"`.
 
 Builtins (verified):
 ```
-PRINT LEN TYPEOF TO_STRING TO_NUMBER RANDOM TIME
+PRINT LEN TYPEOF TO_STRING TO_NUMBER RANDOM TIME SLEEP
 TO_UPPER TO_LOWER CHAR_AT SUBSTR TRIM CHAR ORD
 ABS MIN MAX SQRT POW FLOOR CEIL ROUND
 PUSH POP READ_FILE WRITE_FILE
+ARGUMENT_COUNT ARGUMENT
 FFI_LOAD FFI_REGISTER FFI_CALL
 ```
 
----
-
-## In source but NOT in shipped binaries
-
-| Feature | Symptom if you try it |
-|---------|----------------------|
-| `SLEEP(ms)` | undefined-function runtime error |
-| `ARGUMENT_COUNT()` / `ARGUMENT(i)` | undefined-function runtime error |
-| `TRY` / `CATCH` / `THROW` / `FINALLY` | **parse error** |
-
-Even though these are in `nbs-bootstrap.c`, the built executables don't wire
-them in. Don't write code that depends on them.
+Concurrency (VM): `GO!`/`CHAN!`/`SEND!`/`RECV!`/`SELECT!`/`MUTEX!`/
+`LOCK!`/`UNLOCK!`/`YIELD!`/`SLEEP!` (cooperative, single-threaded).
 
 ---
 
@@ -60,7 +53,10 @@ them in. Don't write code that depends on them.
 | **Float** type & float arithmetic | v4 spec |
 | **Map** type `{"k": v}` | v4 spec |
 | **Closures** / first-class functions | v4 spec |
-| **`USE`** modules / **`IMPORT`** | v4 spec |
+| **`USE`** keyword | v4 spec (`IMPORT` is implemented; `USE` is not) |
+| **`WAIT!`** wait groups | v4 spec (tokens/opcodes exist, no parser) |
+| Concurrency in native codegen | native builds (GC, AST, B codegen) — VM-only today |
+| JSON `DATA!`/`RUN!` parsing | tokens defined, parser not implemented |
 | Decompilation of `.nbsc` | PRIMORDIA project |
 
 ---
@@ -68,29 +64,31 @@ them in. Don't write code that depends on them.
 ## Why the drift happens
 
 Nebulara is a staged **bootstrap**. The self-hosted toolchain (`.nbs` files:
-`compiler.nbs`, `Grammar/*.nbs`) and the C source are written *toward* the v4
-feature set, while the packaged executables **lag behind**. The docs describe
-the target, not always the current binary.
+`compiler.nbs`, `Grammar/*.nbs`) and the C source implement the current
+feature set; **shipped executables lag behind** until rebuilt. Rebuild from
+source to get the docs' behavior.
 
 ---
 
 ## The practical policy (your operating manual)
 
 1. **Prefer verified features** — the confirmed list above.
-2. **Guard errors** with `IF?` sentinel checks instead of exceptions.
+2. **Guard errors** with `IF?` sentinel checks where builtins return
+   `0`/`NULL`/`FALSE`; use `TRY!`/`CATCH!` for jump-out exception handling.
 3. **Probe before you trust** — run a tiny test file for any feature marked
    spec'd. It takes seconds and tells you the truth:
    ```nbs
    # probe.nbs
-   TRY:
+   TRY!
        PRINT "hi"
-   CATCH e:
+   CATCH! e:
        PRINT "caught"
-   END!
+   ENDTRY!
    ```
-   If it errors at parse → not in your build → guard instead.
-4. **Pin your binary.** `Compiler/nebulara.exe` (newest) differs from
-   `build/nebulara.exe` (older). Know which you're on.
+   If it errors at parse → your build is older than the source → rebuild
+   `nbs-bootstrap.c`.
+4. **Pin your binary.** Rebuilt from source? Then you have everything.
+   Relying on `build/nebulara.exe` (older)? Know what it lacks.
 
 ---
 
@@ -109,31 +107,21 @@ END!
 # v4 preview - maps
 LET cfg = { "name": "app", "retries": 3 }
 PRINT cfg["name"]
-
-# v4 preview - real control
-TRY:
-    LET f = READ_FILE("x.txt")
-    IF? NOT f:
-        THROW "missing"
-    END!
-CATCH e:
-    PRINT "caught: " + e
-FINALLY:
-    PRINT "done"
-END!
 ```
 
 Don't build production on these until you've probed and confirmed them in your
-binary.
+build.
 
 ---
 
 ## Summary
 
-- Docs > source > binaries; the docs are ahead of what runs.
-- Verify features with tiny probes against your actual executable.
-- Prefer the verified builtin/keyword list.
-- Guards (`IF?`) work today; exceptions and closures are tomorrow's tools.
+- The **source** is the authoritative implementation; docs are aligned with it.
+- Old shipped binaries lag — **rebuild from source** to get the full feature set.
+- Exceptions (`TRY!`/`CATCH!`/`THROW`), `IMPORT`, `SLEEP`, args builtins, and
+  concurrency are implemented today.
+- Floats, maps, closures, `USE`, `WAIT!`, JSON `DATA!`, and native-codegen
+  concurrency are still on the roadmap — verify before building on them.
 - Pin and document which interpreter you're using.
 
 *End of Beyond the Bases. Your next stops: the Cookbook for recipes, the
