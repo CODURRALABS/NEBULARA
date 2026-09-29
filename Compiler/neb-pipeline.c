@@ -939,7 +939,11 @@ int ir_lower_expr(ASTNode *n) {
             int d = ir_next_temp();
             ir_emit(IR_LOAD_IMM, n->line, 0);
             ir_program.instructions[ir_program.count - 1].dst = d;
-            strncpy(ir_program.instructions[ir_program.count - 1].str, n->str_val, 255);
+            char *dst = ir_program.instructions[ir_program.count - 1].str;
+            size_t len = strlen(n->str_val);
+            if (len > 254) len = 254;
+            memcpy(dst, n->str_val, len);
+            dst[len] = 0;
             return d;
         }
         case NODE_TRUE: {
@@ -1342,7 +1346,7 @@ void ir_to_native(IRProgram *ir, const char *outname) {
             if (current_target == TARGET_X64) code_emit(0x48);
             code_emit(0x0F);
             code_emit(0xB6);
-            code_emit(0xC0 + ((r & 7) << 3) | (r & 7));
+            code_emit(0xC0 + (((r & 7) << 3) | (r & 7)));
             reg_map[inst->dst] = r;
             break;
         }

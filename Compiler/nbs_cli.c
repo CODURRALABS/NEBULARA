@@ -418,7 +418,11 @@ static int func_count=0;
 static int ft_add(const char* name, int addr) {
     if(func_count>=256){fprintf(stderr,"Compiler error: too many functions\n");exit(1);}
     int idx = func_count++;
-    strncpy(func_table[idx].name, name, 63);func_table[idx].name[63]=0;
+    char *dst = func_table[idx].name;
+    size_t len = strlen(name);
+    if (len > 63) len = 63;
+    memcpy(dst, name, len);
+    dst[len] = 0;
     func_table[idx].addr = addr;
     func_table[idx].param_count = 0;
     func_table[idx].entry_varcount = 0;
@@ -1192,8 +1196,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
         case OP_SUBSTR:{Value len=vm_pop(),start=vm_pop(),str=vm_pop();
             if(str.type==VAL_STRING && start.type==VAL_INT && len.type==VAL_INT){
                 int s=(int)start.as.i, l=(int)len.as.i, slen=(int)strlen(str.as.s);
-                if(s<0)s=0; if(s>slen)s=slen; if(s+l>slen)l=slen-s;
-                if(l<0)l=0;
+                if(s<0){s=0;} if(s>slen){s=slen;} if(s+l>slen){l=slen-s;}
+                if(l<0){l=0;}
                 char*buf=malloc(l+1);memcpy(buf,str.as.s+s,l);buf[l]=0;
                 vm_push(val_string_v(buf));free(buf);
             } else { vm_push(val_string_v("")); }
