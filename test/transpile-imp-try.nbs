@@ -1,0 +1,8 @@
+# import + try test
+IMPORT "std/math.nbs"
+TRY!
+    THROW("boom")
+CATCH! err:
+    PRINT err
+ENDTRY!
+PRINT clamp(15, 0, 10)

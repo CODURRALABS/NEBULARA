@@ -7,7 +7,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <ctype.h>
-#include <windows.h>
 #include <time.h>
 #include <math.h>
 #include <inttypes.h>
@@ -271,13 +270,6 @@ typedef enum {
     T_EQ, T_NEQ, T_LT, T_GT, T_LTE, T_GTE, T_AND, T_OR, T_NOT,
     T_ASSIGN, T_LPAREN, T_RPAREN, T_LBRACKET, T_RBRACKET,
     T_COMMA, T_COLON, T_PRINT, T_IF, T_ELSE, T_ELSEIF, T_THEN,
-    T_WHILE, T_FOR, T_TO, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
-    T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
-    T_TRY, T_CATCH, T_THROW, T_FINALLY,
-    T_EOF
-} TT;
-
-typedef struct { TT type; char txt[128]; int64_t ival; int line; } Tk;
     T_WHILE, T_FOR, T_TO, T_STEP, T_FUNC, T_END, T_RETURN, T_LET, T_BREAK, T_CONTINUE,
     T_BITAND, T_BITOR, T_LSHIFT, T_RSHIFT,
     T_TRY, T_CATCH, T_THROW, T_FINALLY,
@@ -311,7 +303,6 @@ static Tk lx(Lx*l) {
     }
     if(c=='"'){
         l->p++;int i=0;
-        while(l->p<l->l&&l->s[l->p]!='"'&&i<127){
         while(l->p<l->l&&l->s[l->p]!='"'&&i<254){
             if(l->s[l->p]=='\\'){
                 if(l->p+1<l->l){
@@ -388,7 +379,6 @@ static char strings[65536][256];
 static int strcount=0;
 
 // Loop break/continue patch stack
-typedef struct { int break_patches[64]; int break_count; int continue_ip; } LoopInfo;
 typedef struct { int break_patches[64]; int break_count; int continue_patches[64]; int continue_count; int continue_ip; } LoopInfo;
 static LoopInfo loop_stack[64];
 static int loop_sp=0;
@@ -421,7 +411,6 @@ static int str_idx(const char* s){
 }
 
 // Function table
-typedef struct { char name[64]; int addr; char params[8][64]; int param_count; } FuncEntry;
 typedef struct { char name[64]; int addr; char params[8][64]; int param_count; int entry_varcount; int local_count; } FuncEntry;
 static FuncEntry func_table[256];
 static int func_count=0;
@@ -429,7 +418,11 @@ static int func_count=0;
 static int ft_add(const char* name, int addr) {
     if(func_count>=256){fprintf(stderr,"Compiler error: too many functions\n");exit(1);}
     int idx = func_count++;
-    strncpy(func_table[idx].name, name, 63);func_table[idx].name[63]=0;
+    char *dst = func_table[idx].name;
+    size_t len = strlen(name);
+    if (len > 63) len = 63;
+    memcpy(dst, name, len);
+    dst[len] = 0;
     func_table[idx].addr = addr;
     func_table[idx].param_count = 0;
     func_table[idx].entry_varcount = 0;
@@ -457,10 +450,6 @@ static void compile_primary(void) {
     Tk* t=&tks[tp];
     if(t->type==T_INT){tp++;bc(OP_PUSH_INT);bc64(t->ival);return;}
     if(t->type==T_STR){tp++;int si=str_idx(t->txt);bc(OP_PUSH_STR);bc32(si);return;}
-    if(t->type==T_IDENT){
-        if(tp+1<tn && tks[tp+1].type==T_LPAREN) {
-            if(!strcmp(t->txt,"TO_STRING")||!strcmp(t->txt,"TYPEOF")||!strcmp(t->txt,"LEN")||
-               !strcmp(t->txt,"TO_NUMBER")||!strcmp(t->txt,"RANDOM")||!strcmp(t->txt,"TIME")||
     if(t->type==T_TRUE){tp++;bc(OP_PUSH_BOOL);bc(1);return;}
     if(t->type==T_FALSE){tp++;bc(OP_PUSH_BOOL);bc(0);return;}
     if(t->type==T_NULL){tp++;bc(OP_PUSH_NULL);return;}
@@ -478,8 +467,6 @@ static void compile_primary(void) {
                 char fname[64]; strncpy(fname,t->txt,63); fname[63]=0; tp+=2;
                 int nargs=0;
                 if(tp<tn&&tks[tp].type!=T_RPAREN) {
-                    compile_primary(); nargs++;
-                    while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_primary(); nargs++; }
                     compile_expr(); nargs++;
                     while(tp<tn&&tks[tp].type==T_COMMA) { tp++; compile_expr(); nargs++; }
                 }
@@ -535,13 +522,11 @@ static void compile_primary(void) {
         }
         return;
     }
-    if(t->type==T_LPAREN){tp++;compile_primary();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
     if(t->type==T_LPAREN){tp++;compile_expr();if(tp<tn&&tks[tp].type==T_RPAREN)tp++;return;}
     if(t->type==T_MINUS){tp++;compile_primary();bc(OP_NEG);return;}
     if(t->type==T_NOT){tp++;compile_primary();bc(OP_NOT);return;}
     if(t->type==T_LBRACKET){
         tp++;int count=0;
-        while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_primary();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
         while(tp<tn&&tks[tp].type!=T_RBRACKET){compile_expr();count++;if(tp<tn&&tks[tp].type==T_COMMA)tp++;}
         if(tp<tn)tp++;
         bc(OP_ARRAY_NEW);bc32(count);return;
@@ -550,23 +535,6 @@ static void compile_primary(void) {
     tp++;bc(OP_PUSH_INT);bc64(0);
 }
 
-static void compile_comparison(void) {
-    compile_primary();
-    while(tp<tn){
-        TT op=tks[tp].type;
-        if(op!=T_PLUS&&op!=T_MINUS&&op!=T_STAR&&op!=T_SLASH&&op!=T_MOD&&
-           op!=T_EQ&&op!=T_NEQ&&op!=T_LT&&op!=T_GT&&op!=T_LTE&&op!=T_GTE&&
-           op!=T_BITAND&&op!=T_BITOR&&op!=T_LSHIFT&&op!=T_RSHIFT) break;
-        tp++;
-        compile_primary();
-        switch(op){
-            case T_PLUS:bc(OP_ADD);break;case T_MINUS:bc(OP_SUB);break;
-            case T_STAR:bc(OP_MUL);break;case T_SLASH:bc(OP_DIV);break;
-            case T_MOD:bc(OP_MOD);break;case T_EQ:bc(OP_EQ);break;
-            case T_NEQ:bc(OP_NEQ);break;case T_LT:bc(OP_LT);break;
-            case T_GT:bc(OP_GT);break;case T_LTE:bc(OP_LTE);break;
-            case T_GTE:bc(OP_GTE);break;
-// Precedence: 1=multiplicative (* / %), 2=additive (+ - << >> & |), 3=comparison (== != < > <= >=)
 static void compile_mul(void) {
     compile_primary();
     while(tp<tn&&(tks[tp].type==T_STAR||tks[tp].type==T_SLASH||tks[tp].type==T_MOD)){
@@ -634,12 +602,10 @@ static void compile_stmt(void) {
     if(t->type==T_CONTINUE){
         tp++;
         if(loop_sp>0){
-            int target=loop_stack[loop_sp-1].continue_ip;
-            bc(OP_JUMP);bc32(target-bclen-4);
             LoopInfo* li=&loop_stack[loop_sp-1];
             bc(OP_JUMP);
             if(li->continue_count<64) li->continue_patches[li->continue_count++]=bclen;
-            bc32(0); // patched later
+            bc32(0); // patched later at loop end (to increment_pos for FOR, loop start for WHILE)
         }
         return;
     }
@@ -805,7 +771,9 @@ static void compile_stmt(void) {
 
             int loop=bclen;
             loop_stack[loop_sp].break_count=0;
+            loop_stack[loop_sp].continue_count=0;
             loop_stack[loop_sp].continue_ip=loop;
+            loop_sp++;
             // Optional STEP
             int step_idx=-1;
             if(tp<tn&&tks[tp].type==T_STEP){
@@ -815,10 +783,6 @@ static void compile_stmt(void) {
                 bc(OP_STORE);bc32(step_idx);
             }
 
-            int loop=bclen;
-            loop_stack[loop_sp].break_count=0;
-            loop_stack[loop_sp].continue_count=0;
-            loop_sp++;
             bc(OP_LOAD);bc32(idx);
             bc(OP_LOAD);bc32(end_idx);
             bc(OP_LTE); // current <= end
@@ -863,7 +827,6 @@ static void compile_stmt(void) {
         if(tp<tn && tks[tp].type==T_IDENT) {
             char fname[64]; strncpy(fname, tks[tp].txt, 63); fname[63]=0;
             int fi = ft_add(fname, bclen); // will patch address after body
-            int fi = ft_add(fname, bclen);
             func_table[fi].entry_varcount = varcount;
             tp++;
             // Parse parameters
@@ -911,7 +874,6 @@ static void compile_block(void) {
 #define VM_STACK_SIZE 4096
 #define VM_VAR_SIZE 4096
 #define VM_CALL_STACK_SIZE 256
-#define VM_MAX_INSTRUCTIONS 100000000LL
 #define VM_MAX_INSTRUCTIONS 2000000000LL
 
 static Value vm_stack[VM_STACK_SIZE];
@@ -932,7 +894,6 @@ typedef struct { int handler_ip; int saved_sp; int saved_call_sp; } VMTryFrame;
 static VMTryFrame vm_try_stack[32];
 static int vm_try_sp=0;
 
-typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[8]; Value saved_vars[8]; int saved_count; } VMCallFrame;
 typedef struct { int ret_ip; int var_base; int var_sp; int saved_var_idx[256]; Value saved_vars[256]; int saved_count; } VMCallFrame;
 static VMCallFrame vm_call_stack[VM_CALL_STACK_SIZE];
 static int vm_call_sp=0;
@@ -1011,7 +972,6 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
                 val_free(a);val_free(b);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
-                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_ARRAY){
                 ValueArray*aa=a.as.a;
                 int nc=aa->count+1;
@@ -1019,9 +979,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->cap=nc;result->items=calloc(result->cap,sizeof(Value));result->count=0;
                 for(int i=0;i<aa->count;i++)result->items[result->count++]=val_copy(aa->items[i]);
                 result->items[result->count++]=val_copy(b);
-                val_free(a);
+                val_free(a);val_free(b);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
-                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(b.type==VAL_ARRAY){
                 ValueArray*ba=b.as.a;
                 int nc=1+ba->count;
@@ -1029,9 +988,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
                 result->cap=nc;result->items=calloc(result->cap,sizeof(Value));result->count=0;
                 result->items[result->count++]=val_copy(a);
                 for(int i=0;i<ba->count;i++)result->items[result->count++]=val_copy(ba->items[i]);
-                val_free(b);
+                val_free(a);val_free(b);
                 Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);
-                Value vr={VAL_ARRAY};vr.as.a=result;vm_push(vr);val_free(a);val_free(b);
             } else if(a.type==VAL_INT&&b.type==VAL_INT)vm_push(val_int_v(a.as.i+b.as.i));
             else{Value sa=val_to_string(a),sb=val_to_string(b);
                 int len2=(int)strlen(sa.as.s)+(int)strlen(sb.as.s)+1;
@@ -1088,9 +1046,6 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
             if(a.type==VAL_INT&&b.type==VAL_INT) vm_push(val_bool_v(a.as.i>=b.as.i));
             else vm_push(val_bool_v(0));
             val_free(a);val_free(b);}break;
-        case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)&&(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
-        case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v((a.type!=VAL_NULL&&a.as.i!=0)||(b.type!=VAL_NULL&&b.as.i!=0)));val_free(a);val_free(b);}break;
-        case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(a.type==VAL_NULL||a.as.i==0));val_free(a);}break;
         case OP_AND:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)&&val_truthy(b)));val_free(a);val_free(b);}break;
         case OP_OR:{Value b=vm_pop(),a=vm_pop();vm_push(val_bool_v(val_truthy(a)||val_truthy(b)));val_free(a);val_free(b);}break;
         case OP_NOT:{Value a=vm_pop();vm_push(val_bool_v(!val_truthy(a)));val_free(a);}break;
@@ -1112,25 +1067,16 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
             else vm_push(v);
         }break;
         case OP_PRINT:{Value v=vm_pop();Value s=val_to_string(v);
+#ifdef _WIN32
             DWORD written;WriteFile(GetStdHandle((DWORD)-11),s.as.s,(DWORD)strlen(s.as.s),&written,NULL);
             WriteFile(GetStdHandle((DWORD)-11),"\n",1,&written,NULL);
-            else if(v.type==VAL_ARRAY){
-                ValueArray* src=v.as.a;
-                ValueArray* dst=calloc(1,sizeof(ValueArray));
-                dst->cap=src->count>0?src->count:8;
-                dst->items=calloc(dst->cap,sizeof(Value));
-                dst->count=src->count;
-                for(int i=0;i<src->count;i++)dst->items[i]=val_copy(src->items[i]);
-                Value rv={VAL_ARRAY};rv.as.a=dst;vm_push(rv);
-            } else vm_push(v);
-        }break;
-        case OP_PRINT:{Value v=vm_pop();Value s=val_to_string(v);
-            printf("%s\n",s.as.s);
+#else
+            fputs(s.as.s, stdout); fputs("\n", stdout);
+#endif
             val_free(s);val_free(v);
         }break;
         case OP_JUMP:{int32_t off;memcpy(&off,code+ip,4);ip+=4;ip+=off;}break;
         case OP_JUMP_IFNOT:{int32_t off;memcpy(&off,code+ip,4);ip+=4;Value v=vm_pop();
-            if(v.type==VAL_NULL||(v.type==VAL_INT&&v.as.i==0)||(v.type==VAL_BOOL&&!v.as.b))ip+=off;
             if(!val_truthy(v))ip+=off;
             val_free(v);}break;
         case OP_ARRAY_NEW:{int32_t count;memcpy(&count,code+ip,4);ip+=4;
@@ -1250,8 +1196,8 @@ static void vm_exec(uint8_t* code, int len, char strtable[][256], int strcount) 
         case OP_SUBSTR:{Value len=vm_pop(),start=vm_pop(),str=vm_pop();
             if(str.type==VAL_STRING && start.type==VAL_INT && len.type==VAL_INT){
                 int s=(int)start.as.i, l=(int)len.as.i, slen=(int)strlen(str.as.s);
-                if(s<0)s=0; if(s>slen)s=slen; if(s+l>slen)l=slen-s;
-                if(l<0)l=0;
+                if(s<0){s=0;} if(s>slen){s=slen;} if(s+l>slen){l=slen-s;}
+                if(l<0){l=0;}
                 char*buf=malloc(l+1);memcpy(buf,str.as.s+s,l);buf[l]=0;
                 vm_push(val_string_v(buf));free(buf);
             } else { vm_push(val_string_v("")); }
