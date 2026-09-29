@@ -34,6 +34,7 @@ typedef enum {
     TOK_DOT, TOK_COMMA, TOK_COLON, TOK_SEMICOLON,
     TOK_LPAREN, TOK_RPAREN, TOK_LBRACKET, TOK_RBRACKET,
     TOK_ELSEIF, TOK_TRUE, TOK_FALSE, TOK_NULL,
+    TOK_TRY, TOK_CATCH, TOK_THROW, TOK_FINALLY, TOK_ENDTRY, TOK_IMPORT,
     TOK_EOF, TOK_ERROR
 } NbsTokenType;
 
@@ -143,6 +144,12 @@ NbsToken lexer_next(Lexer* l) {
         else if (strcmp(tok.text, "NULL") == 0) { tok.type = TOK_NULL; }
         else if (strcmp(tok.text, "TRUE") == 0) { tok.type = TOK_TRUE; }
         else if (strcmp(tok.text, "FALSE") == 0) { tok.type = TOK_FALSE; }
+        else if (strcmp(tok.text, "TRY!") == 0) tok.type = TOK_TRY;
+        else if (strcmp(tok.text, "CATCH!") == 0) tok.type = TOK_CATCH;
+        else if (strcmp(tok.text, "THROW") == 0) tok.type = TOK_THROW;
+        else if (strcmp(tok.text, "FINALLY!") == 0) tok.type = TOK_FINALLY;
+        else if (strcmp(tok.text, "ENDTRY!") == 0) tok.type = TOK_ENDTRY;
+        else if (strcmp(tok.text, "IMPORT") == 0) tok.type = TOK_IMPORT;
         else tok.type = TOK_IDENT;
         return tok;
     }
@@ -191,6 +198,7 @@ typedef enum {
     NODE_ASSIGN, NODE_PRINT, NODE_BLOCK, NODE_IF, NODE_WHILE, NODE_FOR,
     NODE_FUNC_DEF, NODE_FUNC_CALL, NODE_RETURN, NODE_BREAK, NODE_CONTINUE,
     NODE_ARRAY_LIT, NODE_ARRAY_INDEX, NODE_ARRAY_LEN,
+    NODE_IMPORT, NODE_TRY, NODE_THROW,
     NODE_PROGRAM
 } NodeType;
 
@@ -257,13 +265,13 @@ ASTNode* parse_primary(Parser* p) {
             parser_advance(p);
             ASTNode* idx = parse_expression(p);
             if (parser_peek(p).type == TOK_RBRACKET) parser_advance(p);
-            ASTNode* n = ast_new(NODE_ARRAY_INDEX);
-            ASTNode* id = ast_new(NODE_IDENT); strcpy(id->str_val, tok.text);
+            ASTNode* n = ast_new(NODE_ARRAY_INDEX); n->line = tok.line;
+            ASTNode* id = ast_new(NODE_IDENT); id->line = tok.line; strcpy(id->str_val, tok.text);
             n->left = id; n->right = idx; return n;
         }
         if (parser_peek(p).type == TOK_LPAREN) {
             parser_advance(p);
-            ASTNode* n = ast_new(NODE_FUNC_CALL); strcpy(n->str_val, tok.text);
+            ASTNode* n = ast_new(NODE_FUNC_CALL); n->line = tok.line; strcpy(n->str_val, tok.text);
             n->children = NULL; n->child_count = 0;
             if (parser_peek(p).type != TOK_RPAREN) {
                 int cap = 8; n->children = (ASTNode**)malloc(cap * sizeof(ASTNode*));
@@ -283,12 +291,12 @@ ASTNode* parse_primary(Parser* p) {
             ASTNode* n = ast_new(NODE_ARRAY_LEN); /* reuse node type for builtins */
             if (strcmp(tok.text, "TO_STRING") == 0 || strcmp(tok.text, "TO_NUMBER") == 0)
                 n->type = NODE_FUNC_CALL;
-            strcpy(n->str_val, tok.text);
+            n->line = tok.line; strcpy(n->str_val, tok.text);
             n->left = parse_expression(p);
             if (parser_peek(p).type == TOK_RPAREN) parser_advance(p);
             return n;
         }
-        ASTNode* n = ast_new(NODE_IDENT); strcpy(n->str_val, tok.text); return n;
+        ASTNode* n = ast_new(NODE_IDENT); n->line = tok.line; strcpy(n->str_val, tok.text); return n;
     }
     if (tok.type == TOK_LPAREN) { parser_advance(p); ASTNode* expr = parse_expression(p); if (parser_peek(p).type == TOK_RPAREN) parser_advance(p); return expr; }
     if (tok.type == TOK_LBRACKET) {
@@ -322,16 +330,16 @@ ASTNode* parse_expression(Parser* p) { return parse_expression_bp(p, 1); }
 ASTNode* parse_block(Parser* p);
 ASTNode* parse_statement(Parser* p) {
     NbsToken tok = parser_peek(p);
-    if (tok.type == TOK_PRINT) { parser_advance(p); ASTNode* n = ast_new(NODE_PRINT); n->left = parse_expression(p); return n; }
+    if (tok.type == TOK_PRINT) { parser_advance(p); ASTNode* n = ast_new(NODE_PRINT); n->line = tok.line; n->left = parse_expression(p); return n; }
     if (tok.type == TOK_LET || tok.type == TOK_CONST || (tok.type == TOK_IDENT && p->pos + 1 < p->count && p->tokens[p->pos + 1].type == TOK_ASSIGN)) {
         if (tok.type == TOK_LET || tok.type == TOK_CONST) parser_advance(p);
         NbsToken name = parser_peek(p); if (name.type == TOK_IDENT) parser_advance(p);
         if (parser_peek(p).type == TOK_ASSIGN) parser_advance(p);
-        ASTNode* n = ast_new(NODE_ASSIGN); strcpy(n->str_val, name.text); n->right = parse_expression(p); return n;
+        ASTNode* n = ast_new(NODE_ASSIGN); n->line = tok.line; strcpy(n->str_val, name.text); n->right = parse_expression(p); return n;
     }
     if (tok.type == TOK_IF) {
         parser_advance(p);
-        ASTNode* root = ast_new(NODE_IF); ASTNode* current = root;
+        ASTNode* root = ast_new(NODE_IF); root->line = tok.line; ASTNode* current = root;
         root->left = parse_expression(p);
         if (parser_peek(p).type == TOK_THEN) parser_advance(p);
         if (parser_peek(p).type == TOK_COLON) parser_advance(p);
@@ -349,13 +357,13 @@ ASTNode* parse_statement(Parser* p) {
         return root;
     }
     if (tok.type == TOK_WHILE) {
-        parser_advance(p); ASTNode* n = ast_new(NODE_WHILE); n->left = parse_expression(p);
+        parser_advance(p); ASTNode* n = ast_new(NODE_WHILE); n->line = tok.line; n->left = parse_expression(p);
         if (parser_peek(p).type == TOK_THEN) parser_advance(p);
         if (parser_peek(p).type == TOK_COLON) parser_advance(p);
         n->right = parse_block(p); if (parser_peek(p).type == TOK_END) parser_advance(p); return n;
     }
     if (tok.type == TOK_FOR) {
-        parser_advance(p); ASTNode* n = ast_new(NODE_FOR);
+        parser_advance(p); ASTNode* n = ast_new(NODE_FOR); n->line = tok.line;
         NbsToken var = parser_peek(p); if (var.type == TOK_IDENT) parser_advance(p);
         strcpy(n->str_val, var.text);
         if (parser_peek(p).type == TOK_ASSIGN) parser_advance(p);
@@ -373,7 +381,7 @@ ASTNode* parse_statement(Parser* p) {
         return n;
     }
     if (tok.type == TOK_FUNC) {
-        parser_advance(p); ASTNode* n = ast_new(NODE_FUNC_DEF);
+        parser_advance(p); ASTNode* n = ast_new(NODE_FUNC_DEF); n->line = tok.line;
         NbsToken name = parser_peek(p); if (name.type == TOK_IDENT) parser_advance(p);
         strcpy(n->str_val, name.text); n->param_count = 0;
         while (parser_peek(p).type != TOK_COLON && parser_peek(p).type != TOK_EOF) {
@@ -385,18 +393,59 @@ ASTNode* parse_statement(Parser* p) {
         if (parser_peek(p).type == TOK_END) parser_advance(p);
         return n;
     }
-    if (tok.type == TOK_RETURN) { parser_advance(p); ASTNode* n = ast_new(NODE_RETURN); if (parser_peek(p).type != TOK_END && parser_peek(p).type != TOK_EOF && parser_peek(p).type != TOK_ELSE && parser_peek(p).type != TOK_ELSEIF) n->left = parse_expression(p); return n; }
-    if (tok.type == TOK_BREAK) { parser_advance(p); return ast_new(NODE_BREAK); }
-    if (tok.type == TOK_CONTINUE) { parser_advance(p); return ast_new(NODE_CONTINUE); }
+    if (tok.type == TOK_RETURN) { parser_advance(p); ASTNode* n = ast_new(NODE_RETURN); n->line = tok.line; if (parser_peek(p).type != TOK_END && parser_peek(p).type != TOK_EOF && parser_peek(p).type != TOK_ELSE && parser_peek(p).type != TOK_ELSEIF) n->left = parse_expression(p); return n; }
+    if (tok.type == TOK_BREAK) { parser_advance(p); ASTNode* n = ast_new(NODE_BREAK); n->line = tok.line; return n; }
+    if (tok.type == TOK_CONTINUE) { parser_advance(p); ASTNode* n = ast_new(NODE_CONTINUE); n->line = tok.line; return n; }
+    if (tok.type == TOK_THROW) {
+        parser_advance(p); ASTNode* n = ast_new(NODE_THROW);
+        n->left = parse_expression(p); n->line = tok.line; return n;
+    }
+    if (tok.type == TOK_TRY) {
+        parser_advance(p);
+        if (parser_peek(p).type == TOK_COLON) parser_advance(p);
+        ASTNode* n = ast_new(NODE_TRY);
+        n->right = parse_block(p);
+        if (parser_peek(p).type == TOK_CATCH) {
+            parser_advance(p);
+            NbsToken errvar = parser_peek(p);
+            if (errvar.type == TOK_IDENT) { parser_advance(p); strcpy(n->str_val, errvar.text); }
+            if (parser_peek(p).type == TOK_COLON) parser_advance(p);
+            n->third = parse_block(p);
+        }
+        if (parser_peek(p).type == TOK_FINALLY) {
+            parser_advance(p);
+            if (parser_peek(p).type == TOK_COLON) parser_advance(p);
+            ASTNode* finally_block = parse_block(p);
+            if (n->third) {
+                ASTNode* catch_blk = n->third;
+                for (int i = 0; i < finally_block->child_count && catch_blk->child_count < 64; i++)
+                    catch_blk->children[catch_blk->child_count++] = finally_block->children[i];
+            } else {
+                n->third = finally_block;
+            }
+        }
+        if (parser_peek(p).type == TOK_ENDTRY) parser_advance(p);
+        n->line = tok.line; return n;
+    }
+    if (tok.type == TOK_IMPORT) {
+        parser_advance(p);
+        NbsToken path = parser_peek(p);
+        if (path.type == TOK_STRING_LIT) parser_advance(p);
+        ASTNode* n = ast_new(NODE_IMPORT);
+        strcpy(n->str_val, path.text); n->line = tok.line; return n;
+    }
     ASTNode* expr = parse_expression(p); return expr;
 }
 
 ASTNode* parse_block(Parser* p) {
     ASTNode* block = ast_new(NODE_BLOCK); int cap = 16;
     block->children = (ASTNode**)malloc(cap * sizeof(ASTNode*)); block->child_count = 0;
-    while (parser_peek(p).type != TOK_END && parser_peek(p).type != TOK_EOF && parser_peek(p).type != TOK_ELSE && parser_peek(p).type != TOK_ELSEIF) {
+    NbsTokenType term = parser_peek(p).type;
+    while (term != TOK_END && term != TOK_EOF && term != TOK_ELSE && term != TOK_ELSEIF &&
+           term != TOK_CATCH && term != TOK_FINALLY && term != TOK_ENDTRY) {
         if (block->child_count >= cap) { cap *= 2; block->children = (ASTNode**)realloc(block->children, cap * sizeof(ASTNode*)); }
         block->children[block->child_count++] = parse_statement(p);
+        term = parser_peek(p).type;
     }
     return block;
 }
@@ -412,6 +461,35 @@ ASTNode* parse_program(Parser* p) {
 }
 
 /* ============================================================================
+ * Helper: parse a file and return AST (for IMPORT support)
+ * ============================================================================ */
+
+ASTNode* parse_file(const char* filename) {
+    FILE* f = fopen(filename, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* src = (char*)malloc(len + 1);
+    fread(src, 1, len, f);
+    src[len] = 0;
+    fclose(f);
+
+    Lexer lexer = lexer_new(src);
+    Parser* parser = (Parser*)calloc(1, sizeof(Parser));
+    while (1) {
+        NbsToken tok = lexer_next(&lexer);
+        parser->tokens[parser->count++] = tok;
+        if (tok.type == TOK_EOF) break;
+        if (parser->count >= 4096) { fprintf(stderr, "Error: too many tokens in %s\n", filename); free(src); free(parser); return NULL; }
+    }
+    free(src);
+    ASTNode* result = parse_program(parser);
+    free(parser);
+    return result;
+}
+
+/* ============================================================================
  * TARGET: JavaScript transpiler (AST -> JS)
  * ============================================================================ */
 
@@ -419,7 +497,21 @@ static char js_out[65536];
 static int js_pos = 0;
 static int js_indent = 0;
 
-void js_init(void) { js_pos = 0; js_indent = 0; }
+#define JS_KNOWN_MAX 256
+static char js_known[JS_KNOWN_MAX][64];
+static int js_known_count = 0;
+
+static int js_known_var(const char *name) {
+    for (int i = 0; i < js_known_count; i++)
+        if (strcmp(js_known[i], name) == 0) return 1;
+    return 0;
+}
+static void js_known_add(const char *name) {
+    if (js_known_count < JS_KNOWN_MAX && !js_known_var(name))
+        strcpy(js_known[js_known_count++], name);
+}
+
+void js_init(void) { js_pos = 0; js_indent = 0; js_known_count = 0; }
 void js_indent_fn(void) { for (int i = 0; i < js_indent; i++) { js_out[js_pos++] = ' '; js_out[js_pos++] = ' '; } }
 void js_str(const char* s) { while (*s) js_out[js_pos++] = *s++; }
 void js_line(void) { js_out[js_pos++] = '\n'; js_indent_fn(); }
@@ -438,6 +530,7 @@ void js_transpile_expr(ASTNode* n) {
         case NODE_FUNC_CALL: js_str(n->str_val); js_str("("); for (int i = 0; i < n->child_count; i++) { if (i) js_str(", "); js_transpile_expr(n->children[i]); } js_str(")"); break;
         case NODE_ARRAY_INDEX: js_transpile_expr(n->left); js_str("["); js_transpile_expr(n->right); js_str("]"); break;
         case NODE_ARRAY_LEN: js_transpile_expr(n->left); js_str(".length"); break;
+        case NODE_ARRAY_LIT: js_str("["); for (int i = 0; i < n->child_count; i++) { if (i) js_str(", "); js_transpile_expr(n->children[i]); } js_str("]"); break;
         default: js_str("/* ? */"); break;
     }
 }
@@ -446,14 +539,17 @@ void js_transpile_stmt(ASTNode* n) {
     if (!n) return;
     switch (n->type) {
         case NODE_PRINT: js_str("console.log("); js_transpile_expr(n->left); js_str(")"); js_line(); break;
-        case NODE_ASSIGN: js_str("let "); js_str(n->str_val); js_str(" = "); js_transpile_expr(n->right); js_line(); break;
-        case NODE_FUNC_DEF: js_str("function "); js_str(n->str_val); js_str("("); for (int i = 0; i < n->param_count; i++) { if (i) js_str(", "); js_str(n->params[i]); } js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
+        case NODE_ASSIGN: if (!js_known_var(n->str_val)) { js_str("let "); js_known_add(n->str_val); } js_str(n->str_val); js_str(" = "); js_transpile_expr(n->right); js_line(); break;
+        case NODE_FUNC_DEF: js_str("function "); js_str(n->str_val); js_str("("); for (int i = 0; i < n->param_count; i++) { if (i) js_str(", "); js_str(n->params[i]); js_known_add(n->params[i]); } js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
         case NODE_RETURN: js_str("return "); js_transpile_expr(n->left); js_line(); break;
         case NODE_BREAK: js_str("break"); js_line(); break;
         case NODE_CONTINUE: js_str("continue"); js_line(); break;
         case NODE_IF: js_str("if ("); js_transpile_expr(n->left); js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); if (n->third && n->third->type == NODE_IF) { js_str(" else "); js_transpile_stmt(n->third); } else if (n->third) { js_str(" else {"); js_line(); js_indent++; js_transpile_stmt(n->third); js_indent--; js_indent_fn(); js_str("}"); } js_line(); break;
         case NODE_WHILE: js_str("while ("); js_transpile_expr(n->left); js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
-        case NODE_FOR: js_str("for (let "); js_str(n->str_val); js_str(" = "); if (n->left->type == NODE_BINARY && strcmp(n->left->op, "STEP") == 0) { js_transpile_expr(n->left->left->left); js_str("; "); js_str(n->str_val); js_str(" <= "); js_transpile_expr(n->left->left->right); js_str("; "); js_str(n->str_val); js_str(" += "); js_transpile_expr(n->left->right); } else { js_transpile_expr(n->left->left); js_str("; "); js_str(n->str_val); js_str(" <= "); js_transpile_expr(n->left->right); js_str("; "); js_str(n->str_val); js_str("++"); } js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
+        case NODE_FOR: js_known_add(n->str_val); js_str("for (let "); js_str(n->str_val); js_str(" = "); if (n->left->type == NODE_BINARY && strcmp(n->left->op, "STEP") == 0) { js_transpile_expr(n->left->left->left); js_str("; "); js_str(n->str_val); js_str(" <= "); js_transpile_expr(n->left->left->right); js_str("; "); js_str(n->str_val); js_str(" += "); js_transpile_expr(n->left->right); } else { js_transpile_expr(n->left->left); js_str("; "); js_str(n->str_val); js_str(" <= "); js_transpile_expr(n->left->right); js_str("; "); js_str(n->str_val); js_str("++"); } js_str(") {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
+        case NODE_TRY: js_str("try {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); if (n->str_val[0]) { js_str(" catch ("); js_str(n->str_val); js_known_add(n->str_val); js_str(") {"); } else { js_str(" catch (_e) {"); } js_line(); js_indent++; if (n->third) js_transpile_stmt(n->third); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
+        case NODE_THROW: js_str("throw "); js_transpile_expr(n->left); js_str(";"); js_line(); break;
+        case NODE_IMPORT: js_str("// IMPORT "); js_str(n->str_val); js_line(); break;
         case NODE_BLOCK: for (int i = 0; i < n->child_count; i++) js_transpile_stmt(n->children[i]); break;
         case NODE_PROGRAM: for (int i = 0; i < n->child_count; i++) js_transpile_stmt(n->children[i]); break;
         default: js_transpile_expr(n); js_line(); break;
@@ -505,6 +601,7 @@ void py_transpile_expr(ASTNode* n) {
         } break;
         case NODE_ARRAY_INDEX: py_transpile_expr(n->left); py_str("["); py_transpile_expr(n->right); py_str("]"); break;
         case NODE_ARRAY_LEN: py_str("len("); py_transpile_expr(n->left); py_str(")"); break;
+        case NODE_ARRAY_LIT: py_str("["); for (int i = 0; i < n->child_count; i++) { if (i) py_str(", "); py_transpile_expr(n->children[i]); } py_str("]"); break;
         default: py_str("pass # ?"); break;
     }
 }
@@ -521,6 +618,9 @@ void py_transpile_stmt(ASTNode* n) {
         case NODE_IF: py_str("if "); py_transpile_expr(n->left); py_str(":"); py_line(); py_indent++; py_transpile_stmt(n->right); py_indent--; if (n->third && n->third->type == NODE_IF) { py_indent_fn(); py_str("el"); py_transpile_stmt(n->third); } else if (n->third) { py_indent_fn(); py_str("else:"); py_line(); py_indent++; py_transpile_stmt(n->third); py_indent--; } break;
         case NODE_WHILE: py_str("while "); py_transpile_expr(n->left); py_str(":"); py_line(); py_indent++; py_transpile_stmt(n->right); py_indent--; py_line(); break;
         case NODE_FOR: py_str("for "); py_str(n->str_val); py_str(" in range("); if (n->left->type == NODE_BINARY && strcmp(n->left->op, "STEP") == 0) { py_transpile_expr(n->left->left->left); py_str(", "); py_transpile_expr(n->left->left->right); py_str(" + 1, "); py_transpile_expr(n->left->right); } else { py_transpile_expr(n->left->left); py_str(", "); py_transpile_expr(n->left->right); py_str(" + 1"); } py_str("):"); py_line(); py_indent++; py_transpile_stmt(n->right); py_indent--; py_line(); break;
+        case NODE_TRY: py_str("try:"); py_line(); py_indent++; py_transpile_stmt(n->right); py_indent--; if (n->str_val[0]) { py_indent_fn(); py_str("except Exception as "); py_str(n->str_val); py_str(":"); } else { py_indent_fn(); py_str("except Exception as _e:"); } py_line(); py_indent++; if (n->third) py_transpile_stmt(n->third); py_indent--; py_line(); break;
+        case NODE_THROW: py_str("raise "); py_transpile_expr(n->left); py_line(); break;
+        case NODE_IMPORT: py_str("# IMPORT "); py_str(n->str_val); py_line(); break;
         case NODE_BLOCK: for (int i = 0; i < n->child_count; i++) py_transpile_stmt(n->children[i]); break;
         case NODE_PROGRAM: py_str("from typing import Any\n\n"); for (int i = 0; i < n->child_count; i++) py_transpile_stmt(n->children[i]); break;
         default: py_transpile_expr(n); py_line(); break;
@@ -582,27 +682,6 @@ int sema_has_errors(SemaContext *ctx) {
     return ctx->error_count > 0;
 }
 
-static int is_sema_keyword(const char *t) {
-    return strcmp(t, "LET") == 0 || strcmp(t, "CONST") == 0 ||
-           strcmp(t, "FUNC!") == 0 || strcmp(t, "END!") == 0 ||
-           strcmp(t, "IF?") == 0 || strcmp(t, "ELSE") == 0 ||
-           strcmp(t, "ELSEIF?") == 0 || strcmp(t, "WHILE?") == 0 ||
-           strcmp(t, "FOR!") == 0 || strcmp(t, "TO") == 0 ||
-           strcmp(t, "STEP") == 0 || strcmp(t, "RETURN") == 0 ||
-           strcmp(t, "BREAK") == 0 || strcmp(t, "CONTINUE") == 0 ||
-           strcmp(t, "PRINT") == 0 || strcmp(t, "AND") == 0 ||
-           strcmp(t, "OR") == 0 || strcmp(t, "NOT") == 0 ||
-           strcmp(t, "TRUE") == 0 || strcmp(t, "FALSE") == 0 ||
-           strcmp(t, "NULL") == 0 || strcmp(t, "THEN") == 0 ||
-           strcmp(t, "TRY") == 0 || strcmp(t, "CATCH") == 0 ||
-           strcmp(t, "THROW") == 0 ||
-           strcmp(t, "GO!") == 0 || strcmp(t, "CHAN!") == 0 ||
-           strcmp(t, "SEND!") == 0 || strcmp(t, "RECV!") == 0 ||
-           strcmp(t, "SELECT!") == 0 || strcmp(t, "MUTEX!") == 0 ||
-           strcmp(t, "LOCK!") == 0 || strcmp(t, "UNLOCK!") == 0 ||
-           strcmp(t, "YIELD!") == 0 || strcmp(t, "SLEEP!") == 0;
-}
-
 static int is_sema_builtin(const char *t) {
     return strcmp(t, "PRINT") == 0 || strcmp(t, "LEN") == 0 ||
            strcmp(t, "TYPEOF") == 0 || strcmp(t, "TYPE") == 0 ||
@@ -620,34 +699,16 @@ static int is_sema_builtin(const char *t) {
            strcmp(t, "ROUND") == 0 || strcmp(t, "PUSH") == 0 ||
            strcmp(t, "POP") == 0 || strcmp(t, "READ_FILE") == 0 ||
            strcmp(t, "WRITE_FILE") == 0 ||
+           strcmp(t, "FFI_LOAD") == 0 || strcmp(t, "FFI_REGISTER") == 0 ||
+           strcmp(t, "FFI_CALL") == 0 || strcmp(t, "ARGUMENT_COUNT") == 0 ||
+           strcmp(t, "ARGUMENT") == 0 ||
            strcmp(t, "IS_INT") == 0 || strcmp(t, "IS_STRING") == 0 ||
            strcmp(t, "IS_BOOL") == 0 || strcmp(t, "IS_NULL") == 0 ||
            strcmp(t, "IS_ARRAY") == 0 || strcmp(t, "IS_FUNC") == 0 ||
-           strcmp(t, "IS_NUMBER") == 0;
-}
-
-static int is_sema_literal_or_punct(const char *t) {
-    if (!t || !t[0]) return 1;
-    /* String literals (double or single quoted) */
-    if (t[0] == '"') return 1;
-    if (t[0] == '\'') return 1;
-    /* Numbers */
-    if ((t[0] == '-' || t[0] == '+') && t[1] >= '0' && t[1] <= '9') {
-        int i = 2; for (; t[i]; i++) if (t[i] < '0' || t[i] > '9') return 0;
-        return 1;
-    }
-    if (t[0] >= '0' && t[0] <= '9') return 1;
-    /* Single-char punctuation */
-    if (t[1] == '\0' && (t[0] == '=' || t[0] == '+' || t[0] == '-' || t[0] == '*' ||
-        t[0] == '/' || t[0] == '%' || t[0] == '(' || t[0] == ')' ||
-        t[0] == '[' || t[0] == ']' || t[0] == ',' || t[0] == ':' ||
-        t[0] == ';' || t[0] == '.' || t[0] == '!' || t[0] == '&' ||
-        t[0] == '|' || t[0] == '<' || t[0] == '>')) return 1;
-    /* Two-char operators */
-    if (strcmp(t, "==") == 0 || strcmp(t, "!=") == 0 ||
-        strcmp(t, "<=") == 0 || strcmp(t, ">=") == 0 ||
-        strcmp(t, "<<") == 0 || strcmp(t, ">>") == 0) return 1;
-    return 0;
+           strcmp(t, "IS_NUMBER") == 0 ||
+           strcmp(t, "CHAN!") == 0 || strcmp(t, "MUTEX!") == 0 ||
+           strcmp(t, "LOCK!") == 0 || strcmp(t, "UNLOCK!") == 0 ||
+           strcmp(t, "YIELD!") == 0 || strcmp(t, "SLEEP!") == 0;
 }
 
 /* Type name parsing for type annotations */
@@ -670,73 +731,160 @@ NebType parse_type_name(const char *name) {
     return TYPE_UNKNOWN;
 }
 
-int sema_analyze(SemaContext *ctx, const char **tokens, int *token_types, int token_count) {
-    for (int i = 0; i < token_count; i++) {
-        const char *t = tokens[i];
-        if (!t) continue;
-        /* Skip string and int literals — they're never definitions */
-        if (token_types && (token_types[i] == TOK_STRING_LIT || token_types[i] == TOK_INT_LIT)) continue;
-        if ((strcmp(t, "LET") == 0 || strcmp(t, "CONST") == 0) && i + 1 < token_count) {
-            const char *name = tokens[i + 1];
-            NebType annotated_type = TYPE_UNKNOWN;
-            /* Check for type annotation: LET name : TYPE */
-            if (i + 2 < token_count && strcmp(tokens[i + 2], ":") == 0 && i + 3 < token_count) {
-                annotated_type = parse_type_name(tokens[i + 3]);
-                if (annotated_type == TYPE_UNKNOWN) {
-                    sema_ctx_error(ctx, i + 3, "unknown type annotation '%s'", tokens[i + 3]);
-                }
-            }
-            if (symbol_lookup(name)) {
-                sema_ctx_error(ctx, i + 1, "duplicate definition of '%s'", name);
-            } else {
-                symbol_define(name, annotated_type, i + 1, 0, strcmp(t, "LET") == 0);
-            }
-            i++;
-            continue;
-        }
-        if (strcmp(t, "FUNC!") == 0 && i + 1 < token_count) {
-            const char *name = tokens[i + 1];
-            /* Check for return type annotation: FUNC! name -> TYPE: */
-            NebType return_type = TYPE_VOID;
-            if (symbol_lookup(name)) {
-                sema_ctx_error(ctx, i + 1, "duplicate definition of function '%s'", name);
-            } else {
-                symbol_define(name, TYPE_FUNC, i + 1, 0, 0);
-            }
-            i++;
-            int depth = 1;
-            while (i + 1 < token_count && depth > 0) {
-                i++;
-                if (strcmp(tokens[i], "FUNC!") == 0 || strcmp(tokens[i], "IF?") == 0 ||
-                    strcmp(tokens[i], "WHILE?") == 0 || strcmp(tokens[i], "FOR!") == 0 ||
-                    strcmp(tokens[i], "TRY") == 0) depth++;
-                else if (strcmp(tokens[i], "END!") == 0) depth--;
-            }
-            continue;
+/* ============================================================================
+ * AST-based semantic analysis
+ *
+ * The old token-scanning checker reported token indexes as "line numbers",
+ * never treated FOR-loop vars / CATCH vars / function params as defined, and
+ * flagged IMPORT/TRY/CATCH as unknown.  This walker uses the AST (which the
+ * parser already builds faithfully) so definitions, scoping and real source
+ * lines are all correct.
+ * ============================================================================ */
+
+#define SEMA_MAX_SCOPES 256
+#define SEMA_MAX_SYMS   512
+
+static char *sema_scopes[SEMA_MAX_SCOPES][SEMA_MAX_SYMS];
+static int   sema_scope_count[SEMA_MAX_SCOPES];
+static int   sema_scope_top = 0;
+
+static void sema_scope_push(void) {
+    if (sema_scope_top < SEMA_MAX_SCOPES - 1) {
+        sema_scope_top++;
+        sema_scope_count[sema_scope_top - 1] = 0;
+    }
+}
+static void sema_scope_pop(void) {
+    if (sema_scope_top > 1) sema_scope_top--;
+}
+static void sema_define(const char *name) {
+    if (sema_scope_top <= 0) return;
+    int *cnt = &sema_scope_count[sema_scope_top - 1];
+    if (*cnt < SEMA_MAX_SYMS) sema_scopes[sema_scope_top - 1][(*cnt)++] = strdup(name);
+}
+static int sema_lookup(const char *name) {
+    for (int sc = sema_scope_top - 1; sc >= 0; sc--) {
+        for (int i = 0; i < sema_scope_count[sc]; i++) {
+            if (strcmp(sema_scopes[sc][i], name) == 0) return 1;
         }
     }
-    for (int i = 0; i < token_count; i++) {
-        const char *t = tokens[i];
-        if (!t) continue;
-        /* Skip string and int literals */
-        if (token_types && (token_types[i] == TOK_STRING_LIT || token_types[i] == TOK_INT_LIT)) continue;
-        if (strcmp(t, "FUNC!") == 0 && i + 1 < token_count) {
-            i++;
-            int depth = 1;
-            while (i + 1 < token_count && depth > 0) {
-                i++;
-                if (strcmp(tokens[i], "FUNC!") == 0 || strcmp(tokens[i], "IF?") == 0 ||
-                    strcmp(tokens[i], "WHILE?") == 0 || strcmp(tokens[i], "FOR!") == 0 ||
-                    strcmp(tokens[i], "TRY") == 0) depth++;
-                else if (strcmp(tokens[i], "END!") == 0) depth--;
-            }
-            continue;
-        }
-        if (is_sema_keyword(t) || is_sema_builtin(t) || is_sema_literal_or_punct(t)) continue;
-        if (!symbol_lookup(t)) {
-            sema_ctx_error(ctx, i + 1, "'%s' is not defined", t);
-        }
+    return 0;
+}
+
+static void sema_stmt(SemaContext *ctx, ASTNode *n);
+static int sema_analyze(SemaContext *ctx, ASTNode *ast);
+
+static void sema_block(SemaContext *ctx, ASTNode *n) {
+    if (!n) return;
+    for (int i = 0; i < n->child_count; i++) sema_stmt(ctx, n->children[i]);
+}
+
+static void sema_expr(SemaContext *ctx, ASTNode *n) {
+    if (!n) return;
+    switch (n->type) {
+        case NODE_INT: case NODE_STRING: case NODE_TRUE: case NODE_FALSE: case NODE_NULL:
+            break;
+        case NODE_IDENT:
+            if (!is_sema_builtin(n->str_val) && !sema_lookup(n->str_val))
+                sema_ctx_error(ctx, n->line, "'%s' is not defined", n->str_val);
+            break;
+        case NODE_BINARY:
+            sema_expr(ctx, n->left); sema_expr(ctx, n->right); break;
+        case NODE_UNARY:
+            sema_expr(ctx, n->left); break;
+        case NODE_FUNC_CALL:
+            if (!is_sema_builtin(n->str_val) && !sema_lookup(n->str_val))
+                sema_ctx_error(ctx, n->line, "call to undefined function '%s'", n->str_val);
+            for (int i = 0; i < n->child_count; i++) sema_expr(ctx, n->children[i]);
+            break;
+        case NODE_ARRAY_LIT:
+            for (int i = 0; i < n->child_count; i++) sema_expr(ctx, n->children[i]);
+            break;
+        case NODE_ARRAY_INDEX:
+            sema_expr(ctx, n->left); sema_expr(ctx, n->right); break;
+        case NODE_ARRAY_LEN:
+            sema_expr(ctx, n->left); break;
+        default:
+            break;
     }
+}
+
+static void sema_stmt(SemaContext *ctx, ASTNode *n) {
+    if (!n) return;
+    switch (n->type) {
+        case NODE_ASSIGN:
+            if (!sema_lookup(n->str_val)) sema_define(n->str_val);
+            if (n->right) sema_expr(ctx, n->right);
+            break;
+        case NODE_PRINT:
+            sema_expr(ctx, n->left); break;
+        case NODE_IF: {
+            ASTNode *cur = n;
+            while (cur && cur->type == NODE_IF) {
+                sema_expr(ctx, cur->left);
+                sema_block(ctx, cur->right);
+                cur = cur->third;
+            }
+            if (cur) sema_block(ctx, cur);
+            break;
+        }
+        case NODE_WHILE:
+            sema_expr(ctx, n->left); sema_block(ctx, n->right); break;
+        case NODE_FOR:
+            sema_define(n->str_val);
+            if (n->left) sema_expr(ctx, n->left);
+            sema_block(ctx, n->right);
+            break;
+        case NODE_FUNC_DEF:
+            if (!sema_lookup(n->str_val)) sema_define(n->str_val);
+            sema_scope_push();
+            for (int i = 0; i < n->param_count; i++) sema_define(n->params[i]);
+            sema_block(ctx, n->right);
+            sema_scope_pop();
+            break;
+        case NODE_RETURN:
+            if (n->left) sema_expr(ctx, n->left);
+            break;
+        case NODE_BREAK: case NODE_CONTINUE:
+            break;
+        case NODE_TRY:
+            sema_block(ctx, n->right);
+            sema_scope_push();
+            if (n->str_val[0]) sema_define(n->str_val);
+            if (n->third) sema_block(ctx, n->third);
+            sema_scope_pop();
+            break;
+        case NODE_THROW:
+            if (n->left) sema_expr(ctx, n->left);
+            break;
+        case NODE_IMPORT: {
+            /* Load and analyze imported file directly in current context */
+            char import_path[512];
+            snprintf(import_path, sizeof(import_path), "%s", n->str_val);
+            ASTNode* import_ast = parse_file(import_path);
+            if (import_ast) {
+                /* Run semantic analysis on imported AST using current context */
+                sema_stmt(ctx, import_ast);
+                /* Note: AST nodes are not freed for simplicity */
+            } else {
+                sema_ctx_error(ctx, n->line, "cannot open import file '%s'", n->str_val);
+            }
+            break;
+        }
+        case NODE_BLOCK:
+        case NODE_PROGRAM:
+            sema_block(ctx, n);
+            break;
+        default:
+            sema_expr(ctx, n);
+            break;
+    }
+}
+
+int sema_analyze(SemaContext *ctx, ASTNode *ast) {
+    sema_scope_top = 0;
+    sema_scope_push();          /* global scope */
+    sema_stmt(ctx, ast);
     return ctx->error_count;
 }
 
@@ -1333,15 +1481,7 @@ int main(int argc, char** argv) {
 
     /* Semantic analysis */
     SemaContext *sema_ctx = sema_new_context();
-    const char **token_texts = (const char **)malloc(parser.count * sizeof(char *));
-    int *token_types = (int *)malloc(parser.count * sizeof(int));
-    for (int i = 0; i < parser.count; i++) {
-        token_texts[i] = parser.tokens[i].text;
-        token_types[i] = parser.tokens[i].type;
-    }
-    sema_analyze(sema_ctx, token_texts, token_types, parser.count);
-    free(token_texts);
-    free(token_types);
+    sema_analyze(sema_ctx, ast);
 
     /* --check mode: analyze and report only */
     if (do_check || strcmp(target, "check") == 0) {

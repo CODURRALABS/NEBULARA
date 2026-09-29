@@ -2,17 +2,21 @@
 # Cross-platform build (works with MinGW on Windows and gcc on Linux/macOS)
 
 CC ?= gcc
-CFLAGS = -static -O2 -Wall
+OPT = -O2 -Wall
 BUILD_DIR = build
 
 ifeq ($(OS),Windows_NT)
     EXT = .exe
+    CFLAGS = -static $(OPT)
     MKDIR = @if not exist "$(BUILD_DIR)" mkdir "$(BUILD_DIR)"
     RM = @if exist "$(BUILD_DIR)" rmdir /s /q "$(BUILD_DIR)"
+    DYNLIBS = -lm
 else
     EXT =
+    CFLAGS = $(OPT)
     MKDIR = @mkdir -p $(BUILD_DIR)
     RM = @rm -rf $(BUILD_DIR)
+    DYNLIBS = -lm
 endif
 
 NEB = $(BUILD_DIR)/nebulara$(EXT)
@@ -26,27 +30,27 @@ all: $(NEB) $(CLI) $(CG) $(PL) $(FFI) $(KG)
 
 $(NEB): Compiler/nbs-bootstrap.c
 	$(MKDIR)
-	$(CC) $(CFLAGS) $< -o $@ -lm
+	$(CC) $(CFLAGS) $< -o $@ $(DYNLIBS)
 
 $(CLI): Compiler/nbs_cli.c
 	$(MKDIR)
-	$(CC) $(CFLAGS) $< -o $@ -lm
+	$(CC) $(CFLAGS) $< -o $@ $(DYNLIBS)
 
 $(CG): Compiler/neb-codegen.c
 	$(MKDIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -DCODEGEN_STANDALONE $< -o $@
 
 $(PL): Compiler/neb-pipeline.c
 	$(MKDIR)
-	$(CC) -O2 -Wall $< -o $@
+	$(CC) $(OPT) $< -o $@ $(DYNLIBS)
 
 $(FFI): Compiler/neb-ffi.c
 	$(MKDIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(DYNLIBS)
 
 $(KG): Compiler/neb-knowledge.c
 	$(MKDIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(DYNLIBS)
 
 test: $(NEB)
 	$(NEB) test/hello.nbs

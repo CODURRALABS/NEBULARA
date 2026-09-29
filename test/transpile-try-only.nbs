@@ -1,0 +1,6 @@
+TRY!
+    THROW "boom"
+CATCH! err:
+    PRINT err
+ENDTRY!
+PRINT "after try"

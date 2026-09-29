@@ -1,0 +1,9 @@
+# transpile workout - FOR loop
+FUNC! sum(n):
+    LET total = 0
+    FOR! i = 1 TO n:
+        total = total + i
+    END!
+    RETURN total
+END!
+PRINT sum(5)
