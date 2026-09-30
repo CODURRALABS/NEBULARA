@@ -1,0 +1,7 @@
+# Nebulara v4 conformance: numbers & floats
+LET pi = 3.14159
+LET tiny = 2.5e-3
+LET big = 1e10
+LET n = 42
+PRINT pi + tiny
+PRINT n * 2

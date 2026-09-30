@@ -1,0 +1,7 @@
+# Nebulara v4 conformance: META provenance blocks
+META author:"ayush", intent:"identity demo", risk:LOW
+FUNC! id(x):
+  RETURN x
+END!
+
+PRINT id(41)

@@ -1,0 +1,4 @@
+# Nebulara v4 conformance: modules
+USE "mathx"
+
+PRINT mathx.clamp(15, 0, 10)
