@@ -9,7 +9,7 @@
 
 A complete C-based toolchain: interpreter, CLI, transpiler (JS/Python), semantic analyzer, FFI bridge, native codegen, and knowledge graph. Install via npm with zero dependencies.
 
-[![npm](https://img.shields.io/badge/npm-nebulara@1.2.0-blue.svg)](https://www.npmjs.com/package/nebulara)
+[![npm](https://img.shields.io/badge/npm-nebulara@1.3.0-blue.svg)](https://www.npmjs.com/package/nebulara)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
 
@@ -101,6 +101,26 @@ PRINT(SQRT(16))     # 4
 PRINT(POW(2, 10))   # 1024
 PRINT(CHAR(65))     # A
 PRINT(ORD("Z"))     # 90
+
+# Float literals (v1.3.0+)
+LET pi = 3.14159
+LET scale = 2.5e-3
+PRINT(pi / 2)       # 1.570795
+PRINT(SQRT(9.0))    # 3.0
+
+# Map literals (v1.3.0+)
+LET user = {"name": "ayush", "score": 99.5}
+PRINT(user["name"])          # ayush
+user["score"] = user["score"] + 0.5
+PRINT(user["score"])         # 100.0
+
+# META blocks (v1.3.0+) - provenance metadata
+META author:"ayush", intent:"safe file dedup", risk:LOW
+FUNC! dedup(path): ... END!
+
+# Module imports (v1.3.0+)
+USE "mathx"
+PRINT(mathx.clamp(15, 0, 10))   # 10
 ```
 
 ## What's in the box

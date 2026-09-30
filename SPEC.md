@@ -2,7 +2,7 @@
   <img src="logo.png" alt="Nebulara Logo" width="120"/>
 </p>
 
-# Nebulara Language Specification v3.0
+# Nebulara Language Specification v4.0
 
 
 ## File Extension
@@ -43,6 +43,8 @@
 | `FALSE` | Boolean false | `LET x = FALSE` |
 | `NULL` | Null value | `IF? x == NULL:` |
 | `IMPORT` | Import module | `IMPORT "std/math.nbs"` |
+| `USE` | Use module namespace | `USE "mathx"` |
+| `META` | Provenance metadata | `META author:"x", risk:LOW` |
 | `GO!` | Launch goroutine | `GO! name()` |
 | `CHAN!` | Create channel | `CHAN!(16)` |
 | `SEND!` | Send to channel | `SEND! ch, val` |
@@ -59,16 +61,15 @@
 | Type | Description | Example |
 |------|-------------|---------|
 | Int | 64-bit signed integer | `42`, `-7` |
+| Float | IEEE 754 double | `3.14`, `2.5e-3` |
 | String | UTF-8 text | `"hello"` |
 | Bool | Boolean | `TRUE`, `FALSE` |
 | Array | Dynamic list | `[1, 2, 3]` |
+| Map | Ordered key-value | `{"name": "x", "age": 30}` |
 | Null | Absence of value | `NULL` |
 | Func | Function reference | `FUNC! name():` |
 | Channel | Buffered channel | `CHAN!(16)` |
 | Mutex | Mutual-exclusion lock | `MUTEX!(m)` |
-
-> **Floats, maps (`{"k": v}`) and closures / first-class functions are planned
-> (v4) but not yet in the language.**
 
 ## Syntax
 
@@ -160,6 +161,67 @@ CONST PI = 314
 PRINT PI
 # PI = 4   # error: cannot reassign constant
 ```
+
+### Float Literals (v4.0)
+
+Floating-point literals follow IEEE 754 double-precision format. Supports
+decimal point and scientific notation.
+
+```
+LET pi = 3.14159
+LET tiny = 2.5e-3
+LET big = 1.5E10
+PRINT pi / 2       # 1.570795
+PRINT SQRT(9.0)    # 3.0
+```
+
+Float arithmetic follows promotion rules: `Int op Float → Float`.
+Integer division stays integer; `Float / Float → Float`.
+
+### Map Literals (v4.0)
+
+Maps are ordered key-value collections with string keys. Keys must be string
+literals; values can be any type.
+
+```
+LET user = {"name": "ayush", "score": 99.5}
+PRINT user["name"]          # ayush
+user["score"] = user["score"] + 0.5
+PRINT user["score"]         # 100.0
+```
+
+Map operations: `LEN(map)`, `KEYS(map)`, `HAS_KEY(map, key)`, `DEL_KEY(map, key)`.
+
+### META Blocks (v4.0) — Provenance Metadata
+
+`META` blocks attach structured metadata to any top-level definition. They are
+preserved through compilation to `.nbsc` bytecode and rendered by the decompiler.
+
+```
+META author:"ayush", intent:"safe file dedup", risk:LOW
+FUNC! dedup(path):
+  ...
+END!
+```
+
+Reserved keys (enforced by Vortex/Eden): `author`, `intent`, `risk`,
+`origin`, `lineage`, `fitness`. Unknown keys are preserved.
+
+### Module System: USE (v4.0)
+
+`USE "module"` loads a module file once (cached) and exposes its public
+top-level definitions under the module name (filename stem).
+
+```
+# file: mathx.nbs
+FUNC! clamp(x, lo, hi): ... END!
+
+# consumer
+USE "mathx"
+PRINT mathx.clamp(15, 0, 10)   # 10
+```
+
+Circular `USE` is a compile error. Modules are deduplicated.
 
 ### Modules & Import
 

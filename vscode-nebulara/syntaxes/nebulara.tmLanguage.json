@@ -31,10 +31,16 @@
       }]
     },
     "numbers": {
-      "patterns": [{
-        "match": "\\b-?[0-9]+\\b",
-        "name": "constant.numeric.integer.nebulara"
-      }]
+      "patterns": [
+        {
+          "match": "\\b-?[0-9]+\\.?[0-9]*([eE][+-]?[0-9]+)?\\b",
+          "name": "constant.numeric.float.nebulara"
+        },
+        {
+          "match": "\\b-?[0-9]+\\b",
+          "name": "constant.numeric.integer.nebulara"
+        }
+      ]
     },
     "keywords": {
       "patterns": [
@@ -57,6 +63,8 @@
         { "match": "\\bTHROW\\b", "name": "keyword.control.throw.nebulara" },
         { "match": "\\bFINALLY\\b", "name": "keyword.control.finally.nebulara" },
         { "match": "\\bIMPORT\\b", "name": "keyword.control.import.nebulara" },
+        { "match": "\\bUSE\\b", "name": "keyword.control.use.nebulara" },
+        { "match": "\\bMETA\\b", "name": "keyword.control.meta.nebulara" },
         { "match": "\\bAND\\b", "name": "keyword.operator.logical.nebulara" },
         { "match": "\\bOR\\b", "name": "keyword.operator.logical.nebulara" },
         { "match": "\\bNOT\\b", "name": "keyword.operator.logical.nebulara" },
@@ -85,6 +93,12 @@
         { "match": "\\bTYPEOF\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bTO_STRING\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bTO_NUMBER\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bTO_FLOAT\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bIS_MAP\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bIS_FLOAT\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bKEYS\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bHAS_KEY\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bDEL_KEY\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bPUSH\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bPOP\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\babs\\s*\\(", "name": "support.function.builtin.nebulara" },
@@ -92,7 +106,10 @@
         { "match": "\\bmax\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bclamp\\s*\\(", "name": "support.function.builtin.nebulara" },
         { "match": "\\bsum_array\\s*\\(", "name": "support.function.builtin.nebulara" },
-        { "match": "\\baverage\\s*\\(", "name": "support.function.builtin.nebulara" }
+        { "match": "\\baverage\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bFLOOR\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bCEIL\\s*\\(", "name": "support.function.builtin.nebulara" },
+        { "match": "\\bROUND\\s*\\(", "name": "support.function.builtin.nebulara" }
       ]
     },
     "operators": {
