@@ -1,0 +1,16 @@
+# Nebulara v4 conformance: closures & first-class functions
+FUNC! make_counter():
+  LET n = 0
+  RETURN FUNC!():
+    n = n + 1
+    RETURN n
+  END!
+END!
+
+FUNC! apply(f, x):
+  RETURN f(x)
+END!
+
+LET tick = make_counter()
+LET doubled = FUNC!(v): RETURN v * 2 END!
+PRINT apply(doubled, 21)

@@ -23,7 +23,7 @@
  * ============================================================================ */
 
 typedef enum {
-    TOK_INT_LIT, TOK_STRING_LIT, TOK_IDENT,
+    TOK_INT_LIT, TOK_FLOAT_LIT, TOK_STRING_LIT, TOK_IDENT,
     TOK_FUNC, TOK_DATA, TOK_RUN, TOK_END,
     TOK_IF, TOK_ELSE, TOK_THEN, TOK_WHILE, TOK_FOR, TOK_TO, TOK_STEP,
     TOK_RETURN, TOK_BREAK, TOK_CONTINUE,
@@ -33,8 +33,10 @@ typedef enum {
     TOK_AND, TOK_OR, TOK_NOT, TOK_ASSIGN,
     TOK_DOT, TOK_COMMA, TOK_COLON, TOK_SEMICOLON,
     TOK_LPAREN, TOK_RPAREN, TOK_LBRACKET, TOK_RBRACKET,
+    TOK_LBRACE, TOK_RBRACE,
     TOK_ELSEIF, TOK_TRUE, TOK_FALSE, TOK_NULL,
     TOK_TRY, TOK_CATCH, TOK_THROW, TOK_FINALLY, TOK_ENDTRY, TOK_IMPORT,
+    TOK_META, TOK_USE,
     TOK_EOF, TOK_ERROR
 } NbsTokenType;
 
@@ -83,11 +85,40 @@ NbsToken lexer_next(Lexer* l) {
     char c = l->src[l->pos];
     if (c >= '0' && c <= '9') {
         int64_t val = 0;
+        bool is_float = false;
         while (l->pos < l->len && l->src[l->pos] >= '0' && l->src[l->pos] <= '9')
             val = val * 10 + lexer_advance(l) - '0';
-        tok.type = TOK_INT_LIT;
-        tok.int_val = val;
-        sprintf(tok.text, "%lld", val);
+        if (l->pos < l->len && l->src[l->pos] == '.') {
+            is_float = true;
+            tok.text[0] = '0'; // placeholder, will rebuild
+            int di = 0;
+            // copy integer part
+            char intbuf[32];
+            sprintf(intbuf, "%lld", val);
+            for (int i = 0; intbuf[i]; i++) tok.text[di++] = intbuf[i];
+            tok.text[di++] = '.';
+            lexer_advance(l); // skip '.'
+            // fractional part
+            while (l->pos < l->len && l->src[l->pos] >= '0' && l->src[l->pos] <= '9' && di < 254) {
+                tok.text[di++] = lexer_advance(l);
+            }
+            tok.text[di] = 0;
+            // optional exponent
+            if (l->pos < l->len && (l->src[l->pos] == 'e' || l->src[l->pos] == 'E')) {
+                tok.text[di++] = lexer_advance(l);
+                if (l->pos < l->len && (l->src[l->pos] == '+' || l->src[l->pos] == '-')) {
+                    tok.text[di++] = lexer_advance(l);
+                }
+                while (l->pos < l->len && l->src[l->pos] >= '0' && l->src[l->pos] <= '9' && di < 254) {
+                    tok.text[di++] = lexer_advance(l);
+                }
+                tok.text[di] = 0;
+            }
+        } else {
+            sprintf(tok.text, "%lld", val);
+        }
+        tok.type = is_float ? TOK_FLOAT_LIT : TOK_INT_LIT;
+        if (!is_float) tok.int_val = val;
         return tok;
     }
     if (c == '"') {
@@ -150,6 +181,8 @@ NbsToken lexer_next(Lexer* l) {
         else if (strcmp(tok.text, "FINALLY!") == 0) tok.type = TOK_FINALLY;
         else if (strcmp(tok.text, "ENDTRY!") == 0) tok.type = TOK_ENDTRY;
         else if (strcmp(tok.text, "IMPORT") == 0) tok.type = TOK_IMPORT;
+        else if (strcmp(tok.text, "META") == 0) tok.type = TOK_META;
+        else if (strcmp(tok.text, "USE") == 0) tok.type = TOK_USE;
         else tok.type = TOK_IDENT;
         return tok;
     }
@@ -180,6 +213,8 @@ NbsToken lexer_next(Lexer* l) {
     else if (c == ')') tok.type = TOK_RPAREN;
     else if (c == '[') tok.type = TOK_LBRACKET;
     else if (c == ']') tok.type = TOK_RBRACKET;
+    else if (c == '{') tok.type = TOK_LBRACE;
+    else if (c == '}') tok.type = TOK_RBRACE;
     else if (c == '.') tok.type = TOK_DOT;
     else if (c == ',') tok.type = TOK_COMMA;
     else if (c == ':') tok.type = TOK_COLON;
@@ -193,12 +228,14 @@ NbsToken lexer_next(Lexer* l) {
  * ============================================================================ */
 
 typedef enum {
-    NODE_INT, NODE_STRING, NODE_IDENT, NODE_BINARY, NODE_UNARY,
+    NODE_INT, NODE_FLOAT, NODE_STRING, NODE_IDENT, NODE_BINARY, NODE_UNARY,
     NODE_TRUE, NODE_FALSE, NODE_NULL,
     NODE_ASSIGN, NODE_PRINT, NODE_BLOCK, NODE_IF, NODE_WHILE, NODE_FOR,
     NODE_FUNC_DEF, NODE_FUNC_CALL, NODE_RETURN, NODE_BREAK, NODE_CONTINUE,
     NODE_ARRAY_LIT, NODE_ARRAY_INDEX, NODE_ARRAY_LEN,
+    NODE_MAP_LIT, NODE_MAP_INDEX,
     NODE_IMPORT, NODE_TRY, NODE_THROW,
+    NODE_META, NODE_USE,
     NODE_PROGRAM
 } NodeType;
 
@@ -207,7 +244,7 @@ struct ASTNode {
     NodeType type;
     int64_t int_val;
     char str_val[256];
-    char op[8];
+    char op[16];
     ASTNode* left;
     ASTNode* right;
     ASTNode* third;
@@ -255,6 +292,7 @@ ASTNode* parse_expression(Parser* p);
 ASTNode* parse_primary(Parser* p) {
     NbsToken tok = parser_peek(p);
     if (tok.type == TOK_INT_LIT) { parser_advance(p); ASTNode* n = ast_new(NODE_INT); n->int_val = tok.int_val; strcpy(n->str_val, tok.text); return n; }
+    if (tok.type == TOK_FLOAT_LIT) { parser_advance(p); ASTNode* n = ast_new(NODE_FLOAT); strcpy(n->str_val, tok.text); return n; }
     if (tok.type == TOK_TRUE) { parser_advance(p); return ast_new(NODE_TRUE); }
     if (tok.type == TOK_FALSE) { parser_advance(p); return ast_new(NODE_FALSE); }
     if (tok.type == TOK_NULL) { parser_advance(p); return ast_new(NODE_NULL); }
@@ -306,6 +344,30 @@ ASTNode* parse_primary(Parser* p) {
             do { if (n->child_count >= cap) { cap *= 2; n->children = (ASTNode**)realloc(n->children, cap * sizeof(ASTNode*)); } n->children[n->child_count++] = parse_expression(p); } while (parser_peek(p).type == TOK_COMMA && (parser_advance(p), 1));
         }
         if (parser_peek(p).type == TOK_RBRACKET) parser_advance(p);
+        return n;
+    }
+    if (tok.type == TOK_LBRACE) {
+        parser_advance(p); ASTNode* n = ast_new(NODE_MAP_LIT); n->children = NULL; n->child_count = 0;
+        int cap = 8; n->children = (ASTNode**)malloc(cap * sizeof(ASTNode*));
+        if (parser_peek(p).type != TOK_RBRACE) {
+            do {
+                // Parse key: value
+                if (parser_peek(p).type == TOK_STRING_LIT) {
+                    ASTNode* key = ast_new(NODE_STRING);
+                    NbsToken k = parser_advance(p);
+                    strcpy(key->str_val, k.text);
+                    if (parser_peek(p).type == TOK_COLON) parser_advance(p);
+                    ASTNode* val = parse_expression(p);
+                    ASTNode* pair = ast_new(NODE_BINARY);
+                    strcpy(pair->op, "MAP_PAIR");
+                    pair->left = key;
+                    pair->right = val;
+                    if (n->child_count >= cap) { cap *= 2; n->children = (ASTNode**)realloc(n->children, cap * sizeof(ASTNode*)); }
+                    n->children[n->child_count++] = pair;
+                }
+            } while (parser_peek(p).type == TOK_COMMA && (parser_advance(p), 1));
+        }
+        if (parser_peek(p).type == TOK_RBRACE) parser_advance(p);
         return n;
     }
     if (tok.type == TOK_MINUS) { parser_advance(p); ASTNode* n = ast_new(NODE_UNARY); strcpy(n->op, "-"); n->left = parse_primary(p); return n; }
@@ -434,6 +496,50 @@ ASTNode* parse_statement(Parser* p) {
         ASTNode* n = ast_new(NODE_IMPORT);
         strcpy(n->str_val, path.text); n->line = tok.line; return n;
     }
+    if (tok.type == TOK_META) {
+        parser_advance(p);
+        ASTNode* n = ast_new(NODE_META);
+        n->line = tok.line;
+        // Parse key:value pairs until newline or EOF
+        while (parser_peek(p).type != TOK_EOF && parser_peek(p).type != TOK_SEMICOLON) {
+            NbsToken key = parser_peek(p);
+            if (key.type == TOK_IDENT) {
+                parser_advance(p);
+                if (parser_peek(p).type == TOK_COLON) parser_advance(p);
+                NbsToken val = parser_peek(p);
+                if (val.type == TOK_STRING_LIT || val.type == TOK_IDENT) {
+                    parser_advance(p);
+                    ASTNode* pair = ast_new(NODE_BINARY);
+                    strcpy(pair->op, "META_PAIR");
+                    ASTNode* kn = ast_new(NODE_STRING);
+                    strcpy(kn->str_val, key.text);
+                    pair->left = kn;
+                    ASTNode* vn = ast_new(val.type == TOK_STRING_LIT ? NODE_STRING : NODE_IDENT);
+                    if (val.type == TOK_STRING_LIT) strcpy(vn->str_val, val.text);
+                    else strcpy(vn->str_val, val.text);
+                    pair->right = vn;
+                    // Store pairs as children
+                    if (n->child_count == 0) { n->children = (ASTNode**)malloc(8 * sizeof(ASTNode*)); }
+                    else if (n->child_count % 8 == 0) { n->children = (ASTNode**)realloc(n->children, (n->child_count + 8) * sizeof(ASTNode*)); }
+                    n->children[n->child_count++] = pair;
+                } else {
+                    // Skip invalid value
+                    parser_advance(p);
+                }
+            } else {
+                // Skip invalid key
+                parser_advance(p);
+            }
+        }
+        return n;
+    }
+    if (tok.type == TOK_USE) {
+        parser_advance(p);
+        NbsToken mod = parser_peek(p);
+        if (mod.type == TOK_STRING_LIT) parser_advance(p);
+        ASTNode* n = ast_new(NODE_USE);
+        strcpy(n->str_val, mod.text); n->line = tok.line; return n;
+    }
     ASTNode* expr = parse_expression(p); return expr;
 }
 
@@ -520,17 +626,19 @@ void js_transpile_expr(ASTNode* n) {
     if (!n) return;
     switch (n->type) {
         case NODE_INT: { char buf[32]; sprintf(buf, "%lld", n->int_val); js_str(buf); } break;
+        case NODE_FLOAT: js_str(n->str_val); break;
         case NODE_TRUE: js_str("true"); break;
         case NODE_FALSE: js_str("false"); break;
         case NODE_NULL: js_str("null"); break;
         case NODE_STRING: js_str("'"); js_str(n->str_val); js_str("'"); break;
         case NODE_IDENT: js_str(n->str_val); break;
-        case NODE_BINARY: js_str("("); js_transpile_expr(n->left); js_str(" "); js_str(n->op); js_str(" "); js_transpile_expr(n->right); js_str(")"); break;
+        case NODE_BINARY: if (strcmp(n->op, "MAP_PAIR") == 0) { js_transpile_expr(n->left); js_str(": "); js_transpile_expr(n->right); } else { js_str("("); js_transpile_expr(n->left); js_str(" "); js_str(n->op); js_str(" "); js_transpile_expr(n->right); js_str(")"); } break;
         case NODE_UNARY: js_str(n->op[0] == '-' ? "(-" : "(!"); js_transpile_expr(n->left); js_str(")"); break;
         case NODE_FUNC_CALL: js_str(n->str_val); js_str("("); for (int i = 0; i < n->child_count; i++) { if (i) js_str(", "); js_transpile_expr(n->children[i]); } js_str(")"); break;
         case NODE_ARRAY_INDEX: js_transpile_expr(n->left); js_str("["); js_transpile_expr(n->right); js_str("]"); break;
         case NODE_ARRAY_LEN: js_transpile_expr(n->left); js_str(".length"); break;
         case NODE_ARRAY_LIT: js_str("["); for (int i = 0; i < n->child_count; i++) { if (i) js_str(", "); js_transpile_expr(n->children[i]); } js_str("]"); break;
+        case NODE_MAP_LIT: js_str("{"); for (int i = 0; i < n->child_count; i++) { if (i) js_str(", "); js_transpile_expr(n->children[i]); } js_str("}"); break;
         default: js_str("/* ? */"); break;
     }
 }
@@ -550,6 +658,8 @@ void js_transpile_stmt(ASTNode* n) {
         case NODE_TRY: js_str("try {"); js_line(); js_indent++; js_transpile_stmt(n->right); js_indent--; js_indent_fn(); js_str("}"); if (n->str_val[0]) { js_str(" catch ("); js_str(n->str_val); js_known_add(n->str_val); js_str(") {"); } else { js_str(" catch (_e) {"); } js_line(); js_indent++; if (n->third) js_transpile_stmt(n->third); js_indent--; js_indent_fn(); js_str("}"); js_line(); break;
         case NODE_THROW: js_str("throw "); js_transpile_expr(n->left); js_str(";"); js_line(); break;
         case NODE_IMPORT: js_str("// IMPORT "); js_str(n->str_val); js_line(); break;
+        case NODE_META: js_str("// META "); for (int i = 0; i < n->child_count; i++) { js_transpile_expr(n->children[i]); if (i < n->child_count - 1) js_str(", "); } js_line(); break;
+        case NODE_USE: js_str("// USE "); js_str(n->str_val); js_line(); break;
         case NODE_BLOCK: for (int i = 0; i < n->child_count; i++) js_transpile_stmt(n->children[i]); break;
         case NODE_PROGRAM: for (int i = 0; i < n->child_count; i++) js_transpile_stmt(n->children[i]); break;
         default: js_transpile_expr(n); js_line(); break;
@@ -581,6 +691,7 @@ void py_transpile_expr(ASTNode* n) {
     if (!n) return;
     switch (n->type) {
         case NODE_INT: { char buf[32]; sprintf(buf, "%lld", n->int_val); py_str(buf); } break;
+        case NODE_FLOAT: py_str(n->str_val); break;
         case NODE_TRUE: py_str("True"); break;
         case NODE_FALSE: py_str("False"); break;
         case NODE_NULL: py_str("None"); break;
@@ -589,7 +700,13 @@ void py_transpile_expr(ASTNode* n) {
         case NODE_BINARY: {
             const char* op = n->op;
             if (strcmp(op, "!=") == 0) op = "!=";
-            py_str("("); py_transpile_expr(n->left); py_str(" "); py_str(op); py_str(" "); py_transpile_expr(n->right); py_str(")");
+            if (strcmp(op, "MAP_PAIR") == 0) {
+                py_transpile_expr(n->left);
+                py_str(": ");
+                py_transpile_expr(n->right);
+            } else {
+                py_str("("); py_transpile_expr(n->left); py_str(" "); py_str(op); py_str(" "); py_transpile_expr(n->right); py_str(")");
+            }
         } break;
         case NODE_UNARY: py_str(n->op[0] == '-' ? "(-" : "(not "); py_transpile_expr(n->left); py_str(")"); break;
         case NODE_FUNC_CALL: {
@@ -602,6 +719,7 @@ void py_transpile_expr(ASTNode* n) {
         case NODE_ARRAY_INDEX: py_transpile_expr(n->left); py_str("["); py_transpile_expr(n->right); py_str("]"); break;
         case NODE_ARRAY_LEN: py_str("len("); py_transpile_expr(n->left); py_str(")"); break;
         case NODE_ARRAY_LIT: py_str("["); for (int i = 0; i < n->child_count; i++) { if (i) py_str(", "); py_transpile_expr(n->children[i]); } py_str("]"); break;
+        case NODE_MAP_LIT: py_str("{"); for (int i = 0; i < n->child_count; i++) { if (i) py_str(", "); py_transpile_expr(n->children[i]); } py_str("}"); break;
         default: py_str("pass # ?"); break;
     }
 }
@@ -621,6 +739,8 @@ void py_transpile_stmt(ASTNode* n) {
         case NODE_TRY: py_str("try:"); py_line(); py_indent++; py_transpile_stmt(n->right); py_indent--; if (n->str_val[0]) { py_indent_fn(); py_str("except Exception as "); py_str(n->str_val); py_str(":"); } else { py_indent_fn(); py_str("except Exception as _e:"); } py_line(); py_indent++; if (n->third) py_transpile_stmt(n->third); py_indent--; py_line(); break;
         case NODE_THROW: py_str("raise "); py_transpile_expr(n->left); py_line(); break;
         case NODE_IMPORT: py_str("# IMPORT "); py_str(n->str_val); py_line(); break;
+        case NODE_META: py_str("# META "); for (int i = 0; i < n->child_count; i++) { py_transpile_expr(n->children[i]); if (i < n->child_count - 1) py_str(", "); } py_line(); break;
+        case NODE_USE: py_str("# USE "); py_str(n->str_val); py_line(); break;
         case NODE_BLOCK: for (int i = 0; i < n->child_count; i++) py_transpile_stmt(n->children[i]); break;
         case NODE_PROGRAM: py_str("from typing import Any\n\n"); for (int i = 0; i < n->child_count; i++) py_transpile_stmt(n->children[i]); break;
         default: py_transpile_expr(n); py_line(); break;
@@ -782,7 +902,7 @@ static void sema_block(SemaContext *ctx, ASTNode *n) {
 static void sema_expr(SemaContext *ctx, ASTNode *n) {
     if (!n) return;
     switch (n->type) {
-        case NODE_INT: case NODE_STRING: case NODE_TRUE: case NODE_FALSE: case NODE_NULL:
+        case NODE_INT: case NODE_FLOAT: case NODE_STRING: case NODE_TRUE: case NODE_FALSE: case NODE_NULL:
             break;
         case NODE_IDENT:
             if (!is_sema_builtin(n->str_val) && !sema_lookup(n->str_val))
@@ -869,6 +989,15 @@ static void sema_stmt(SemaContext *ctx, ASTNode *n) {
             } else {
                 sema_ctx_error(ctx, n->line, "cannot open import file '%s'", n->str_val);
             }
+            break;
+        }
+        case NODE_USE: {
+            /* USE is like IMPORT but with namespace - just register the module name */
+            sema_define(n->str_val);
+            break;
+        }
+        case NODE_META: {
+            /* META blocks are just metadata, no semantic checking needed */
             break;
         }
         case NODE_BLOCK:

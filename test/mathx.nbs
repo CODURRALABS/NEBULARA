@@ -1,0 +1,12 @@
+# Nebulara v4 conformance: module library
+META author:"ayush", intent:"math extras"
+
+FUNC! clamp(x, lo, hi):
+  IF? x < lo:
+    RETURN lo
+  END!
+  IF? x > hi:
+    RETURN hi
+  END!
+  RETURN x
+END!

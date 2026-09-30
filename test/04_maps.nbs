@@ -1,0 +1,4 @@
+# Nebulara v4 conformance: maps
+LET user = {"name": "ayush", "age": 30}
+user["age"] = user["age"] + 1
+PRINT user["name"]

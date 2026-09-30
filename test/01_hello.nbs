@@ -1,0 +1,5 @@
+# Nebulara v4 — hello world (conformance example 01)
+# Runs on: LET, PRINT, string concat
+
+LET name = "Primordia"
+PRINT "hello from " + name
